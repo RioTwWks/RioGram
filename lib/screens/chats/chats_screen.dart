@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/auth/auth_manager.dart';
-import '../../widgets/proxy_status_indicator.dart';
 import '../../core/proxy/proxy_manager.dart';
+import '../../widgets/proxy_status_indicator.dart';
+import '../settings/settings_screen.dart';
 
 class ChatsScreen extends StatelessWidget {
   const ChatsScreen({super.key});
@@ -19,7 +20,7 @@ class ChatsScreen extends StatelessWidget {
         actions: [
           if (proxy != null)
             Padding(
-              padding: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.only(right: 4),
               child: Center(
                 child: ProxyStatusIndicator(
                   status: proxy.status,
@@ -27,6 +28,17 @@ class ChatsScreen extends StatelessWidget {
                 ),
               ),
             ),
+          IconButton(
+            tooltip: 'Настройки',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SettingsScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.settings),
+          ),
         ],
       ),
       body: auth.chats.isEmpty

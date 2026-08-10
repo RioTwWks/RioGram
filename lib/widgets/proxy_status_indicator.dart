@@ -18,6 +18,7 @@ class ProxyStatusIndicator extends StatelessWidget {
       ProxyStatus.active => (Colors.green, proxyName ?? 'Прокси активен'),
       ProxyStatus.switching => (Colors.amber, 'Переключение прокси...'),
       ProxyStatus.error => (Colors.red, 'Прокси недоступен'),
+      ProxyStatus.disabled => (Colors.grey, 'Прокси не настроен'),
       ProxyStatus.unknown => (Colors.grey, 'Прокси не настроен'),
     };
 

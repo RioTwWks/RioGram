@@ -2,43 +2,83 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../models/proxy_models.dart';
 import '../config/app_config.dart';
 import '../tdlib/tdlib_client.dart';
+import 'proxy_preferences.dart';
 
-enum ProxyStatus { unknown, active, switching, error }
+export '../../models/proxy_models.dart' show ProxyEntry, ProxyHealth;
+
+enum ProxyStatus { unknown, active, switching, error, disabled }
 
 /// Управление прокси PhantomProxy / StealthGate с автоматическим failover.
 class ProxyManager extends ChangeNotifier {
   ProxyManager({
     required TdlibClient client,
     required AppConfig config,
+    ProxyPreferences? preferences,
   })  : _client = client,
-        _config = config;
+        _config = config,
+        _preferences = preferences ?? ProxyPreferences() {
+    _updatesSubscription = _client.updates.listen(_handleUpdate);
+  }
 
   final TdlibClient _client;
   final AppConfig _config;
+  final ProxyPreferences _preferences;
 
-  final List<int> _proxyIds = [];
-  int? _activeProxyId;
-  ProxyStatus _status = ProxyStatus.unknown;
-  String? _activeProxyName;
+  static const Duration pingTimeout = Duration(seconds: 5);
+  static const Duration healthCheckInterval = Duration(seconds: 30);
+
+  final List<ProxyEntry> _proxies = [];
+  final List<ProxyConfig> _pendingConfigs = [];
+
+  StreamSubscription<Map<String, dynamic>>? _updatesSubscription;
   Timer? _healthTimer;
 
+  ProxyStatus _status = ProxyStatus.unknown;
+  bool _autoFailoverEnabled = true;
+  String? _lastError;
+
+  List<ProxyEntry> get proxies => List.unmodifiable(_proxies);
   ProxyStatus get status => _status;
-  String? get activeProxyName => _activeProxyName;
+  bool get autoFailoverEnabled => _autoFailoverEnabled;
+  String? get lastError => _lastError;
 
-  /// Регистрация прокси в TDLib (PhantomProxy первым, StealthGate вторым).
+  ProxyEntry? get activeProxy {
+    for (final proxy in _proxies) {
+      if (proxy.isActive) {
+        return proxy;
+      }
+    }
+    return null;
+  }
+
+  String? get activeProxyName => activeProxy?.name;
+
+  /// Загрузка настроек и регистрация прокси в TDLib.
   Future<void> setupProxies() async {
-    _proxyIds.clear();
-    _activeProxyId = null;
-    _status = ProxyStatus.unknown;
+    _autoFailoverEnabled = await _preferences.isAutoFailoverEnabled();
+    _proxies.clear();
+    _pendingConfigs.clear();
+    _lastError = null;
 
-    final proxies = [
+    final configs = [
       _config.phantomProxy,
       _config.stealthProxy,
-    ].whereType<ProxyConfig>().where((proxy) => proxy.isConfigured);
+    ].whereType<ProxyConfig>().where((proxy) => proxy.isConfigured).toList();
 
-    for (final proxy in proxies) {
+    if (configs.isEmpty) {
+      _status = ProxyStatus.disabled;
+      notifyListeners();
+      return;
+    }
+
+    _status = ProxyStatus.unknown;
+    _pendingConfigs.addAll(configs);
+    notifyListeners();
+
+    for (final proxy in configs) {
       _client.send({
         '@type': 'addProxy',
         'server': proxy.host,
@@ -51,129 +91,233 @@ class ProxyManager extends ChangeNotifier {
       });
     }
 
-    _client.updates.listen(_handleProxyUpdate);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await _waitForProxyRegistration(configs.length);
     await _enableFirstAvailable();
     _startHealthChecks();
   }
 
-  void _handleProxyUpdate(Map<String, dynamic> update) {
-    if (update['@type'] == 'updateProxy') {
-      _activeProxyId = update['proxy_id'] as int?;
-      notifyListeners();
-      return;
-    }
-
-    if (update['@type'] == 'proxy') {
-      final id = update['id'] as int?;
-      if (id != null && !_proxyIds.contains(id)) {
-        _proxyIds.add(id);
-      }
-    }
-  }
-
-  Future<void> _enableFirstAvailable() async {
-    if (_proxyIds.isEmpty) {
-      _status = ProxyStatus.unknown;
-      _activeProxyName = null;
-      notifyListeners();
-      return;
-    }
-
-    for (var index = 0; index < _proxyIds.length; index++) {
-      final proxyId = _proxyIds[index];
-      final isHealthy = await _pingProxy(proxyId);
-      if (isHealthy) {
-        _client.send({'@type': 'enableProxy', 'proxy_id': proxyId});
-        _activeProxyId = proxyId;
-        _activeProxyName = _proxyNameForIndex(index);
-        _status = ProxyStatus.active;
-        notifyListeners();
-        return;
-      }
-    }
-
-    _status = ProxyStatus.error;
+  Future<void> setAutoFailoverEnabled(bool enabled) async {
+    _autoFailoverEnabled = enabled;
+    await _preferences.setAutoFailoverEnabled(enabled);
     notifyListeners();
   }
 
+  /// Ручное переключение на конкретный прокси.
+  Future<bool> activateProxy(int proxyId) async {
+    final index = _proxies.indexWhere((proxy) => proxy.id == proxyId);
+    if (index < 0) {
+      return false;
+    }
+
+    _setProxyHealth(proxyId, ProxyHealth.checking);
+    _status = ProxyStatus.switching;
+    notifyListeners();
+
+    final isHealthy = await pingProxy(proxyId);
+    if (!isHealthy) {
+      _setProxyHealth(proxyId, ProxyHealth.failed);
+      _status = ProxyStatus.error;
+      _lastError = 'Прокси ${_proxies[index].name} не отвечает';
+      notifyListeners();
+      return false;
+    }
+
+    _client.send({'@type': 'enableProxy', 'proxy_id': proxyId});
+    _setActiveProxy(proxyId);
+    _status = ProxyStatus.active;
+    _lastError = null;
+    notifyListeners();
+    return true;
+  }
+
+  /// Проверка конкретного прокси (кнопка «Тест» в настройках).
+  Future<bool> testProxy(int proxyId) async {
+    _setProxyHealth(proxyId, ProxyHealth.checking);
+    notifyListeners();
+
+    final isHealthy = await pingProxy(proxyId);
+    _setProxyHealth(proxyId, isHealthy ? ProxyHealth.ok : ProxyHealth.failed);
+    notifyListeners();
+    return isHealthy;
+  }
+
+  /// Переключение на следующий рабочий прокси.
   Future<void> switchToNextProxy() async {
-    if (_proxyIds.isEmpty) {
+    if (_proxies.isEmpty || !_autoFailoverEnabled) {
       return;
     }
 
     _status = ProxyStatus.switching;
     notifyListeners();
 
-    final currentIndex = _proxyIds.indexOf(_activeProxyId ?? -1);
+    final currentIndex = _proxies.indexWhere((proxy) => proxy.isActive);
     final startIndex = currentIndex < 0 ? 0 : currentIndex + 1;
 
-    for (var offset = 0; offset < _proxyIds.length; offset++) {
-      final index = (startIndex + offset) % _proxyIds.length;
-      final proxyId = _proxyIds[index];
-      if (proxyId == _activeProxyId) {
+    for (var offset = 0; offset < _proxies.length; offset++) {
+      final index = (startIndex + offset) % _proxies.length;
+      final proxy = _proxies[index];
+      if (proxy.isActive) {
         continue;
       }
 
-      final isHealthy = await _pingProxy(proxyId);
+      final isHealthy = await pingProxy(proxy.id);
       if (isHealthy) {
-        _client.send({'@type': 'enableProxy', 'proxy_id': proxyId});
-        _activeProxyId = proxyId;
-        _activeProxyName = _proxyNameForIndex(index);
+        _client.send({'@type': 'enableProxy', 'proxy_id': proxy.id});
+        _setActiveProxy(proxy.id);
         _status = ProxyStatus.active;
+        _lastError = null;
         notifyListeners();
         return;
       }
+      _setProxyHealth(proxy.id, ProxyHealth.failed);
     }
 
     _status = ProxyStatus.error;
+    _lastError = 'Все прокси недоступны';
     notifyListeners();
   }
 
-  Future<bool> _pingProxy(int proxyId) async {
-    final completer = Completer<bool>();
-    late final StreamSubscription<Map<String, dynamic>> subscription;
+  /// Вызывается при проблемах с соединением (из AuthManager).
+  Future<void> handleConnectionIssue() async {
+    if (!_autoFailoverEnabled || _proxies.isEmpty) {
+      return;
+    }
+    await switchToNextProxy();
+  }
 
-    subscription = _client.updates.listen((update) {
-      if (update['@type'] == 'ok' && !completer.isCompleted) {
-        completer.complete(true);
-      }
-      if (update['@type'] == 'error' && !completer.isCompleted) {
-        completer.complete(false);
-      }
-    });
+  Future<bool> pingProxy(int proxyId) async {
+    final responseFuture = _client.waitFor(
+      predicate: (update) {
+        final type = update['@type'];
+        if (type == 'error') {
+          return true;
+        }
+        if (type == 'ok' && update['@extra'] == 'ping_$proxyId') {
+          return true;
+        }
+        return false;
+      },
+      timeout: pingTimeout,
+    );
 
     _client.send({
       '@type': 'pingProxy',
       'proxy_id': proxyId,
+      '@extra': 'ping_$proxyId',
     });
 
-    final result = await completer.future.timeout(
-      const Duration(seconds: 5),
-      onTimeout: () => false,
-    );
-    await subscription.cancel();
-    return result;
+    final response = await responseFuture;
+    if (response == null || response['@type'] == 'error') {
+      _setProxyHealth(proxyId, ProxyHealth.failed);
+      return false;
+    }
+
+    _setProxyHealth(proxyId, ProxyHealth.ok);
+    return true;
   }
 
-  String _proxyNameForIndex(int index) {
-    if (index == 0 && _config.phantomProxy != null) {
-      return _config.phantomProxy!.name;
+  void _handleUpdate(Map<String, dynamic> update) {
+    switch (update['@type']) {
+      case 'proxy':
+        _registerProxy(update);
+      case 'updateProxy':
+        final proxyId = update['proxy_id'] as int?;
+        if (proxyId != null) {
+          _setActiveProxy(proxyId);
+          _status = ProxyStatus.active;
+          notifyListeners();
+        }
+      case 'updateConnectionState':
+        _handleConnectionState(update['state'] as Map<String, dynamic>?);
     }
-    if (_config.stealthProxy != null) {
-      return _config.stealthProxy!.name;
+  }
+
+  void _handleConnectionState(Map<String, dynamic>? state) {
+    if (state == null || !_autoFailoverEnabled) {
+      return;
     }
-    return 'Proxy $index';
+
+    final type = state['@type'];
+    if (type == 'connectionStateWaitingForNetwork') {
+      unawaited(switchToNextProxy());
+    }
+  }
+
+  void _registerProxy(Map<String, dynamic> proxy) {
+    final id = proxy['id'] as int?;
+    if (id == null || _pendingConfigs.isEmpty) {
+      return;
+    }
+
+    final config = _pendingConfigs.removeAt(0);
+    _proxies.add(
+      ProxyEntry(
+        id: id,
+        name: config.name,
+        host: config.host,
+        port: config.port,
+      ),
+    );
+    notifyListeners();
+  }
+
+  Future<void> _waitForProxyRegistration(int expectedCount) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (_proxies.length < expectedCount && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
+  Future<void> _enableFirstAvailable() async {
+    if (_proxies.isEmpty) {
+      _status = ProxyStatus.error;
+      _lastError = 'Прокси не зарегистрированы в TDLib';
+      notifyListeners();
+      return;
+    }
+
+    for (final proxy in _proxies) {
+      final isHealthy = await pingProxy(proxy.id);
+      if (isHealthy) {
+        _client.send({'@type': 'enableProxy', 'proxy_id': proxy.id});
+        _setActiveProxy(proxy.id);
+        _status = ProxyStatus.active;
+        _lastError = null;
+        notifyListeners();
+        return;
+      }
+      _setProxyHealth(proxy.id, ProxyHealth.failed);
+    }
+
+    _status = ProxyStatus.error;
+    _lastError = 'Нет доступных прокси при старте';
+    notifyListeners();
+  }
+
+  void _setActiveProxy(int proxyId) {
+    for (var i = 0; i < _proxies.length; i++) {
+      _proxies[i] = _proxies[i].copyWith(isActive: _proxies[i].id == proxyId);
+    }
+  }
+
+  void _setProxyHealth(int proxyId, ProxyHealth health) {
+    final index = _proxies.indexWhere((proxy) => proxy.id == proxyId);
+    if (index >= 0) {
+      _proxies[index] = _proxies[index].copyWith(health: health);
+    }
   }
 
   void _startHealthChecks() {
     _healthTimer?.cancel();
-    _healthTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
-      final activeId = _activeProxyId;
-      if (activeId == null) {
+    _healthTimer = Timer.periodic(healthCheckInterval, (_) async {
+      if (!_autoFailoverEnabled) {
         return;
       }
-      final isHealthy = await _pingProxy(activeId);
+      final active = activeProxy;
+      if (active == null) {
+        return;
+      }
+      final isHealthy = await pingProxy(active.id);
       if (!isHealthy) {
         await switchToNextProxy();
       }
@@ -183,6 +327,7 @@ class ProxyManager extends ChangeNotifier {
   @override
   void dispose() {
     _healthTimer?.cancel();
+    _updatesSubscription?.cancel();
     super.dispose();
   }
 }

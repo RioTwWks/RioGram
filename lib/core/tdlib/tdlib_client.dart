@@ -82,6 +82,36 @@ class TdlibClient {
     bindings.send(client, jsonEncode(request));
   }
 
+  /// Ожидание обновления, удовлетворяющего условию.
+  Future<Map<String, dynamic>?> waitFor({
+    required bool Function(Map<String, dynamic> update) predicate,
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    final completer = Completer<Map<String, dynamic>?>();
+    late final StreamSubscription<Map<String, dynamic>> subscription;
+    Timer? timer;
+
+    subscription = updates.listen((update) {
+      if (predicate(update) && !completer.isCompleted) {
+        timer?.cancel();
+        completer.complete(update);
+      }
+    });
+
+    timer = Timer(timeout, () {
+      if (!completer.isCompleted) {
+        completer.complete(null);
+      }
+    });
+
+    try {
+      return await completer.future;
+    } finally {
+      timer.cancel();
+      await subscription.cancel();
+    }
+  }
+
   Future<void> dispose() async {
     _isRunning = false;
     _receiveTimer?.cancel();
