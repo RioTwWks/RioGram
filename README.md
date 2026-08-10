@@ -1,37 +1,26 @@
-# RioGram — Censorship‑Resistant Telegram Client
+# RioGram — клиент Telegram, устойчивый к блокировкам
 
-**RioGram** is a cross‑platform Telegram client built with Flutter and a heavily patched TDLib. It is designed to stay online even under aggressive Deep Packet Inspection (DPI) by:
-- **Randomizing TLS ClientHello** (mimicking Chrome, Firefox, etc.)
-- **Fragmenting** the first handshake packets
-- **Dynamically varying** record sizes
-- **Automatically switching** between your own proxies (PhantomProxy and StealthGate) with failover logic
+**RioGram** — кросс-платформенный клиент Telegram на Flutter с модифицированным TDLib. Проект создан для работы в условиях агрессивного DPI (ТСПУ) в РФ.
 
-Supports Windows, macOS, Linux, Android, and iOS.
+## Возможности
 
-## MVP Stage 1 (текущий)
+- **Рандомизация TLS ClientHello** — маскировка под Chrome, Firefox, Yandex, Safari
+- **Фрагментация** первого пакета рукопожатия
+- **DRS** — динамические размеры TLS-записей
+- **Автоматический failover** между PhantomProxy и StealthGate
+- **Экран настроек прокси** с ручным тестом и переключением
 
-- Flutter-проект с архитектурой `lib/core`, `lib/screens`, `lib/models`
-- FFI-обёртка `TdlibClient` над `libtdjson`
-- Авторизация: телефон → код → 2FA
-- `ProxyManager` с failover PhantomProxy → StealthGate
+Поддерживаемые платформы: Windows, macOS, Linux, Android, iOS.
 
-## MVP Stage 2 — DPI bypass (TDLib)
+## Статус MVP
 
-Модифицированный TDLib в каталоге `td/`:
-
-| Патч | Файл | Описание |
-|------|------|----------|
-| Профили ClientHello | `td/mtproto/TlsInit.cpp` | Chrome, Firefox, Yandex, Safari — случайный выбор |
-| Фрагментация | `td/mtproto/dpi_bypass/DpiBypass.cpp` | ClientHello → 2–3 TCP-сегмента |
-| DRS | `td/mtproto/TcpTransport.cpp` | Динамический размер TLS-записей |
-
-Сборка:
-
-```bash
-./scripts/build-tdlib.sh
-```
-
-Все патчи помечены `// DPI_BYPASS:`.
+| Этап | Статус | Описание |
+|------|--------|----------|
+| 1 | ✅ | Flutter + TDLib + авторизация |
+| 2 | ✅ | DPI-патчи в TDLib |
+| 3 | ✅ | Прокси и failover |
+| 4 | ⏳ | Полировка UI и чаты |
+| 5 | ⏳ | Сборка на всех платформах |
 
 ## Быстрый старт
 
@@ -40,27 +29,37 @@ cp .env.example .env
 # Заполните TELEGRAM_API_ID, TELEGRAM_API_HASH и адреса прокси
 
 flutter pub get
-flutter run -d linux   # или windows, macos, android
+./scripts/build-tdlib.sh   # сборка libtdjson
+flutter run -d linux
 ```
 
-> **Важно:** для работы нужна собранная `libtdjson` (см. `.cursor/commands/build-tdlib.md`).
+Подробнее: [docs/QUICKSTART.md](docs/QUICKSTART.md)
 
-## Структура
+## Документация
+
+- [Быстрый старт](docs/QUICKSTART.md)
+- [Настройка прокси](docs/PROXY.md)
+- [Патчи TDLib (DPI)](docs/TDLIB_PATCHES.md)
+- [План разработки](PLAN.md)
+- [Список задач](TODO.md)
+
+## Структура проекта
 
 ```
 lib/
-├── main.dart
-├── app.dart
 ├── core/
-│   ├── config/app_config.dart
-│   ├── tdlib/tdlib_client.dart
-│   ├── auth/auth_manager.dart
-│   └── proxy/proxy_manager.dart
+│   ├── config/       # AppConfig из .env
+│   ├── tdlib/        # FFI-обёртка libtdjson
+│   ├── auth/         # Авторизация
+│   └── proxy/        # ProxyManager, failover
 ├── screens/
-│   ├── auth/          # phone, code, password
-│   └── chats/         # список чатов
-├── models/
+│   ├── auth/         # Вход
+│   ├── chats/        # Список чатов
+│   └── settings/     # Настройки прокси
 └── widgets/
+td/                   # Модифицированный TDLib
+scripts/              # Сборка TDLib
+docs/                 # Документация (RU)
 ```
 
 ## Лицензия
