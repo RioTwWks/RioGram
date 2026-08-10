@@ -1,0 +1,15 @@
+# Игнорируемые папки и файлы для AI
+build/
+dist/
+node_modules/
+.git/
+.vscode/
+.idea/
+*.log
+*.tmp
+*.lock
+*.key
+*.pem
+*.p12
+tdlib_db/
+tdlib_files/
