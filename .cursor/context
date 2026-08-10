@@ -1,23 +1,66 @@
-Краткое описание проекта, чтобы AI всегда помнил ключевые детали. Содержимое:
+# Контекст проекта — RioGram MVP
+
+**Название:** RioGram
+**Цель:** Кросс-платформенный клиент Telegram (Flutter + модифицированный TDLib) с обходом DPI РКН.
+
+## Проблема
+
+С 2025–2026 РКН блокирует MTProto и SOCKS5. Fake TLS на прокси недостаточен: DPI анализирует TLS ClientHello, fingerprints и паттерны трафика. Нужен форк клиента + каскадная прокси-схема.
+
+## Архитектура
+
 ```
-# Контекст проекта — Telegram Client MVP
-
-**Название:** YourTelegramClient (кодовое имя YTC)
-**Цель:** Создать кросс-платформенный клиент Telegram с обходом DPI.
-
-**Стек:**
-- Flutter (Dart) для UI
-- TDLib (C++) модифицированный для Fake TLS, фрагментации
-- Прокси: PhantomProxy (основной) и StealthGate (резервный, сплит-режим)
-
-**Сервера:**
-- VPS РФ #1: 178.xxx.xxx.xxx:443 (PhantomProxy)
-- VPS РФ #2: 185.xxx.xxx.xxx:443 (StealthGate Front)
-- VPS EU: 141.xxx.xxx.xxx:443 (StealthGate Back)
-
-**API ключи:** хранятся в .env (не коммитить)
-
-**Текущий статус:** разработка MVP, этап модификации TDLib.
-
-**Важно:** при любом предложении кода проверять, не нарушает ли он безопасность и не светит ли секреты.
+Flutter UI (Dart)
+    ↓ FFI
+TDLib (C++, патчи DPI_BYPASS: рандомизация ClientHello, фрагментация, DRS)
+    ↓
+PhantomProxy (основной, RU VPS) ──failover──► StealthGate Front (резерв, RU VPS)
+                                                      ↓ SGFB-туннель
+                                              StealthGate Back (EU VPS)
+                                                      ↓
+                                              Telegram DC
 ```
+
+## Прокси-стратегия
+
+| Прокси | Роль | Репозиторий |
+|--------|------|-------------|
+| **PhantomProxy** (Go) | Основной, стабильный MTProto-прокси | github.com/RioTwWks/PhantomProxy |
+| **StealthGate** (Rust) | Резервный, Front/Back Split (RU→EU) | github.com/RioTwWks/StealthGate |
+
+- **Не подключаться напрямую к EU** — только через RU-посредник.
+- **Failover в клиенте:** TDLib `addProxy` → `pingProxy` → `enableProxy` (PhantomProxy первый, StealthGate второй).
+
+## DPI-патчи TDLib (этап 2 MVP)
+
+- Рандомизация TLS ClientHello (профили Chrome/Firefox/Yandex/Safari)
+- Фрагментация первого пакета
+- Динамические размеры TLS-записей (DRS)
+- Все изменения помечать `// DPI_BYPASS:`
+
+**Референсы:** ZaStoGram_desktop, telemt/tdlib-obf, Qz3rK/tdesktop
+
+## Flutter-стек
+
+- `tdlib_library` или FFI-обёртка (Mithka, telega2 как примеры)
+- Provider/Riverpod для стейта
+- Структура: `lib/core/`, `lib/screens/`, `lib/widgets/`, `lib/models/`
+
+## Сервера (не коммитить реальные IP)
+
+- VPS РФ #1: PhantomProxy
+- VPS РФ #2: StealthGate Front
+- VPS EU: StealthGate Back
+
+## Секреты
+
+- `api_id`, `api_hash` — только в `.env` / `flutter_secure_storage`
+- Прокси-секреты — в `.env`, не в коде
+
+## Текущий статус
+
+Этап 0–1: инфраструктура `.cursor/`, план MVP. Flutter-проект и патчи TDLib — впереди.
+
+## Лицензия
+
+GPLv3 with OpenSSL exception (производный от Telegram Desktop / TDLib).
