@@ -12,3 +12,6 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# TDLib native libs (собираются в CI/release)
+**/jniLibs/**/*.so

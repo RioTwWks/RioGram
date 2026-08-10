@@ -24,6 +24,7 @@
 | 4 | ⏳ | Полировка UI и чаты |
 | 5 | ⏳ | Сборка на всех платформах |
 | CI | ✅ | GitHub Actions: Flutter + TDLib Linux |
+| Release | ✅ | Пакеты для Linux, Windows, macOS, Android, iOS |
 
 ## Быстрый старт
 
@@ -43,7 +44,7 @@ flutter run -d linux
 - [Быстрый старт](docs/QUICKSTART.md)
 - [Настройка прокси](docs/PROXY.md)
 - [Патчи TDLib (DPI)](docs/TDLIB_PATCHES.md)
-- [CI/CD](docs/CI.md)
+- [CI/CD и релизы](docs/CI.md)
 - [План разработки](PLAN.md)
 - [Список задач](TODO.md)
 

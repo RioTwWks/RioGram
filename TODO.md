@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** GitHub Actions CI (Flutter + TDLib Linux).
+**Последнее обновление:** GitHub Actions Release — пакеты для всех платформ.
 
 ---
 
@@ -164,8 +164,9 @@
 
 ### 5.5. Подготовка к релизу
 - [x] CI/CD — GitHub Actions (`.github/workflows/ci.yml`: flutter analyze/test, tdlib-linux)
+- [x] Release workflow — сборка пакетов при GitHub Release (Linux, Windows, macOS, Android, iOS)
 - [ ] Иконки, инструкция по установке
-- [ ] Job сборки Flutter Linux с артефактом libtdjson
+- [ ] Подпись Android (release keystore) и iOS (codesign / App Store)
 
 ---
 

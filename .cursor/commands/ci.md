@@ -28,3 +28,5 @@ test -f td/build/install/lib/libtdjson.so && echo OK
 ```
 
 Подробнее: [docs/CI.md](../../docs/CI.md)
+
+Релизные сборки: [@release](release.md)
