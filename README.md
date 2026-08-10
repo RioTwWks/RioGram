@@ -15,6 +15,24 @@ Supports Windows, macOS, Linux, Android, and iOS.
 - Авторизация: телефон → код → 2FA
 - `ProxyManager` с failover PhantomProxy → StealthGate
 
+## MVP Stage 2 — DPI bypass (TDLib)
+
+Модифицированный TDLib в каталоге `td/`:
+
+| Патч | Файл | Описание |
+|------|------|----------|
+| Профили ClientHello | `td/mtproto/TlsInit.cpp` | Chrome, Firefox, Yandex, Safari — случайный выбор |
+| Фрагментация | `td/mtproto/dpi_bypass/DpiBypass.cpp` | ClientHello → 2–3 TCP-сегмента |
+| DRS | `td/mtproto/TcpTransport.cpp` | Динамический размер TLS-записей |
+
+Сборка:
+
+```bash
+./scripts/build-tdlib.sh
+```
+
+Все патчи помечены `// DPI_BYPASS:`.
+
 ## Быстрый старт
 
 ```bash
