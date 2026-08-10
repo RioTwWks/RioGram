@@ -4,13 +4,16 @@ command: Собрать модифицированный TDLib для всех �
 
 # Сборка TDLib
 
-1. Перейти в папку `td/`
-2. Выполнить:
+1. Установить зависимости (Linux):
    ```bash
-   mkdir -p build && cd build
-   cmake -DCMAKE_BUILD_TYPE=Release -DTD_ENABLE_LTO=ON ..
-   cmake --build . --target install --parallel $(nproc)
+   sudo apt-get install -y build-essential cmake ninja-build gperf zlib1g-dev libssl-dev
    ```
+2. Из корня репозитория:
+   ```bash
+   CC=gcc CXX=g++ ./scripts/build-tdlib.sh
+   ```
+   Переменные: `TD_ENABLE_LTO` (ON/OFF), `JOBS`, `CMAKE_BUILD_TYPE`.
+   В CI используется `TD_ENABLE_LTO=OFF` для ускорения.
 3. Скопировать собранные библиотеки в `flutter/`:
    - Windows: `install/bin/tdjson.dll` → `windows/runner/`
    - macOS: `install/lib/libtdjson.dylib` → `macos/Runner/`

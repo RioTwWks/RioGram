@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** Этап 3 завершён (прокси + failover + UI настроек).
+**Последнее обновление:** GitHub Actions Release — пакеты для всех платформ.
 
 ---
 
@@ -163,7 +163,10 @@
 - [ ] Бета-тестеры, сбор логов
 
 ### 5.5. Подготовка к релизу
-- [ ] Иконки, CI/CD, инструкция по установке
+- [x] CI/CD — GitHub Actions (`.github/workflows/ci.yml`: flutter analyze/test, tdlib-linux)
+- [x] Release workflow — сборка пакетов при GitHub Release (Linux, Windows, macOS, Android, iOS)
+- [ ] Иконки, инструкция по установке
+- [ ] Подпись Android (release keystore) и iOS (codesign / App Store)
 
 ---
 
