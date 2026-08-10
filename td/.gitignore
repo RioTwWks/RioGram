@@ -1,2 +1,6 @@
 # TDLib build artifacts
-td/build/
+build/
+
+# Сгенерировано cmake (tl_generate_*)
+td/generate/auto/
+tdutils/generate/auto/

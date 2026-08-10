@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    name: Flutter analyze & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare .env
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+  tdlib-linux:
+    name: TDLib build (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            gperf \
+            zlib1g-dev \
+            libssl-dev
+
+      - name: Cache TDLib build
+        uses: actions/cache@v4
+        with:
+          path: td/build
+          key: tdlib-linux-${{ hashFiles('td/td/mtproto/dpi_bypass/**', 'td/td/mtproto/TlsInit.cpp', 'td/td/mtproto/TcpTransport.*', 'td/CMakeLists.txt', 'scripts/build-tdlib.sh') }}
+          restore-keys: |
+            tdlib-linux-
+
+      - name: Build TDLib
+        env:
+          CC: gcc
+          CXX: g++
+          TD_ENABLE_LTO: "OFF"
+          JOBS: 2
+        run: ./scripts/build-tdlib.sh
+
+      - name: Verify libtdjson
+        run: test -f td/build/install/lib/libtdjson.so
+
+      - name: Upload libtdjson artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libtdjson-linux
+          path: td/build/install/lib/libtdjson.so
+          retention-days: 7
