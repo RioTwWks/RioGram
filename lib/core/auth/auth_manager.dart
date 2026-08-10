@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../models/auth_models.dart';
 import '../config/app_config.dart';
 import '../proxy/proxy_manager.dart';
 import '../tdlib/tdlib_client.dart';
+import '../../models/auth_models.dart';
 
 /// Управление авторизацией через TDLib.
 class AuthManager extends ChangeNotifier {
@@ -13,6 +13,7 @@ class AuthManager extends ChangeNotifier {
     required TdlibClient client,
     required AppConfig config,
     ProxyManager? proxyManager,
+    this.onAuthorized,
   })  : _client = client,
         _config = config,
         _proxyManager = proxyManager;
@@ -20,17 +21,18 @@ class AuthManager extends ChangeNotifier {
   final TdlibClient _client;
   final AppConfig _config;
   final ProxyManager? _proxyManager;
+  final VoidCallback? onAuthorized;
 
   AuthPhase _phase = AuthPhase.initializing;
   String? _errorMessage;
   String? _phoneNumber;
-  final List<ChatSummary> _chats = [];
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
   AuthPhase get phase => _phase;
   String? get errorMessage => _errorMessage;
   String? get phoneNumber => _phoneNumber;
-  List<ChatSummary> get chats => List.unmodifiable(_chats);
+
+  TdlibClient get client => _client;
 
   Future<void> initialize() async {
     _phase = AuthPhase.initializing;
@@ -71,12 +73,8 @@ class AuthManager extends ChangeNotifier {
     });
   }
 
-  void loadChats() {
-    _client.send({
-      '@type': 'getChats',
-      'chat_list': {'@type': 'chatListMain'},
-      'limit': 50,
-    });
+  void logOut() {
+    _client.send({'@type': 'logOut'});
   }
 
   void _handleUpdate(Map<String, dynamic> update) {
@@ -84,11 +82,9 @@ class AuthManager extends ChangeNotifier {
 
     switch (type) {
       case 'updateAuthorizationState':
-        _handleAuthorizationState(update['authorization_state'] as Map<String, dynamic>);
-      case 'updateNewChat':
-        _handleNewChat(update['chat'] as Map<String, dynamic>);
-      case 'chats':
-        _handleChats(update);
+        _handleAuthorizationState(
+          update['authorization_state'] as Map<String, dynamic>,
+        );
       case 'error':
         _phase = AuthPhase.error;
         _errorMessage = update['message'] as String? ?? 'Неизвестная ошибка TDLib';
@@ -106,38 +102,11 @@ class AuthManager extends ChangeNotifier {
         _phase = AuthPhase.waitPassword;
       case 'authorizationStateReady':
         _phase = AuthPhase.ready;
-        loadChats();
+        onAuthorized?.call();
       case 'authorizationStateClosing':
       case 'authorizationStateClosed':
-        _phase = AuthPhase.error;
-        _errorMessage = 'Соединение с Telegram закрыто';
-    }
-    notifyListeners();
-  }
-
-  void _handleChats(Map<String, dynamic> update) {
-    final chatIds = (update['chat_ids'] as List<dynamic>? ?? []).cast<int>();
-    for (final chatId in chatIds) {
-      _client.send({
-        '@type': 'getChat',
-        'chat_id': chatId,
-      });
-    }
-  }
-
-  void _handleNewChat(Map<String, dynamic> chat) {
-    final id = chat['id'] as int?;
-    final title = chat['title'] as String?;
-    if (id == null || title == null) {
-      return;
-    }
-
-    final existingIndex = _chats.indexWhere((item) => item.id == id);
-    final summary = ChatSummary(id: id, title: title);
-    if (existingIndex >= 0) {
-      _chats[existingIndex] = summary;
-    } else {
-      _chats.add(summary);
+        _phase = AuthPhase.waitPhoneNumber;
+        _errorMessage = null;
     }
     notifyListeners();
   }

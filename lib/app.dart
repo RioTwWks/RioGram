@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/auth/auth_manager.dart';
+import 'core/chat/chat_manager.dart';
 import 'core/config/app_config.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/proxy/proxy_manager.dart';
+import 'core/theme/theme_manager.dart';
 import 'core/tdlib/tdlib_client.dart';
 import 'models/auth_models.dart';
 import 'screens/auth/phone_screen.dart';
@@ -18,23 +21,24 @@ class RioGramApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return _AppScope(
       config: config,
-      child: MaterialApp(
-        title: 'RioGram',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2AABEE),
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-        ),
-        darkTheme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2AABEE),
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-        ),
-        home: const _RootScreen(),
+      child: Consumer<ThemeManager>(
+        builder: (context, themeManager, _) {
+          if (!themeManager.isLoaded) {
+            return const MaterialApp(
+              home: Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              ),
+            );
+          }
+
+          return MaterialApp(
+            title: 'RioGram',
+            theme: themeManager.lightTheme,
+            darkTheme: themeManager.darkTheme,
+            themeMode: themeManager.themeMode,
+            home: const _RootScreen(),
+          );
+        },
       ),
     );
   }
@@ -52,28 +56,45 @@ class _AppScope extends StatefulWidget {
 
 class _AppScopeState extends State<_AppScope> {
   late final TdlibClient _client;
+  late final ThemeManager _themeManager;
+  late final NotificationService _notificationService;
   ProxyManager? _proxyManager;
   late final AuthManager _authManager;
+  late final ChatManager _chatManager;
 
   @override
   void initState() {
     super.initState();
     _client = TdlibClient();
+    _themeManager = ThemeManager()..load();
+    _notificationService = NotificationService()..init();
+
     final hasProxies =
         widget.config.phantomProxy != null || widget.config.stealthProxy != null;
     if (hasProxies) {
       _proxyManager = ProxyManager(client: _client, config: widget.config);
     }
+
+    _chatManager = ChatManager(
+      client: _client,
+      notificationService: _notificationService,
+    );
+
     _authManager = AuthManager(
       client: _client,
       config: widget.config,
       proxyManager: _proxyManager,
+      onAuthorized: () {
+        _chatManager.startListening();
+        _chatManager.loadChats();
+      },
     );
   }
 
   @override
   void dispose() {
     _authManager.dispose();
+    _chatManager.dispose();
     _proxyManager?.dispose();
     _client.dispose();
     super.dispose();
@@ -84,7 +105,9 @@ class _AppScopeState extends State<_AppScope> {
     return MultiProvider(
       providers: [
         Provider<TdlibClient>.value(value: _client),
+        ChangeNotifierProvider<ThemeManager>.value(value: _themeManager),
         ChangeNotifierProvider<AuthManager>.value(value: _authManager),
+        ChangeNotifierProvider<ChatManager>.value(value: _chatManager),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),
       ],
