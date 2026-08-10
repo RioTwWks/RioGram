@@ -1,30 +1,59 @@
 {
   "mcpServers": {
-    // Сервер для доступа к файловой системе проекта
     "filesystem": {
+      "type": "stdio",
       "command": "npx",
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "."  // корень проекта – можно указать абсолютный путь или относительный
-      ],
-      "description": "Предоставляет доступ к файлам и папкам проекта для чтения/записи через Cursor."
+        "${workspaceFolder}"
+      ]
     },
-
-    // Сервер для получения документации из интернета (например, Telegram API, Flutter)
     "fetch": {
+      "type": "stdio",
       "command": "npx",
       "args": [
         "-y",
         "@modelcontextprotocol/server-fetch"
+      ]
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
       ],
-      "description": "Извлекает веб-страницы (документацию, статьи) для анализа и поиска информации."
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
+      }
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "env": {
+        "CONTEXT7_API_KEY": "${env:CONTEXT7_API_KEY}"
+      }
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
     }
-  },
-
-  // Дополнительная настройка (опционально)
-  "settings": {
-    "defaultServer": "filesystem",
-    "enableLogging": true
   }
 }
