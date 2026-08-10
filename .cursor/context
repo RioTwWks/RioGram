@@ -57,11 +57,20 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 - `api_id`, `api_hash` — только в `.env` / `flutter_secure_storage`
 - Прокси-секреты — в `.env`, не в коде
 
+## CI/CD
+
+- **CI** (`.github/workflows/ci.yml`): `flutter analyze/test`, сборка TDLib Linux
+- **Release** (`.github/workflows/release.yml`): при публикации GitHub Release — пакеты для Linux, Windows, macOS, Android, iOS
+- Локально: `./scripts/ci-flutter.sh`, `@release` — см. `.cursor/commands/release.md`
+- Документация: `docs/CI.md`
+
 ## Текущий статус
 
 - **Этап 1** ✅ Flutter + TDLib + авторизация
 - **Этап 2** ✅ DPI-патчи TDLib (ClientHello, фрагментация, DRS)
 - **Этап 3** ✅ Прокси, failover, экран настроек
+- **CI** ✅ GitHub Actions (Flutter + TDLib Linux)
+- **Release** ✅ GitHub Actions — пакеты для всех платформ
 - **Этап 4** ✅ UI, чаты, темы, уведомления
 - **Этап 5** ⏳ Сборка на всех платформах (следующий)
 

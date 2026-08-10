@@ -1,5 +1,7 @@
 # RioGram — клиент Telegram, устойчивый к блокировкам
 
+![CI](https://github.com/RioTwWks/RioGram/actions/workflows/ci.yml/badge.svg)
+
 **RioGram** — кросс-платформенный клиент Telegram на Flutter с модифицированным TDLib. Проект создан для работы в условиях агрессивного DPI (ТСПУ) в РФ.
 
 ## Возможности
@@ -21,6 +23,8 @@
 | 3 | ✅ | Прокси и failover |
 | 4 | ✅ | UI, чаты, темы, уведомления |
 | 5 | ⏳ | Сборка на всех платформах |
+| CI | ✅ | GitHub Actions: Flutter + TDLib Linux |
+| Release | ✅ | Пакеты для Linux, Windows, macOS, Android, iOS |
 
 ## Быстрый старт
 
@@ -40,6 +44,7 @@ flutter run -d linux
 - [Быстрый старт](docs/QUICKSTART.md)
 - [Настройка прокси](docs/PROXY.md)
 - [Патчи TDLib (DPI)](docs/TDLIB_PATCHES.md)
+- [CI/CD и релизы](docs/CI.md)
 - [План разработки](PLAN.md)
 - [Список задач](TODO.md)
 

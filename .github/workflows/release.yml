@@ -1,0 +1,312 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Версия для имён артефактов (например 0.1.0)"
+        required: false
+        default: dev
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RAW_VERSION: ${{ github.event.release.tag_name || github.event.inputs.version || 'dev' }}
+
+jobs:
+  build-linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: ./scripts/install-linux-build-deps.sh
+
+      - name: Prepare Flutter
+        run: |
+          cp .env.example .env
+          flutter pub get
+
+      - name: Cache TDLib
+        uses: actions/cache@v4
+        with:
+          path: td/build
+          key: tdlib-linux-${{ hashFiles('td/td/mtproto/dpi_bypass/**', 'td/td/mtproto/TlsInit.cpp', 'td/td/mtproto/TcpTransport.*', 'td/CMakeLists.txt', 'scripts/build-tdlib.sh') }}
+          restore-keys: tdlib-linux-
+
+      - name: Build TDLib
+        env:
+          CC: gcc
+          CXX: g++
+          TD_ENABLE_LTO: "OFF"
+          JOBS: 2
+        run: ./scripts/build-tdlib.sh
+
+      - name: Build Flutter (Linux)
+        run: |
+          ./scripts/copy-tdlib.sh linux
+          flutter build linux --release
+          ./scripts/copy-tdlib-to-bundle.sh linux
+
+      - name: Package
+        run: |
+          VERSION="${RAW_VERSION#v}"
+          ./scripts/package-release.sh linux "${VERSION}" dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: dist/*.tar.gz
+
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Setup vcpkg (OpenSSL)
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 2024.10.21
+          runVcpkgInstall: true
+
+      - name: Prepare Flutter
+        run: |
+          copy .env.example .env
+          flutter pub get
+
+      - name: Cache TDLib
+        uses: actions/cache@v4
+        with:
+          path: td/build
+          key: tdlib-windows-${{ hashFiles('td/td/mtproto/dpi_bypass/**', 'td/CMakeLists.txt', 'scripts/build-tdlib.sh') }}
+          restore-keys: tdlib-windows-
+
+      - name: Build TDLib
+        run: ./scripts/build-tdlib-windows.ps1
+        env:
+          VCPKG_INSTALLATION_ROOT: ${{ env.VCPKG_ROOT }}
+
+      - name: Build Flutter (Windows)
+        shell: bash
+        run: |
+          ./scripts/copy-tdlib.sh windows
+          flutter build windows --release
+          ./scripts/copy-tdlib-to-bundle.sh windows
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = "${{ env.RAW_VERSION }}".TrimStart('v')
+          ./scripts/package-release.ps1 -Version $version -OutputDir dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: dist/*.zip
+
+  build-macos:
+    name: macOS arm64
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare Flutter
+        run: |
+          cp .env.example .env
+          flutter pub get
+
+      - name: Cache TDLib
+        uses: actions/cache@v4
+        with:
+          path: td/build
+          key: tdlib-macos-${{ hashFiles('td/td/mtproto/dpi_bypass/**', 'td/CMakeLists.txt', 'scripts/build-tdlib.sh') }}
+          restore-keys: tdlib-macos-
+
+      - name: Build TDLib
+        run: ./scripts/build-tdlib-macos.sh
+
+      - name: Build Flutter (macOS)
+        run: |
+          ./scripts/copy-tdlib.sh macos
+          flutter build macos --release
+          ./scripts/copy-tdlib-to-bundle.sh macos
+
+      - name: Package
+        run: |
+          VERSION="${RAW_VERSION#v}"
+          ./scripts/package-release.sh macos "${VERSION}" dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: dist/*.zip
+
+  build-android:
+    name: Android APK/AAB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: ./scripts/install-linux-build-deps.sh
+
+      - name: Prepare Flutter & Android SDK
+        run: |
+          cp .env.example .env
+          flutter pub get
+          flutter precache --android
+          echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          yes | sdkmanager --licenses || true
+
+      - name: Cache OpenSSL (Android)
+        uses: actions/cache@v4
+        with:
+          path: .cache/openssl-android
+          key: openssl-android-${{ hashFiles('td/example/android/build-openssl.sh') }}
+          restore-keys: openssl-android-
+
+      - name: Cache TDLib (Android)
+        uses: actions/cache@v4
+        with:
+          path: td/example/android/tdlib
+          key: tdlib-android-${{ hashFiles('td/td/mtproto/dpi_bypass/**', 'td/example/android/build-tdlib.sh') }}
+          restore-keys: tdlib-android-
+
+      - name: Build TDLib (Android)
+        run: ./scripts/build-tdlib-android.sh
+
+      - name: Build Flutter (Android)
+        run: |
+          flutter build apk --release --split-per-abi
+          flutter build appbundle --release
+
+      - name: Package
+        run: |
+          VERSION="${RAW_VERSION#v}"
+          ./scripts/package-release.sh android "${VERSION}" dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*
+
+  build-ios:
+    name: iOS (unsigned)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare Flutter
+        run: |
+          cp .env.example .env
+          flutter pub get
+
+      - name: Cache OpenSSL (iOS)
+        uses: actions/cache@v4
+        with:
+          path: td/example/ios/third_party/openssl
+          key: openssl-ios-${{ hashFiles('td/example/ios/build-openssl.sh') }}
+          restore-keys: openssl-ios-
+
+      - name: Cache TDLib (iOS)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/Frameworks/libtdjson.a
+            td/build-ios-device
+          key: tdlib-ios-${{ hashFiles('td/td/mtproto/dpi_bypass/**', 'scripts/build-tdlib-ios.sh') }}
+          restore-keys: tdlib-ios-
+
+      - name: Build TDLib (iOS)
+        run: ./scripts/build-tdlib-ios.sh
+
+      - name: Build Flutter (iOS)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package
+        run: |
+          VERSION="${RAW_VERSION#v}"
+          ./scripts/package-release.sh ios "${VERSION}" dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned
+          path: dist/*.zip
+
+  publish:
+    name: Upload to GitHub Release
+    needs:
+      - build-linux
+      - build-windows
+      - build-macos
+      - build-android
+      - build-ios
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: dist/**

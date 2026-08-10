@@ -1,0 +1,3 @@
+// Линковка статической libtdjson для iOS (FFI через DynamicLibrary.process()).
+LIBRARY_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/Frameworks
+OTHER_LDFLAGS = $(inherited) -Wl,-force_load,$(PROJECT_DIR)/Frameworks/libtdjson.a
