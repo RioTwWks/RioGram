@@ -21,7 +21,7 @@
 | 1 | ✅ | Flutter + TDLib + авторизация |
 | 2 | ✅ | DPI-патчи в TDLib |
 | 3 | ✅ | Прокси и failover |
-| 4 | ⏳ | Полировка UI и чаты |
+| 4 | ✅ | UI, чаты, темы, уведомления |
 | 5 | ⏳ | Сборка на всех платформах |
 | CI | ✅ | GitHub Actions: Flutter + TDLib Linux |
 | Release | ✅ | Пакеты для Linux, Windows, macOS, Android, iOS |

@@ -71,7 +71,8 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 - **Этап 3** ✅ Прокси, failover, экран настроек
 - **CI** ✅ GitHub Actions (Flutter + TDLib Linux)
 - **Release** ✅ GitHub Actions — пакеты для всех платформ
-- **Этап 4** ⏳ UI и чаты (следующий)
+- **Этап 4** ✅ UI, чаты, темы, уведомления
+- **Этап 5** ⏳ Сборка на всех платформах (следующий)
 
 ## Лицензия
 
