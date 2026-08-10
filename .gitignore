@@ -1,3 +1,11 @@
+# Secrets
+.env
+!.env.example
+
+# IDE
+.idea/
+*.iml
+
 # Miscellaneous
 *.class
 *.lock
