@@ -59,7 +59,8 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 
 ## Текущий статус
 
-Этап 0–1: инфраструктура `.cursor/`, план MVP. Flutter-проект и патчи TDLib — впереди.
+Этап 2: модификация TDLib (DPI_BYPASS) — профили ClientHello, фрагментация, DRS.
+Этап 1 (Flutter + авторизация) — завершён.
 
 ## Лицензия
 
