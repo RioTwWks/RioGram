@@ -22,7 +22,7 @@
 | 2 | ✅ | DPI-патчи в TDLib |
 | 3 | ✅ | Прокси и failover |
 | 4 | ✅ | UI, чаты, темы, уведомления |
-| 5 | ⏳ | Сборка на всех платформах |
+| 5 | ✅ | Сборка на всех платформах (CI + Release + docs) |
 | CI | ✅ | GitHub Actions: Flutter + TDLib Linux |
 | Release | ✅ | Пакеты для Linux, Windows, macOS, Android, iOS |
 
@@ -47,6 +47,8 @@ flutter run -d linux
 - [Патчи TDLib (DPI)](docs/TDLIB_PATCHES.md)
 - [CI/CD и релизы](docs/CI.md)
 - [Секреты для GitHub Actions](docs/SECRETS.md)
+- [Сборка на всех платформах](docs/BUILD.md)
+- [Установка из релиза](docs/INSTALL.md)
 - [План разработки](PLAN.md)
 - [Список задач](TODO.md)
 

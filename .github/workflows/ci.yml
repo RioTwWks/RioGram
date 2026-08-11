@@ -79,3 +79,47 @@ jobs:
           name: libtdjson-linux
           path: td/build/install/lib/libtdjson.so
           retention-days: 7
+
+  flutter-linux:
+    name: Flutter build (Linux)
+    needs: tdlib-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: ./scripts/install-linux-build-deps.sh
+
+      - name: Download libtdjson
+        uses: actions/download-artifact@v4
+        with:
+          name: libtdjson-linux
+          path: tdlib-artifact
+
+      - name: Prepare Flutter
+        run: |
+          ./scripts/generate-env.sh
+          flutter pub get
+
+      - name: Copy libtdjson to project
+        run: |
+          mkdir -p td/build/install/lib
+          cp tdlib-artifact/libtdjson.so td/build/install/lib/
+          TD_INSTALL_DIR="$PWD/td/build/install" ./scripts/copy-tdlib.sh linux
+
+      - name: Build Flutter Linux
+        run: |
+          flutter build linux --release
+          TD_INSTALL_DIR="$PWD/td/build/install" ./scripts/copy-tdlib-to-bundle.sh linux
+
+      - name: Verify bundle
+        run: |
+          test -f build/linux/x64/release/bundle/riogram
+          test -f build/linux/x64/release/bundle/lib/libtdjson.so

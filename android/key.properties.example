@@ -1,0 +1,9 @@
+# Шаблон для подписи Android release-сборок.
+# Скопируйте в key.properties и заполните (файл в .gitignore).
+#
+# keytool -genkey -v -keystore ~/riogram-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias riogram
+
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=riogram
+storeFile=/path/to/riogram-release.jks

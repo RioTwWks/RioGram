@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** Этап 4 — UI, чаты, темы, уведомления. CI/Release — GitHub Actions.
+**Последнее обновление:** Этап 5 — сборка на всех платформах, BUILD/INSTALL docs, CI flutter-linux.
 
 ---
 
@@ -86,8 +86,8 @@
 
 ### 2.6. Сборка модифицированного TDLib
 - [x] Скрипт `scripts/build-tdlib.sh` (Linux)
-- [ ] Собрать для Windows, Android, iOS, macOS
-- [ ] Интегрировать `libtdjson` в Flutter-проект для каждой платформы
+- [x] Скрипты для Windows, macOS, Android, iOS (`scripts/build-tdlib-*.sh`)
+- [x] `scripts/copy-tdlib.sh` — интеграция libtdjson в Flutter-проект
 
 ### 2.7. Тестирование обхода DPI
 - [ ] Запустить клиент через PhantomProxy и StealthGate
@@ -151,22 +151,28 @@
 ## 5. Сборка и тестирование на всех платформах
 
 ### 5.1. Сборка десктопных версий
-- [ ] Windows, macOS, Linux
+- [x] Скрипты и документация: [docs/BUILD.md](docs/BUILD.md)
+- [x] CI: полная сборка Linux (`flutter-linux` job)
+- [x] Release workflow: Linux, Windows, macOS
 
 ### 5.2. Сборка мобильных версий
-- [ ] Android, iOS
+- [x] Release workflow: Android APK/AAB, iOS unsigned
+- [x] Скрипты `build-tdlib-android.sh`, `build-tdlib-ios.sh`
+- [ ] Подпись Android/iOS для публикации в магазины
 
 ### 5.3. Интеграционные тесты
-- [x] Тесты `ProxyPreferences` и `ProxyEntry`
+- [x] Тесты `ProxyPreferences`, `ProxyEntry`, `chat_models`, `theme`
 - [ ] Тесты авторизации и failover с mock TDLib
 
 ### 5.4. Полевое тестирование
 - [ ] Бета-тестеры, сбор логов
 
 ### 5.5. Подготовка к релизу
-- [x] CI/CD — GitHub Actions (`.github/workflows/ci.yml`: flutter analyze/test, tdlib-linux)
-- [x] Release workflow — сборка пакетов при GitHub Release (Linux, Windows, macOS, Android, iOS)
-- [ ] Иконки, инструкция по установке
+- [x] CI/CD — GitHub Actions
+- [x] Release workflow — все платформы
+- [x] Инструкции: [docs/INSTALL.md](docs/INSTALL.md), [docs/BUILD.md](docs/BUILD.md)
+- [x] `android/key.properties.example` для release-подписи
+- [ ] Иконки приложения
 - [ ] Подпись Android (release keystore) и iOS (codesign / App Store)
 
 ---

@@ -32,15 +32,16 @@ PROXY_STEALTH_SECRET=dd...
 
 ```bash
 ./scripts/build-tdlib.sh
+./scripts/copy-tdlib.sh linux   # или windows / macos / android
 ```
 
-Скопируйте `libtdjson` в каталог runner:
+Подробнее по всем платформам: [docs/BUILD.md](docs/BUILD.md)
 
-| Платформа | Путь |
-|-----------|------|
-| Linux | `linux/bundle/lib/libtdjson.so` или `LD_LIBRARY_PATH` |
-| Windows | `windows/runner/tdjson.dll` |
-| macOS | `macos/Runner/libtdjson.dylib` |
+Универсальная релизная сборка:
+
+```bash
+./scripts/build-release.sh
+```
 
 ## 4. Запуск приложения
 
