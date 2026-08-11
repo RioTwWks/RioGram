@@ -29,9 +29,22 @@
 ### Как выпустить релиз
 
 1. Обновите `version` в `pubspec.yaml`
-2. Создайте и запушьте тег: `git tag v0.1.0 && git push origin v0.1.0`
-3. На GitHub: **Releases → Draft a new release** → выберите тег → **Publish release**
-4. Дождитесь завершения workflow **Release** (сборка TDLib + Flutter может занять 30–60 мин)
+2. Убедитесь, что **все CI-фиксы смержены в `main`**
+3. Создайте тег **на актуальном `main`**:
+   ```bash
+   git checkout main && git pull
+   git tag -a v0.1.0 -m "RioGram v0.1.0"
+   git push origin v0.1.0
+   ```
+4. На GitHub: **Releases → Draft a new release** → выберите тег → **Publish release**
+5. Дождитесь завершения workflow **Release**
+
+> **Важно:** workflow checkout'ит **коммит тега**, а не `main`. Если тег создан до мержа фиксов, сборка упадёт на старом коде.  
+> Переместить тег на текущий `main`:
+> ```bash
+> git tag -f v0.1.0 main && git push origin v0.1.0 --force
+> ```
+> Затем **Re-run all jobs** в Actions или пересоздайте Release.
 
 ### Ручной запуск
 

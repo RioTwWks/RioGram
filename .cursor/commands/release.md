@@ -22,6 +22,8 @@ command: Собрать релизные пакеты для всех платф
    - `RioGram-X.Y.Z-android-arm64.apk` (+ armv7, aab) — release-подпись при `ANDROID_*` secrets
    - `RioGram-X.Y.Z-ios.ipa` (или `ios-unsigned.zip` без iOS secrets)
 
+> Тег должен указывать на актуальный `main` (см. [docs/CI.md](../../docs/CI.md#как-выпустить-релиз)).
+
 Подпись: [docs/SIGNING.md](../../docs/SIGNING.md)
 
 ## Ручной запуск (без релиза)
