@@ -39,8 +39,15 @@ case "${PLATFORM}" in
     fi
     ;;
   ios)
-    (cd build/ios/iphoneos && \
-      zip -qr "${OUT_DIR}/${NAME}-ios-unsigned.zip" Runner.app)
+    if compgen -G "build/ios/ipa/*.ipa" > /dev/null; then
+      cp build/ios/ipa/*.ipa "${OUT_DIR}/${NAME}-ios.ipa"
+    elif [[ -d build/ios/iphoneos/Runner.app ]]; then
+      (cd build/ios/iphoneos && \
+        zip -qr "${OUT_DIR}/${NAME}-ios-unsigned.zip" Runner.app)
+    else
+      echo "package-release.sh: iOS артефакт не найден (ни .ipa, ни Runner.app)"
+      exit 1
+    fi
     ;;
   *)
     echo "package-release.sh: неизвестная платформа ${PLATFORM} (windows — через PowerShell)"

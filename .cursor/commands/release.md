@@ -19,8 +19,10 @@ command: Собрать релизные пакеты для всех платф
    - `RioGram-X.Y.Z-linux-x64.tar.gz`
    - `RioGram-X.Y.Z-windows-x64.zip`
    - `RioGram-X.Y.Z-macos-arm64.zip`
-   - `RioGram-X.Y.Z-android-arm64.apk` (+ armv7, aab)
-   - `RioGram-X.Y.Z-ios-unsigned.zip`
+   - `RioGram-X.Y.Z-android-arm64.apk` (+ armv7, aab) — release-подпись при `ANDROID_*` secrets
+   - `RioGram-X.Y.Z-ios.ipa` (или `ios-unsigned.zip` без iOS secrets)
+
+Подпись: [docs/SIGNING.md](../../docs/SIGNING.md)
 
 ## Ручной запуск (без релиза)
 

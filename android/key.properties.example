@@ -6,4 +6,5 @@
 storePassword=YOUR_STORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD
 keyAlias=riogram
-storeFile=/path/to/riogram-release.jks
+# Путь относительно android/app/ или абсолютный
+storeFile=riogram-release.jks

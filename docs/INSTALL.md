@@ -54,11 +54,10 @@
 
 ## iOS
 
-Сборка `ios-unsigned.zip` **не устанавливается** на iPhone без подписи разработчика.
+1. **Подписанный IPA** (`RioGram-X.Y.Z-ios.ipa`) — если настроены secrets в CI; загрузка через TestFlight / App Store
+2. **Unsigned zip** — fallback без secrets; установка только после ручной подписи в Xcode
 
-Варианты:
-- Собрать самостоятельно в Xcode с Apple Developer аккаунтом
-- Дождаться подписанной сборки в App Store (после MVP)
+Подробнее: [SIGNING.md](SIGNING.md)
 
 ---
 

@@ -129,27 +129,29 @@ flutter build appbundle --release
 
 Результат: `dist/RioGram-0.1.0-android-arm64.apk`, `.aab`
 
-### Подпись release (опционально)
+Подпись release (локально и CI): **[SIGNING.md](SIGNING.md)**
 
-По умолчанию APK подписан debug-ключом. Для production:
+1. Создайте keystore и `android/key.properties` (шаблон `android/key.properties.example`)
+2. Или задайте `ANDROID_*` secrets в GitHub для автоматической подписи в Release workflow
 
-1. Создайте keystore: `keytool -genkey -v -keystore riogram.jks ...`
-2. Скопируйте `android/key.properties.example` → `android/key.properties`
-3. Настройте `android/app/build.gradle.kts` на release signing (см. [Flutter docs](https://docs.flutter.dev/deployment/android#signing-the-app))
+Без `key.properties` / secrets APK подписан debug-ключом (только для тестов, не для Play Store).
 
 ---
 
-## iOS (unsigned)
+## iOS
 
-Только на macOS с Xcode.
+Только на macOS с Xcode. Подробно: **[SIGNING.md](SIGNING.md)**
 
 ```bash
 ./scripts/build-tdlib-ios.sh
+# С подписью (после setup-ios-signing.sh или настройки в Xcode):
+flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+# Без подписи:
 flutter build ios --release --no-codesign
 ./scripts/package-release.sh ios 0.1.0 dist
 ```
 
-Результат: `dist/RioGram-0.1.0-ios-unsigned.zip` — требует ручной подписи для установки на устройство.
+Результат: `dist/RioGram-0.1.0-ios.ipa` (подписанный) или `…-ios-unsigned.zip`
 
 ---
 
@@ -174,7 +176,7 @@ flutter build ios --release --no-codesign
 | [ci.yml](../.github/workflows/ci.yml) | analyze, test, TDLib, **Flutter Linux build** |
 | [release.yml](../.github/workflows/release.yml) | пакеты для всех платформ при Release |
 
-Секреты: [SECRETS.md](SECRETS.md)
+Секреты: [SECRETS.md](SECRETS.md) · Подпись: [SIGNING.md](SIGNING.md)
 
 ---
 
