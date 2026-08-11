@@ -54,8 +54,9 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 
 ## Секреты
 
-- `api_id`, `api_hash` — только в `.env` / `flutter_secure_storage`
-- Прокси-секреты — в `.env`, не в коде
+- `api_id`, `api_hash` — только в `.env` / GitHub Actions Secrets
+- Прокси-секреты — в `.env` или Secrets, не в коде
+- Настройка CI: `docs/SECRETS.md`
 
 ## CI/CD
 

@@ -66,6 +66,8 @@
 CC=gcc CXX=g++ TD_ENABLE_LTO=OFF ./scripts/build-tdlib.sh
 ```
 
+Секреты для релизных сборок: [docs/SECRETS.md](SECRETS.md)
+
 ## Badge
 
 ```markdown

@@ -31,6 +31,7 @@
 ```bash
 cp .env.example .env
 # Заполните TELEGRAM_API_ID, TELEGRAM_API_HASH и адреса прокси
+# Или: export TELEGRAM_API_ID=... && ./scripts/generate-env.sh
 
 flutter pub get
 ./scripts/build-tdlib.sh   # сборка libtdjson
@@ -45,6 +46,7 @@ flutter run -d linux
 - [Настройка прокси](docs/PROXY.md)
 - [Патчи TDLib (DPI)](docs/TDLIB_PATCHES.md)
 - [CI/CD и релизы](docs/CI.md)
+- [Секреты для GitHub Actions](docs/SECRETS.md)
 - [План разработки](PLAN.md)
 - [Список задач](TODO.md)
 
