@@ -6,9 +6,11 @@ set -euo pipefail
 PLATFORM="${1:?Укажите платформу: linux|windows|macos|android}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_DIR="${TD_INSTALL_DIR:-${ROOT_DIR}/td/build/install}"
+# shellcheck source=lib/file-copy.sh
+source "${ROOT_DIR}/scripts/lib/file-copy.sh"
 
 copy_linux() {
-  install -D "${INSTALL_DIR}/lib/libtdjson.so" "${ROOT_DIR}/linux/runner/libtdjson.so"
+  copy_into "${INSTALL_DIR}/lib/libtdjson.so" "${ROOT_DIR}/linux/runner/libtdjson.so"
 }
 
 copy_windows() {
@@ -16,11 +18,11 @@ copy_windows() {
   if [[ ! -f "${dll}" ]]; then
     dll="${INSTALL_DIR}/lib/tdjson.dll"
   fi
-  install -D "${dll}" "${ROOT_DIR}/windows/runner/tdjson.dll"
+  copy_into "${dll}" "${ROOT_DIR}/windows/runner/tdjson.dll"
 }
 
 copy_macos() {
-  install -D "${INSTALL_DIR}/lib/libtdjson.dylib" "${ROOT_DIR}/macos/Runner/libtdjson.dylib"
+  copy_into "${INSTALL_DIR}/lib/libtdjson.dylib" "${ROOT_DIR}/macos/Runner/libtdjson.dylib"
 }
 
 copy_android() {
@@ -33,7 +35,7 @@ copy_android() {
   for abi in arm64-v8a armeabi-v7a x86_64; do
     local lib="${libs_dir}/${abi}/libtdjson.so"
     if [[ -f "${lib}" ]]; then
-      install -D "${lib}" "${ROOT_DIR}/android/app/src/main/jniLibs/${abi}/libtdjson.so"
+      copy_into "${lib}" "${ROOT_DIR}/android/app/src/main/jniLibs/${abi}/libtdjson.so"
     fi
   done
 }

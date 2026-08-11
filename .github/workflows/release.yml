@@ -100,7 +100,7 @@ jobs:
       - name: Setup vcpkg (OpenSSL)
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: 10b7a178346f3f0abef60cecd5130e295afd8da4
+          vcpkgGitCommitId: c76c06644034521fb761a39f8f52d8e87d1103d5
           vcpkgDirectory: ${{ runner.temp }}/vcpkg
           runVcpkgInstall: true
 

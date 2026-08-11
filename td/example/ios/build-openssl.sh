@@ -8,6 +8,20 @@ git reset --hard || exit 1
 git apply ../Python-Apple-support.patch || exit 1
 cd ..
 
+OPENSSL_VERSION=3.1.5
+mkdir -p Python-Apple-support/downloads
+if [ ! -f "Python-Apple-support/downloads/openssl-${OPENSSL_VERSION}.tar.gz" ]; then
+  curl -fL --retry 5 --retry-delay 3 \
+    -o "Python-Apple-support/downloads/openssl-${OPENSSL_VERSION}.tar.gz" \
+    "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz" \
+    || curl -fL --retry 5 --retry-delay 3 \
+    -o "Python-Apple-support/downloads/openssl-${OPENSSL_VERSION}.tar.gz" \
+    "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz" \
+    || curl -fL --retry 5 --retry-delay 3 \
+    -o "Python-Apple-support/downloads/openssl-${OPENSSL_VERSION}.tar.gz" \
+    "https://www.openssl.org/source/old/3.1/openssl-${OPENSSL_VERSION}.tar.gz"
+fi
+
 platforms="macOS iOS watchOS tvOS visionOS"
 
 for platform in $platforms;
