@@ -106,6 +106,14 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     COMPONENT Runtime)
 endforeach(bundled_library)
 
+# libtdjson (TDLib JSON API) — копируется скриптом scripts/copy-tdlib.sh linux
+set(TDLIB_JSON "${CMAKE_CURRENT_SOURCE_DIR}/runner/libtdjson.so")
+if(EXISTS "${TDLIB_JSON}")
+  install(FILES "${TDLIB_JSON}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

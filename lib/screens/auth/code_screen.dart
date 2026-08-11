@@ -49,6 +49,15 @@ class _CodeScreenState extends State<CodeScreen> {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 24),
+              if (auth.errorMessage != null) ...[
+                Text(
+                  auth.errorMessage!,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                ),
+                const SizedBox(height: 16),
+              ],
               TextFormField(
                 controller: _controller,
                 keyboardType: TextInputType.number,
@@ -65,12 +74,20 @@ class _CodeScreenState extends State<CodeScreen> {
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    auth.submitCode(_controller.text);
-                  }
-                },
-                child: const Text('Подтвердить'),
+                onPressed: auth.isAuthRequestInProgress
+                    ? null
+                    : () {
+                        if (_formKey.currentState?.validate() ?? false) {
+                          auth.submitCode(_controller.text);
+                        }
+                      },
+                child: auth.isAuthRequestInProgress
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Подтвердить'),
               ),
             ],
           ),

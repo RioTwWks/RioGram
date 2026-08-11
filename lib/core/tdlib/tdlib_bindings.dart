@@ -82,11 +82,8 @@ class TdlibBindings {
     if (pointer == nullptr) {
       return null;
     }
-    try {
-      return pointer.toDartString();
-    } finally {
-      malloc.free(pointer);
-    }
+    // TDLib владеет этой памятью и освобождает её при следующем receive/execute.
+    return pointer.toDartString();
   }
 
   void destroy(Pointer<Void> client) => _destroy(client);

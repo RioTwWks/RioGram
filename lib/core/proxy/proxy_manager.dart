@@ -27,11 +27,12 @@ class ProxyManager extends ChangeNotifier {
   final AppConfig _config;
   final ProxyPreferences _preferences;
 
-  static const Duration pingTimeout = Duration(seconds: 5);
+  static const Duration pingTimeout = Duration(seconds: 20);
   static const Duration healthCheckInterval = Duration(seconds: 30);
 
   final List<ProxyEntry> _proxies = [];
   final List<ProxyConfig> _pendingConfigs = [];
+  final Map<int, ProxyConfig> _configsById = {};
 
   StreamSubscription<Map<String, dynamic>>? _updatesSubscription;
   Timer? _healthTimer;
@@ -56,42 +57,59 @@ class ProxyManager extends ChangeNotifier {
 
   String? get activeProxyName => activeProxy?.name;
 
+  bool get hasActiveProxy => activeProxy != null && _status == ProxyStatus.active;
+
   /// Загрузка настроек и регистрация прокси в TDLib.
   Future<void> setupProxies() async {
     _autoFailoverEnabled = await _preferences.isAutoFailoverEnabled();
     _proxies.clear();
     _pendingConfigs.clear();
+    _configsById.clear();
     _lastError = null;
 
     final configs = [
       _config.phantomProxy,
       _config.stealthProxy,
-    ].whereType<ProxyConfig>().where((proxy) => proxy.isConfigured).toList();
+    ].whereType<ProxyConfig>().where((proxy) => proxy.host.isNotEmpty).toList();
 
-    if (configs.isEmpty) {
-      _status = ProxyStatus.disabled;
+    final validConfigs =
+        configs.where((proxy) => proxy.hasValidSecret).toList(growable: false);
+    final invalidNames = configs
+        .where((proxy) => !proxy.hasValidSecret)
+        .map((proxy) => proxy.name)
+        .toList(growable: false);
+
+    if (invalidNames.isNotEmpty) {
+      _lastError =
+          'Неверный secret у: ${invalidNames.join(', ')}. '
+          'Для Fake TLS (ee...) после 32 hex-символов нужен домен, '
+          'например google.com в hex: 676f6f676c652e636f6d';
+    }
+
+    if (validConfigs.isEmpty) {
+      _status = ProxyStatus.error;
+      if (_lastError == null) {
+        _lastError = 'Нет прокси с корректным secret в .env';
+      }
       notifyListeners();
       return;
     }
 
     _status = ProxyStatus.unknown;
-    _pendingConfigs.addAll(configs);
+    _pendingConfigs.addAll(validConfigs);
     notifyListeners();
 
-    for (final proxy in configs) {
+    for (final proxy in validConfigs) {
       _client.send({
         '@type': 'addProxy',
-        'server': proxy.host,
-        'port': proxy.port,
+        'proxy': _proxyPayload(proxy),
         'enable': false,
-        'type': {
-          '@type': 'proxyTypeMtproto',
-          'secret': proxy.secret,
-        },
+        'comment': proxy.name,
+        '@extra': 'addProxy_${proxy.name}',
       });
     }
 
-    await _waitForProxyRegistration(configs.length);
+    await _waitForProxyRegistration(validConfigs.length);
     await _enableFirstAvailable();
     _startHealthChecks();
   }
@@ -113,20 +131,14 @@ class ProxyManager extends ChangeNotifier {
     _status = ProxyStatus.switching;
     notifyListeners();
 
-    final isHealthy = await pingProxy(proxyId);
-    if (!isHealthy) {
-      _setProxyHealth(proxyId, ProxyHealth.failed);
-      _status = ProxyStatus.error;
-      _lastError = 'Прокси ${_proxies[index].name} не отвечает';
-      notifyListeners();
-      return false;
+    final ping = await pingProxy(proxyId);
+    if (!ping.ok) {
+      // Включаем всё равно: ping через Fake TLS иногда ложно падает,
+      // а рабочий прокси всё равно нужен для авторизации.
+      debugPrint('ProxyManager: ping ${ _proxies[index].name} failed: ${ping.error}');
     }
 
-    _client.send({'@type': 'enableProxy', 'proxy_id': proxyId});
-    _setActiveProxy(proxyId);
-    _status = ProxyStatus.active;
-    _lastError = null;
-    notifyListeners();
+    await _enableProxy(proxyId);
     return true;
   }
 
@@ -135,10 +147,13 @@ class ProxyManager extends ChangeNotifier {
     _setProxyHealth(proxyId, ProxyHealth.checking);
     notifyListeners();
 
-    final isHealthy = await pingProxy(proxyId);
-    _setProxyHealth(proxyId, isHealthy ? ProxyHealth.ok : ProxyHealth.failed);
+    final ping = await pingProxy(proxyId);
+    _setProxyHealth(proxyId, ping.ok ? ProxyHealth.ok : ProxyHealth.failed);
+    if (!ping.ok) {
+      _lastError = ping.error;
+    }
     notifyListeners();
-    return isHealthy;
+    return ping.ok;
   }
 
   /// Переключение на следующий рабочий прокси.
@@ -160,16 +175,21 @@ class ProxyManager extends ChangeNotifier {
         continue;
       }
 
-      final isHealthy = await pingProxy(proxy.id);
-      if (isHealthy) {
-        _client.send({'@type': 'enableProxy', 'proxy_id': proxy.id});
-        _setActiveProxy(proxy.id);
-        _status = ProxyStatus.active;
-        _lastError = null;
-        notifyListeners();
+      final ping = await pingProxy(proxy.id);
+      if (ping.ok) {
+        await _enableProxy(proxy.id);
         return;
       }
       _setProxyHealth(proxy.id, ProxyHealth.failed);
+    }
+
+    // Если ни один ping не прошёл — всё равно пробуем следующий по кругу.
+    if (_proxies.isNotEmpty) {
+      final fallback = _proxies[startIndex % _proxies.length];
+      await _enableProxy(fallback.id);
+      _lastError = 'Ping не подтвердил доступность, включён ${fallback.name}';
+      notifyListeners();
+      return;
     }
 
     _status = ProxyStatus.error;
@@ -185,48 +205,54 @@ class ProxyManager extends ChangeNotifier {
     await switchToNextProxy();
   }
 
-  Future<bool> pingProxy(int proxyId) async {
+  Future<({bool ok, String? error})> pingProxy(int proxyId) async {
+    final config = _configsById[proxyId];
+    if (config == null) {
+      return (ok: false, error: 'Прокси $proxyId не найден в локальном кэше');
+    }
+
+    final extra = 'ping_$proxyId';
     final responseFuture = _client.waitFor(
       predicate: (update) {
+        if (update['@extra'] != extra) {
+          return false;
+        }
         final type = update['@type'];
-        if (type == 'error') {
-          return true;
-        }
-        if (type == 'ok' && update['@extra'] == 'ping_$proxyId') {
-          return true;
-        }
-        return false;
+        return type == 'seconds' || type == 'error';
       },
       timeout: pingTimeout,
     );
 
     _client.send({
       '@type': 'pingProxy',
-      'proxy_id': proxyId,
-      '@extra': 'ping_$proxyId',
+      'proxy': _proxyPayload(config),
+      '@extra': extra,
     });
 
     final response = await responseFuture;
-    if (response == null || response['@type'] == 'error') {
+    if (response == null) {
       _setProxyHealth(proxyId, ProxyHealth.failed);
-      return false;
+      return (
+        ok: false,
+        error: 'Таймаут ping ${config.name} (${pingTimeout.inSeconds}с)',
+      );
+    }
+    if (response['@type'] == 'error') {
+      _setProxyHealth(proxyId, ProxyHealth.failed);
+      final message = response['message'] as String? ?? 'неизвестная ошибка';
+      return (ok: false, error: '${config.name}: $message');
     }
 
     _setProxyHealth(proxyId, ProxyHealth.ok);
-    return true;
+    return (ok: true, error: null);
   }
 
   void _handleUpdate(Map<String, dynamic> update) {
     switch (update['@type']) {
-      case 'proxy':
-        _registerProxy(update);
-      case 'updateProxy':
-        final proxyId = update['proxy_id'] as int?;
-        if (proxyId != null) {
-          _setActiveProxy(proxyId);
-          _status = ProxyStatus.active;
-          notifyListeners();
-        }
+      case 'addedProxy':
+        _registerAddedProxy(update);
+      case 'error':
+        _handleProxyError(update);
       case 'updateConnectionState':
         _handleConnectionState(update['state'] as Map<String, dynamic>?);
     }
@@ -243,13 +269,29 @@ class ProxyManager extends ChangeNotifier {
     }
   }
 
-  void _registerProxy(Map<String, dynamic> proxy) {
-    final id = proxy['id'] as int?;
-    if (id == null || _pendingConfigs.isEmpty) {
+  void _registerAddedProxy(Map<String, dynamic> addedProxy) {
+    final id = addedProxy['id'] as int?;
+    if (id == null) {
       return;
     }
 
-    final config = _pendingConfigs.removeAt(0);
+    final extra = addedProxy['@extra'] as String?;
+    ProxyConfig? config;
+    if (extra != null && extra.startsWith('addProxy_')) {
+      final name = extra.substring('addProxy_'.length);
+      final index = _pendingConfigs.indexWhere((item) => item.name == name);
+      if (index >= 0) {
+        config = _pendingConfigs.removeAt(index);
+      }
+    } else if (_pendingConfigs.isNotEmpty) {
+      config = _pendingConfigs.removeAt(0);
+    }
+
+    if (config == null) {
+      return;
+    }
+
+    _configsById[id] = config;
     _proxies.add(
       ProxyEntry(
         id: id,
@@ -261,8 +303,33 @@ class ProxyManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _handleProxyError(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null || !extra.startsWith('addProxy_')) {
+      return;
+    }
+
+    final name = extra.substring('addProxy_'.length);
+    _pendingConfigs.removeWhere((item) => item.name == name);
+    final message = update['message'] as String? ?? 'ошибка регистрации';
+    _lastError = '$name: $message';
+    notifyListeners();
+  }
+
+  Map<String, dynamic> _proxyPayload(ProxyConfig proxy) {
+    return {
+      '@type': 'proxy',
+      'server': proxy.host,
+      'port': proxy.port,
+      'type': {
+        '@type': 'proxyTypeMtproto',
+        'secret': proxy.secret,
+      },
+    };
+  }
+
   Future<void> _waitForProxyRegistration(int expectedCount) async {
-    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    final deadline = DateTime.now().add(const Duration(seconds: 8));
     while (_proxies.length < expectedCount && DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
@@ -271,26 +338,64 @@ class ProxyManager extends ChangeNotifier {
   Future<void> _enableFirstAvailable() async {
     if (_proxies.isEmpty) {
       _status = ProxyStatus.error;
-      _lastError = 'Прокси не зарегистрированы в TDLib';
+      _lastError ??= 'Прокси не зарегистрированы в TDLib';
       notifyListeners();
       return;
     }
 
-    for (final proxy in _proxies) {
-      final isHealthy = await pingProxy(proxy.id);
-      if (isHealthy) {
-        _client.send({'@type': 'enableProxy', 'proxy_id': proxy.id});
-        _setActiveProxy(proxy.id);
-        _status = ProxyStatus.active;
-        _lastError = null;
-        notifyListeners();
-        return;
+    // Сначала включаем первый зарегистрированный прокси — без этого
+    // авторизация в РФ зависает. Ping используем только как health-сигнал.
+    final first = _proxies.first;
+    await _enableProxy(first.id);
+
+    final ping = await pingProxy(first.id);
+    if (!ping.ok) {
+      debugPrint('ProxyManager: стартовый ping ${first.name}: ${ping.error}');
+      for (final proxy in _proxies.skip(1)) {
+        final other = await pingProxy(proxy.id);
+        if (other.ok) {
+          await _enableProxy(proxy.id);
+          return;
+        }
+        debugPrint('ProxyManager: ping ${proxy.name}: ${other.error}');
       }
-      _setProxyHealth(proxy.id, ProxyHealth.failed);
+      _lastError = ping.error ?? 'Ping прокси не подтвердил доступность';
+      notifyListeners();
+    }
+  }
+
+  Future<void> _enableProxy(int proxyId) async {
+    final extra = 'enableProxy_$proxyId';
+    final responseFuture = _client.waitFor(
+      predicate: (update) {
+        if (update['@extra'] != extra) {
+          return false;
+        }
+        final type = update['@type'];
+        return type == 'ok' || type == 'error';
+      },
+      timeout: const Duration(seconds: 5),
+    );
+
+    _client.send({
+      '@type': 'enableProxy',
+      'proxy_id': proxyId,
+      '@extra': extra,
+    });
+
+    final response = await responseFuture;
+    if (response == null || response['@type'] == 'error') {
+      final message = response?['message'] as String? ?? 'таймаут enableProxy';
+      _status = ProxyStatus.error;
+      _lastError = 'Не удалось включить прокси: $message';
+      notifyListeners();
+      return;
     }
 
-    _status = ProxyStatus.error;
-    _lastError = 'Нет доступных прокси при старте';
+    _setActiveProxy(proxyId);
+    _setProxyHealth(proxyId, ProxyHealth.ok);
+    _status = ProxyStatus.active;
+    _lastError = null;
     notifyListeners();
   }
 
@@ -317,8 +422,8 @@ class ProxyManager extends ChangeNotifier {
       if (active == null) {
         return;
       }
-      final isHealthy = await pingProxy(active.id);
-      if (!isHealthy) {
+      final ping = await pingProxy(active.id);
+      if (!ping.ok) {
         await switchToNextProxy();
       }
     });

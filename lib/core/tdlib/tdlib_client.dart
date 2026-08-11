@@ -25,14 +25,12 @@ class TdlibClient {
 
   Stream<Map<String, dynamic>> get updates => _updatesController.stream;
 
-  bool get isAvailable => _bindings != null;
+  bool get isAvailable => _bindings != null && _client != null;
 
-  /// Инициализация TDLib: загрузка libtdjson и установка параметров.
-  Future<void> init(AppConfig config) async {
-    if (!config.hasApiCredentials) {
-      throw TdlibException(
-        'Укажите TELEGRAM_API_ID и TELEGRAM_API_HASH в файле .env',
-      );
+  /// Создаёт FFI-клиент и запускает цикл приёма обновлений.
+  Future<void> ensureClient() async {
+    if (_client != null) {
+      return;
     }
 
     _bindings = TdlibBindings.load();
@@ -47,11 +45,23 @@ class TdlibClient {
     _client = _bindings!.createClient();
     _isRunning = true;
     _startReceiveLoop();
+  }
 
-    _bindings!.send(_client!, jsonEncode({
+  /// Отправляет параметры TDLib. Вызывать после подписки на [updates].
+  Future<void> configure(AppConfig config) async {
+    if (_client == null) {
+      throw TdlibException('TDLib клиент не создан');
+    }
+    if (!config.hasApiCredentials) {
+      throw TdlibException(
+        'Укажите TELEGRAM_API_ID и TELEGRAM_API_HASH в файле .env',
+      );
+    }
+
+    send({
       '@type': 'setLogVerbosityLevel',
       'new_verbosity_level': kDebugMode ? 1 : 0,
-    }));
+    });
 
     final directories = await _resolveDirectories();
     send({
@@ -70,6 +80,12 @@ class TdlibClient {
       'system_version': Platform.operatingSystemVersion,
       'application_version': '0.1.0',
     });
+  }
+
+  /// Создаёт клиент и отправляет параметры (удобно для простых сценариев).
+  Future<void> init(AppConfig config) async {
+    await ensureClient();
+    await configure(config);
   }
 
   /// Отправка команды в TDLib.

@@ -56,12 +56,20 @@ class _PasswordScreenState extends State<PasswordScreen> {
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    auth.submitPassword(_controller.text);
-                  }
-                },
-                child: const Text('Войти'),
+                onPressed: auth.isAuthRequestInProgress
+                    ? null
+                    : () {
+                        if (_formKey.currentState?.validate() ?? false) {
+                          auth.submitPassword(_controller.text);
+                        }
+                      },
+                child: auth.isAuthRequestInProgress
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Войти'),
               ),
             ],
           ),

@@ -32,7 +32,8 @@ cp .env.example .env
 # Или: export TELEGRAM_API_ID=... && ./scripts/generate-env.sh
 
 flutter pub get
-./scripts/build-tdlib.sh   # сборка libtdjson
+./scripts/build-tdlib.sh        # сборка libtdjson
+./scripts/copy-tdlib.sh linux   # копирование в проект (нужно один раз после сборки TDLib)
 flutter run -d linux
 ```
 

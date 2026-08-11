@@ -74,5 +74,54 @@ class ProxyConfig {
   final int port;
   final String secret;
 
-  bool get isConfigured => host.isNotEmpty;
+  bool get isConfigured => host.isNotEmpty && hasValidSecret;
+
+  /// Проверка формата MTProto secret (см. td/mtproto/ProxySecret.cpp).
+  bool get hasValidSecret {
+    if (secret.isEmpty) {
+      return false;
+    }
+
+    final decoded = _decodeSecret(secret);
+    if (decoded == null || decoded.isEmpty) {
+      return false;
+    }
+
+    if (decoded.length == 16) {
+      return true;
+    }
+    if (decoded.length == 17 && decoded[0] == 0xDD) {
+      return true;
+    }
+    if (decoded.length >= 18 && decoded[0] == 0xEE) {
+      return true;
+    }
+    return false;
+  }
+
+  static List<int>? _decodeSecret(String encoded) {
+    if (_isHex(encoded)) {
+      return _hexDecode(encoded);
+    }
+    return null;
+  }
+
+  static bool _isHex(String value) {
+    return RegExp(r'^[0-9a-fA-F]+$').hasMatch(value);
+  }
+
+  static List<int>? _hexDecode(String hex) {
+    if (hex.length.isOdd) {
+      return null;
+    }
+    final bytes = <int>[];
+    for (var i = 0; i < hex.length; i += 2) {
+      final byte = int.tryParse(hex.substring(i, i + 2), radix: 16);
+      if (byte == null) {
+        return null;
+      }
+      bytes.add(byte);
+    }
+    return bytes;
+  }
 }
