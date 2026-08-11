@@ -11,7 +11,18 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TD_DIR="${ROOT_DIR}/td"
 BUILD_DIR="${TD_DIR}/build"
-JOBS="${JOBS:-$(nproc)}"
+
+default_jobs() {
+  if command -v nproc >/dev/null 2>&1; then
+    nproc
+  elif command -v sysctl >/dev/null 2>&1; then
+    sysctl -n hw.ncpu
+  else
+    echo 4
+  fi
+}
+
+JOBS="${JOBS:-$(default_jobs)}"
 TD_ENABLE_LTO="${TD_ENABLE_LTO:-ON}"
 CMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE:-Release}"
 
