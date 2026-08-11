@@ -25,7 +25,7 @@ jobs:
           cache: true
 
       - name: Prepare .env
-        run: cp .env.example .env
+        run: ./scripts/generate-env.sh
 
       - name: Install dependencies
         run: flutter pub get

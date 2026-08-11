@@ -19,6 +19,15 @@ concurrency:
 
 env:
   RAW_VERSION: ${{ github.event.release.tag_name || github.event.inputs.version || 'dev' }}
+  TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+  TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+  PROXY_PHANTOM_HOST: ${{ secrets.PROXY_PHANTOM_HOST }}
+  PROXY_PHANTOM_PORT: ${{ secrets.PROXY_PHANTOM_PORT }}
+  PROXY_PHANTOM_SECRET: ${{ secrets.PROXY_PHANTOM_SECRET }}
+  PROXY_STEALTH_HOST: ${{ secrets.PROXY_STEALTH_HOST }}
+  PROXY_STEALTH_PORT: ${{ secrets.PROXY_STEALTH_PORT }}
+  PROXY_STEALTH_SECRET: ${{ secrets.PROXY_STEALTH_SECRET }}
+  REQUIRE_SECRETS: "true"
 
 jobs:
   build-linux:
@@ -37,10 +46,11 @@ jobs:
       - name: Install dependencies
         run: ./scripts/install-linux-build-deps.sh
 
-      - name: Prepare Flutter
-        run: |
-          cp .env.example .env
-          flutter pub get
+      - name: Create .env from secrets
+        run: ./scripts/generate-env.sh
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
 
       - name: Cache TDLib
         uses: actions/cache@v4
@@ -93,10 +103,12 @@ jobs:
           vcpkgGitCommitId: 2024.10.21
           runVcpkgInstall: true
 
-      - name: Prepare Flutter
-        run: |
-          copy .env.example .env
-          flutter pub get
+      - name: Create .env from secrets
+        shell: bash
+        run: ./scripts/generate-env.sh
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
 
       - name: Cache TDLib
         uses: actions/cache@v4
@@ -142,10 +154,11 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Prepare Flutter
-        run: |
-          cp .env.example .env
-          flutter pub get
+      - name: Create .env from secrets
+        run: ./scripts/generate-env.sh
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
 
       - name: Cache TDLib
         uses: actions/cache@v4
@@ -196,9 +209,11 @@ jobs:
       - name: Install dependencies
         run: ./scripts/install-linux-build-deps.sh
 
-      - name: Prepare Flutter & Android SDK
+      - name: Create .env from secrets
+        run: ./scripts/generate-env.sh
+
+      - name: Install Flutter dependencies
         run: |
-          cp .env.example .env
           flutter pub get
           flutter precache --android
           echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
@@ -250,10 +265,11 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Prepare Flutter
-        run: |
-          cp .env.example .env
-          flutter pub get
+      - name: Create .env from secrets
+        run: ./scripts/generate-env.sh
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
 
       - name: Cache OpenSSL (iOS)
         uses: actions/cache@v4
