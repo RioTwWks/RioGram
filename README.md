@@ -14,17 +14,15 @@
 
 Поддерживаемые платформы: Windows, macOS, Linux, Android, iOS.
 
-## Статус MVP
+## Этапы MVP
 
-| Этап | Статус | Описание |
-|------|--------|----------|
-| 1 | ✅ | Flutter + TDLib + авторизация |
-| 2 | ✅ | DPI-патчи в TDLib |
-| 3 | ✅ | Прокси и failover |
-| 4 | ✅ | UI, чаты, темы, уведомления |
-| 5 | ✅ | Сборка на всех платформах (CI + Release + docs) |
-| CI | ✅ | GitHub Actions: Flutter + TDLib Linux |
-| Release | ✅ | Пакеты для Linux, Windows, macOS, Android, iOS |
+Flutter + TDLib + авторизация
+DPI-патчи в TDLib
+Прокси и failover
+UI, чаты, темы, уведомления
+Сборка на всех платформах (CI + Release + docs)
+GitHub Actions: Flutter + TDLib Linux
+Пакеты для Linux, Windows, macOS, Android, iOS
 
 ## Быстрый старт
 
