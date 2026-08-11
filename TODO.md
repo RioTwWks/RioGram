@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** Этап 5 — сборка на всех платформах, BUILD/INSTALL docs, CI flutter-linux.
+**Последнее обновление:** Подпись Android/iOS, docs/SIGNING.md, CI release signing.
 
 ---
 
@@ -156,9 +156,9 @@
 - [x] Release workflow: Linux, Windows, macOS
 
 ### 5.2. Сборка мобильных версий
-- [x] Release workflow: Android APK/AAB, iOS unsigned
+- [x] Release workflow: Android APK/AAB, iOS IPA (signed / unsigned fallback)
 - [x] Скрипты `build-tdlib-android.sh`, `build-tdlib-ios.sh`
-- [ ] Подпись Android/iOS для публикации в магазины
+- [x] Подпись Android/iOS: `setup-*-signing.sh`, `docs/SIGNING.md`, Gradle + ExportOptions
 
 ### 5.3. Интеграционные тесты
 - [x] Тесты `ProxyPreferences`, `ProxyEntry`, `chat_models`, `theme`
@@ -172,8 +172,8 @@
 - [x] Release workflow — все платформы
 - [x] Инструкции: [docs/INSTALL.md](docs/INSTALL.md), [docs/BUILD.md](docs/BUILD.md)
 - [x] `android/key.properties.example` для release-подписи
+- [x] Подпись Android (release keystore) и iOS (codesign / IPA) — см. docs/SIGNING.md
 - [ ] Иконки приложения
-- [ ] Подпись Android (release keystore) и iOS (codesign / App Store)
 
 ---
 

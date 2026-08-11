@@ -236,6 +236,14 @@ jobs:
       - name: Build TDLib (Android)
         run: ./scripts/build-tdlib-android.sh
 
+      - name: Setup Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: ./scripts/setup-android-signing.sh
+
       - name: Build Flutter (Android)
         run: |
           flutter build apk --release --split-per-abi
@@ -253,7 +261,7 @@ jobs:
           path: dist/*
 
   build-ios:
-    name: iOS (unsigned)
+    name: iOS IPA
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -290,8 +298,23 @@ jobs:
       - name: Build TDLib (iOS)
         run: ./scripts/build-tdlib-ios.sh
 
+      - name: Setup iOS signing
+        env:
+          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          IOS_EXPORT_METHOD: ${{ vars.IOS_EXPORT_METHOD }}
+        run: ./scripts/setup-ios-signing.sh
+
       - name: Build Flutter (iOS)
-        run: flutter build ios --release --no-codesign
+        run: |
+          if [[ -f ios/ExportOptions.plist ]]; then
+            flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+          else
+            flutter build ios --release --no-codesign
+          fi
 
       - name: Package
         run: |
@@ -301,8 +324,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-unsigned
-          path: dist/*.zip
+          name: ios
+          path: dist/*
 
   publish:
     name: Upload to GitHub Release

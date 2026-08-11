@@ -57,6 +57,7 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 - `api_id`, `api_hash` — только в `.env` / GitHub Actions Secrets
 - Прокси-секреты — в `.env` или Secrets, не в коде
 - Настройка CI: `docs/SECRETS.md`
+- Подпись мобильных сборок: `docs/SIGNING.md`
 
 ## CI/CD
 
@@ -74,6 +75,7 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 - **Release** ✅ GitHub Actions — пакеты для всех платформ
 - **Этап 4** ✅ UI, чаты, темы, уведомления
 - **Этап 5** ✅ Сборка на всех платформах (BUILD/INSTALL, CI flutter-linux, Release)
+- **Signing** ✅ Android/iOS release-подпись (docs/SIGNING.md, CI secrets)
 
 ## Лицензия
 

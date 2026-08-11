@@ -27,8 +27,9 @@ Flutter/flutter_export_environment.sh
 ServiceDefinitions.json
 Runner/GeneratedPluginRegistrant.*
 
-# TDLib (собирается в CI/release)
-Frameworks/libtdjson.a
+# Signing (генерируется локально / в CI)
+Flutter/Signing.xcconfig
+ExportOptions.plist
 
 # Exceptions to above rules.
 !default.mode1v3

@@ -89,11 +89,17 @@ flutter_build() {
       ./scripts/copy-tdlib-to-bundle.sh windows
       ;;
     android)
+      ./scripts/setup-android-signing.sh
       flutter build apk --release --split-per-abi
       flutter build appbundle --release
       ;;
     ios)
-      flutter build ios --release --no-codesign
+      ./scripts/setup-ios-signing.sh
+      if [[ -f ios/ExportOptions.plist ]]; then
+        flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+      else
+        flutter build ios --release --no-codesign
+      fi
       ;;
   esac
 }

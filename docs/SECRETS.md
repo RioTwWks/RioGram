@@ -40,6 +40,26 @@
 | `PROXY_STEALTH_PORT` | Нет | Порт (по умолчанию 443) |
 | `PROXY_STEALTH_SECRET` | Нет | Секрет StealthGate |
 
+### Подпись мобильных сборок (Release)
+
+Подробная инструкция: **[SIGNING.md](SIGNING.md)**
+
+| Secret | Обязателен | Описание |
+|--------|------------|----------|
+| `ANDROID_KEYSTORE_BASE64` | Нет* | Release keystore (`.jks`) в base64 |
+| `ANDROID_KEYSTORE_PASSWORD` | Нет* | Пароль хранилища |
+| `ANDROID_KEY_PASSWORD` | Нет | Пароль ключа (если отличается от store) |
+| `ANDROID_KEY_ALIAS` | Нет* | Alias ключа (например `riogram`) |
+| `IOS_DISTRIBUTION_CERTIFICATE_BASE64` | Нет* | Apple Distribution `.p12` в base64 |
+| `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD` | Нет* | Пароль экспорта p12 |
+| `IOS_PROVISIONING_PROFILE_BASE64` | Нет* | Provisioning profile в base64 |
+| `IOS_DEVELOPMENT_TEAM` | Нет* | Apple Team ID (10 символов) |
+| `KEYCHAIN_PASSWORD` | Нет* | Пароль временного keychain в CI |
+
+\* Без Android secrets APK/AAB подписываются **debug-ключом**. Без iOS secrets собирается **unsigned** zip. Для публикации в магазинах secrets обязательны.
+
+Опциональная **variable** (не secret): `IOS_EXPORT_METHOD` = `app-store` | `ad-hoc` | `development` | `enterprise`.
+
 ### CI vs Release
 
 | Workflow | Нужны secrets? |
@@ -71,5 +91,8 @@ export TELEGRAM_API_HASH=your_hash_here
 ## Связанные файлы
 
 - `scripts/generate-env.sh` — генерация `.env`
+- `scripts/setup-android-signing.sh` — Android keystore в CI
+- `scripts/setup-ios-signing.sh` — iOS codesign в CI
 - `.github/workflows/release.yml` — использует secrets
 - `.env.example` — шаблон для локальной разработки
+- `docs/SIGNING.md` — подпись Android/iOS
