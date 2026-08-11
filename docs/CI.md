@@ -8,6 +8,7 @@
 |-----|----------------|
 | **flutter** | `flutter analyze --no-fatal-infos`, `flutter test` |
 | **tdlib-linux** | Сборка модифицированного TDLib, артефакт `libtdjson.so` |
+| **flutter-linux** | Полная сборка `flutter build linux --release` с libtdjson из артефакта |
 
 Триггеры: push и pull request в `main`.
 

@@ -112,6 +112,12 @@ unlinked_spec.ds
 **/linux/flutter/generated_plugin_registrant.h
 **/linux/flutter/generated_plugins.cmake
 
+# TDLib native libs (собираются локально / в CI, не коммитить)
+linux/runner/libtdjson.so
+windows/runner/tdjson.dll
+windows/runner/tdjson.lib
+macos/Runner/libtdjson.dylib
+
 # Coverage
 coverage/
 

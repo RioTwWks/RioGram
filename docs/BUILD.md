@@ -1,0 +1,188 @@
+# Сборка RioGram на всех платформах
+
+Руководство для разработчиков. Релизные пакеты собираются автоматически через [GitHub Actions](CI.md#релизы); здесь — локальная сборка.
+
+## Общие шаги
+
+1. Клонировать репозиторий и установить [Flutter SDK](https://docs.flutter.dev/get-started/install) ≥ 3.22
+2. Настроить `.env` (см. [QUICKSTART.md](QUICKSTART.md) и [SECRETS.md](SECRETS.md))
+3. Собрать модифицированный TDLib с DPI-патчами
+4. Скопировать `libtdjson` в проект (`scripts/copy-tdlib.sh`)
+5. `flutter build <platform> --release`
+6. Упаковать (`scripts/package-release.sh` / `package-release.ps1`)
+
+Универсальный скрипт (автоопределение ОС):
+
+```bash
+./scripts/build-release.sh
+# или явно:
+./scripts/build-release.sh linux
+```
+
+---
+
+## Linux (x64)
+
+### Зависимости
+
+```bash
+./scripts/install-linux-build-deps.sh
+```
+
+### Сборка
+
+```bash
+./scripts/generate-env.sh          # или cp .env.example .env
+CC=gcc CXX=g++ TD_ENABLE_LTO=OFF ./scripts/build-tdlib.sh
+./scripts/copy-tdlib.sh linux
+flutter pub get
+flutter build linux --release
+./scripts/copy-tdlib-to-bundle.sh linux
+./scripts/package-release.sh linux 0.1.0 dist
+```
+
+Результат: `dist/RioGram-0.1.0-linux-x64.tar.gz`
+
+Запуск из распакованного бандла:
+
+```bash
+tar -xzf RioGram-0.1.0-linux-x64.tar.gz -C riogram
+./riogram/riogram
+```
+
+---
+
+## Windows (x64)
+
+### Зависимости
+
+- Visual Studio 2022 (Desktop development with C++)
+- [vcpkg](https://vcpkg.io) с пакетом OpenSSL (`vcpkg.json` в корне)
+- Flutter для Windows
+
+### Сборка (PowerShell)
+
+```powershell
+$env:VCPKG_ROOT = "C:\path\to\vcpkg"
+.\scripts\build-tdlib-windows.ps1
+```
+
+```bash
+./scripts/copy-tdlib.sh windows
+flutter build windows --release
+./scripts/copy-tdlib-to-bundle.sh windows
+```
+
+```powershell
+.\scripts\package-release.ps1 -Version 0.1.0 -OutputDir dist
+```
+
+Результат: `dist/RioGram-0.1.0-windows-x64.zip` — запуск `riogram.exe`
+
+---
+
+## macOS (Apple Silicon)
+
+### Зависимости
+
+```bash
+brew install cmake gperf openssl@3
+```
+
+### Сборка
+
+```bash
+./scripts/build-tdlib-macos.sh
+./scripts/copy-tdlib.sh macos
+flutter build macos --release
+./scripts/copy-tdlib-to-bundle.sh macos
+./scripts/package-release.sh macos 0.1.0 dist
+```
+
+Результат: `dist/RioGram-0.1.0-macos-arm64.zip` — `riogram.app`
+
+> Intel Mac: требуется отдельная сборка TDLib с `x86_64` (пока CI собирает только arm64).
+
+---
+
+## Android (APK / AAB)
+
+### Зависимости
+
+- Android SDK + NDK (через `flutter doctor --android-licenses`)
+- Java 17
+- `php`, `perl` (для скриптов TDLib)
+
+```bash
+./scripts/install-linux-build-deps.sh   # Linux/macOS
+flutter precache --android
+```
+
+### Сборка
+
+```bash
+./scripts/build-tdlib-android.sh
+flutter build apk --release --split-per-abi
+flutter build appbundle --release
+./scripts/package-release.sh android 0.1.0 dist
+```
+
+Результат: `dist/RioGram-0.1.0-android-arm64.apk`, `.aab`
+
+### Подпись release (опционально)
+
+По умолчанию APK подписан debug-ключом. Для production:
+
+1. Создайте keystore: `keytool -genkey -v -keystore riogram.jks ...`
+2. Скопируйте `android/key.properties.example` → `android/key.properties`
+3. Настройте `android/app/build.gradle.kts` на release signing (см. [Flutter docs](https://docs.flutter.dev/deployment/android#signing-the-app))
+
+---
+
+## iOS (unsigned)
+
+Только на macOS с Xcode.
+
+```bash
+./scripts/build-tdlib-ios.sh
+flutter build ios --release --no-codesign
+./scripts/package-release.sh ios 0.1.0 dist
+```
+
+Результат: `dist/RioGram-0.1.0-ios-unsigned.zip` — требует ручной подписи для установки на устройство.
+
+---
+
+## Пути libtdjson
+
+| Платформа | Куда копирует `copy-tdlib.sh` |
+|-----------|-------------------------------|
+| Linux | `linux/runner/libtdjson.so` |
+| Windows | `windows/runner/tdjson.dll` |
+| macOS | `macos/Runner/libtdjson.dylib` |
+| Android | `android/app/src/main/jniLibs/<abi>/libtdjson.so` |
+| iOS | `ios/Frameworks/libtdjson.a` (через `build-tdlib-ios.sh`) |
+
+Нативные библиотеки **не коммитятся** в git — собираются локально или в CI.
+
+---
+
+## GitHub Actions
+
+| Workflow | Назначение |
+|----------|------------|
+| [ci.yml](../.github/workflows/ci.yml) | analyze, test, TDLib, **Flutter Linux build** |
+| [release.yml](../.github/workflows/release.yml) | пакеты для всех платформ при Release |
+
+Секреты: [SECRETS.md](SECRETS.md)
+
+---
+
+## Устранение неполадок
+
+| Ошибка | Решение |
+|--------|---------|
+| `libtdjson не найден` | `./scripts/build-tdlib.sh` + `copy-tdlib.sh <platform>` |
+| `cannot find -lstdc++` (Linux) | `CC=gcc CXX=g++` при сборке TDLib |
+| `TELEGRAM_API_ID` в release CI | Добавьте secrets в GitHub |
+| Android NDK не найден | `flutter doctor`, установите NDK через sdkmanager |
