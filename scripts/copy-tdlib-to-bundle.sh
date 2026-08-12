@@ -15,18 +15,18 @@ case "${PLATFORM}" in
       "${ROOT_DIR}/build/linux/x64/release/bundle/lib/libtdjson.so"
     ;;
   windows)
-    local_dll="${INSTALL_DIR}/bin/tdjson.dll"
-    if [[ ! -f "${local_dll}" ]]; then
-      local_dll="${INSTALL_DIR}/lib/tdjson.dll"
+    dll_path="${INSTALL_DIR}/bin/tdjson.dll"
+    if [[ ! -f "${dll_path}" ]]; then
+      dll_path="${INSTALL_DIR}/lib/tdjson.dll"
     fi
-    copy_into "${local_dll}" \
+    copy_into "${dll_path}" \
       "${ROOT_DIR}/build/windows/x64/runner/Release/tdjson.dll"
     ;;
   macos)
-    local app="${ROOT_DIR}/build/macos/Build/Products/Release/riogram.app"
-    mkdir -p "${app}/Contents/Frameworks"
+    app_path="${ROOT_DIR}/build/macos/Build/Products/Release/riogram.app"
+    mkdir -p "${app_path}/Contents/Frameworks"
     copy_into "${INSTALL_DIR}/lib/libtdjson.dylib" \
-      "${app}/Contents/Frameworks/libtdjson.dylib"
+      "${app_path}/Contents/Frameworks/libtdjson.dylib"
     ;;
   *)
     echo "Неизвестная платформа: ${PLATFORM}"

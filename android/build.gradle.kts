@@ -22,8 +22,13 @@ subprojects {
 }
 
 subprojects {
-    afterEvaluate {
-        extensions.findByType(BaseExtension::class.java)?.apply {
+    plugins.withId("com.android.library") {
+        extensions.configure<BaseExtension>("android") {
+            compileSdkVersion(36)
+        }
+    }
+    plugins.withId("com.android.application") {
+        extensions.configure<BaseExtension>("android") {
             compileSdkVersion(36)
         }
     }

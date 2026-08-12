@@ -118,6 +118,9 @@ jobs:
           key: tdlib-windows-${{ hashFiles('td/td/mtproto/dpi_bypass/**', 'td/CMakeLists.txt', 'scripts/build-tdlib.sh') }}
           restore-keys: tdlib-windows-
 
+      - name: Install build tools
+        run: choco install gperf -y
+
       - name: Build TDLib
         run: ./scripts/build-tdlib-windows.ps1
         env:
