@@ -22,15 +22,18 @@ subprojects {
 }
 
 subprojects {
-    plugins.withId("com.android.library") {
-        extensions.configure<BaseExtension>("android") {
+    fun Project.forceCompileSdk36() {
+        extensions.findByType(BaseExtension::class.java)?.apply {
             compileSdkVersion(36)
         }
     }
-    plugins.withId("com.android.application") {
-        extensions.configure<BaseExtension>("android") {
-            compileSdkVersion(36)
-        }
+
+    // plugins.withId срабатывает до build.gradle плагина; afterEvaluate — после.
+    // evaluationDependsOn может уже оценить subproject → проверяем state.executed.
+    if (state.executed) {
+        forceCompileSdk36()
+    } else {
+        afterEvaluate { forceCompileSdk36() }
     }
 }
 
