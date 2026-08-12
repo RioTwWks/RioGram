@@ -1,4 +1,4 @@
-# Сборка TDLib для Windows (MSVC + vcpkg OpenSSL).
+# Сборка TDLib для Windows (MSVC + vcpkg: OpenSSL, zlib).
 param(
     [string]$VcpkgRoot = $(if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { $env:VCPKG_ROOT })
 )
@@ -11,6 +11,30 @@ if (-not $VcpkgRoot) {
     throw "VCPKG_INSTALLATION_ROOT не задан. Установите vcpkg и экспортируйте переменную."
 }
 
+$Triplet = if ($env:VCPKG_DEFAULT_TRIPLET) { $env:VCPKG_DEFAULT_TRIPLET } else { "x64-windows" }
+
+function Resolve-VcpkgInstalledDir {
+    param([string]$ProjectRoot, [string]$VcpkgRootPath)
+
+    if ($env:VCPKG_INSTALLED_DIR) {
+        return $env:VCPKG_INSTALLED_DIR
+    }
+
+    $manifestDir = Join-Path $ProjectRoot "vcpkg_installed"
+    if (Test-Path $manifestDir) {
+        return $manifestDir
+    }
+
+    return Join-Path $VcpkgRootPath "installed"
+}
+
+$VcpkgInstalledDir = Resolve-VcpkgInstalledDir -ProjectRoot $RootDir -VcpkgRootPath $VcpkgRoot
+$PrefixPath = Join-Path $VcpkgInstalledDir $Triplet
+
+if (-not (Test-Path $PrefixPath)) {
+    throw "vcpkg-пакеты не найдены в $PrefixPath. Запустите vcpkg install (см. vcpkg.json)."
+}
+
 if (-not (Test-Path $BuildDir)) {
     New-Item -ItemType Directory -Path $BuildDir | Out-Null
 }
@@ -18,14 +42,25 @@ if (-not (Test-Path $BuildDir)) {
 Push-Location $BuildDir
 try {
     $toolchain = Join-Path $VcpkgRoot "scripts\buildsystems\vcpkg.cmake"
-  cmake -A x64 `
-    -DCMAKE_BUILD_TYPE=Release `
-    -DTD_ENABLE_LTO=OFF `
-    -DCMAKE_TOOLCHAIN_FILE="$toolchain" `
-    -DCMAKE_INSTALL_PREFIX="$BuildDir\install" `
-    ..
 
-  cmake --build . --config Release --target install --parallel
+    cmake -A x64 `
+        -DCMAKE_BUILD_TYPE=Release `
+        -DTD_ENABLE_LTO=OFF `
+        -DCMAKE_TOOLCHAIN_FILE="$toolchain" `
+        -DVCPKG_MANIFEST_DIR="$RootDir" `
+        -DVCPKG_INSTALLED_DIR="$VcpkgInstalledDir" `
+        -DCMAKE_PREFIX_PATH="$PrefixPath" `
+        -DOPENSSL_ROOT_DIR="$PrefixPath" `
+        -DCMAKE_INSTALL_PREFIX="$BuildDir\install" `
+        ..
+    if ($LASTEXITCODE -ne 0) {
+        throw "cmake configure failed with exit code $LASTEXITCODE"
+    }
+
+    cmake --build . --config Release --target install --parallel
+    if ($LASTEXITCODE -ne 0) {
+        throw "cmake build failed with exit code $LASTEXITCODE"
+    }
 }
 finally {
     Pop-Location
