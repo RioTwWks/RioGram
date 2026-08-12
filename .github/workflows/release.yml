@@ -97,7 +97,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Setup vcpkg (OpenSSL)
+      - name: Setup vcpkg (OpenSSL + zlib)
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: c76c06644034521fb761a39f8f52d8e87d1103d5
