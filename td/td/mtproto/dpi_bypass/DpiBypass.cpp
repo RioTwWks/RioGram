@@ -12,6 +12,11 @@ namespace mtproto {
 namespace dpi_bypass {
 
 BrowserProfile pick_random_profile() {
+  if (kDpiBypassStableProxyMode) {
+    // DPI_BYPASS: фиксированный Chrome для стабильного Fake TLS handshake с прокси.
+    return BrowserProfile::Chrome;
+  }
+
   // DPI_BYPASS: случайный выбор профиля при каждом подключении.
   switch (Random::fast(0, 3)) {
     case 0:
@@ -31,7 +36,12 @@ std::vector<string> fragment_client_hello(Slice packet, size_t min_parts, size_t
     return result;
   }
 
-  if (packet.size() < 64 || min_parts <= 1) {
+  if (kDpiBypassStableProxyMode || min_parts <= 1) {
+    result.emplace_back(packet.str());
+    return result;
+  }
+
+  if (packet.size() < 64) {
     result.emplace_back(packet.str());
     return result;
   }

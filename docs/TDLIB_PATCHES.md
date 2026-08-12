@@ -4,8 +4,23 @@
 
 ## Новые файлы
 
-- `td/td/mtproto/dpi_bypass/DpiBypass.h` — API модуля
+- `td/td/mtproto/dpi_bypass/DpiBypass.h` — API модуля, флаг `kDpiBypassStableProxyMode`
 - `td/td/mtproto/dpi_bypass/DpiBypass.cpp` — фрагментация, DRS, выбор профиля
+
+### Режим `kDpiBypassStableProxyMode`
+
+В `DpiBypass.h`:
+
+```cpp
+constexpr bool kDpiBypassStableProxyMode = true;
+```
+
+| Значение | Поведение |
+|----------|-----------|
+| `true` | Только Chrome; ClientHello одним TCP-сегментом (совместимость с PhantomProxy testclient) |
+| `false` | Случайный профиль + фрагментация ClientHello (полный DPI bypass) |
+
+См. [PROXY.md](PROXY.md).
 
 ## Изменённые файлы
 
