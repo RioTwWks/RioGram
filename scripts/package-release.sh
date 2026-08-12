@@ -18,8 +18,8 @@ case "${PLATFORM}" in
     tar -czf "${OUT_DIR}/${NAME}-linux-x64.tar.gz" -C build/linux/x64/release/bundle .
     ;;
   macos)
-    zip -qr "${OUT_DIR}/${NAME}-macos-arm64.zip" \
-      -C "${ROOT_DIR}/build/macos/Build/Products/Release" riogram.app
+    (cd "${ROOT_DIR}/build/macos/Build/Products/Release" && \
+      zip -qr "${OUT_DIR}/${NAME}-macos-arm64.zip" riogram.app)
     ;;
   android)
     if [[ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]]; then
@@ -43,8 +43,8 @@ case "${PLATFORM}" in
     if compgen -G "${ROOT_DIR}/build/ios/ipa/"*.ipa > /dev/null; then
       cp "${ROOT_DIR}"/build/ios/ipa/*.ipa "${OUT_DIR}/${NAME}-ios.ipa"
     elif [[ -d "${ROOT_DIR}/build/ios/iphoneos/Runner.app" ]]; then
-      zip -qr "${OUT_DIR}/${NAME}-ios-unsigned.zip" \
-        -C "${ROOT_DIR}/build/ios/iphoneos" Runner.app
+      (cd "${ROOT_DIR}/build/ios/iphoneos" && \
+        zip -qr "${OUT_DIR}/${NAME}-ios-unsigned.zip" Runner.app)
     else
       echo "package-release.sh: iOS артефакт не найден (ни .ipa, ни Runner.app)"
       exit 1
