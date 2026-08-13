@@ -774,14 +774,13 @@ ActorOwn<> ConnectionCreator::prepare_connection(IPAddress ip_address, SocketFd 
      public:
       TransportTlsCallback(Promise<ConnectionData> promise, IPAddress ip_address,
                            unique_ptr<mtproto::RawConnection::StatsCallback> stats_callback, bool use_connection_token,
-                           string domain, string secret, ActorShared<> parent)
+                           string domain, string secret)
           : promise_(std::move(promise))
           , ip_address_(std::move(ip_address))
           , stats_callback_(std::move(stats_callback))
           , use_connection_token_(use_connection_token)
           , domain_(std::move(domain))
-          , secret_(std::move(secret))
-          , parent_(std::move(parent)) {
+          , secret_(std::move(secret)) {
       }
       void set_result(Result<BufferedFd<SocketFd>> r_buffered_socket_fd) final {
         if (r_buffered_socket_fd.is_error()) {
@@ -791,11 +790,12 @@ ActorOwn<> ConnectionCreator::prepare_connection(IPAddress ip_address, SocketFd 
           promise_.set_error(400, r_buffered_socket_fd.error().public_message());
           return;
         }
-        auto tls_callback = make_unique<TlsFinishCallback>(std::move(promise_), ip_address_, std::move(stats_callback_),
-                                                           use_connection_token_);
+        auto tls_callback = td::make_unique<TlsFinishCallback>(std::move(promise_), ip_address_, std::move(stats_callback_),
+                                                               use_connection_token_);
+        auto buffered_fd = r_buffered_socket_fd.move_as_ok();
         tls_child_ = create_actor<mtproto::TlsInit>(
-            "TlsInit", std::move(r_buffered_socket_fd.move_as_ok()), domain_, secret_, std::move(tls_callback),
-            parent_, G()->get_dns_time_difference());
+            "TlsInit", static_cast<SocketFd &&>(std::move(buffered_fd)), domain_, secret_, std::move(tls_callback),
+            ActorShared<>(), G()->get_dns_time_difference());
       }
       void on_connected() final {
       }
@@ -807,13 +807,12 @@ ActorOwn<> ConnectionCreator::prepare_connection(IPAddress ip_address, SocketFd 
       bool use_connection_token_{false};
       string domain_;
       string secret_;
-      ActorShared<> parent_;
       ActorOwn<> tls_child_;
     };
 
-    auto callback = make_unique<TransportTlsCallback>(
+    auto callback = td::make_unique<TransportTlsCallback>(
         std::move(promise), mtproto_ip_address, std::move(stats_callback), use_connection_token,
-        transport_type.secret.get_domain(), transport_type.secret.get_proxy_secret().str(), parent);
+        transport_type.secret.get_domain(), transport_type.secret.get_proxy_secret().str());
     if (transport_proxy.use_socks5_proxy()) {
       return ActorOwn<>(create_actor<Socks5>(PSLICE() << actor_name_prefix << "Socks5", std::move(socket_fd),
                                              mtproto_ip_address, transport_proxy.user().str(),
