@@ -1,6 +1,7 @@
 #include "system_proxy_plugin.h"
 
 #include <gio/gio.h>
+
 #include <cstring>
 
 namespace {
@@ -9,60 +10,67 @@ constexpr char kChannelName[] = "com.riotwwks.riogram/system_proxy";
 
 FlMethodChannel* g_channel = nullptr;
 
+bool IsSocksScheme(const char* scheme) {
+  return scheme != nullptr &&
+         (g_strcmp0(scheme, "socks5") == 0 || g_strcmp0(scheme, "socks") == 0 ||
+          g_strcmp0(scheme, "socks4") == 0);
+}
+
+guint DefaultPortForScheme(const char* scheme) {
+  return IsSocksScheme(scheme) ? 1080 : 8080;
+}
+
 bool ParseProxyUri(const char* uri, gchar** host, guint* port, gchar** type) {
   if (uri == nullptr || host == nullptr || port == nullptr || type == nullptr) {
     return false;
   }
 
-  gchar* scheme = nullptr;
-  gchar* userinfo = nullptr;
-  gchar* hostname = nullptr;
-  gchar* port_str = nullptr;
-  gchar* path = nullptr;
-  GError* error = nullptr;
+  g_autofree gchar* scheme = nullptr;
+  g_autofree gchar* authority = nullptr;
 
-  if (!g_uri_split_network(uri, G_URI_FLAGS_NONE, &scheme, &userinfo, &hostname,
-                         &port_str, &path, &error)) {
-    g_clear_error(&error);
-    return false;
-  }
-
-  *host = hostname;
-  if (port_str != nullptr && port_str[0] != '\0') {
-    *port = static_cast<guint>(g_ascii_strtoll(port_str, nullptr, 10));
-  } else if (scheme != nullptr &&
-             (g_strcmp0(scheme, "socks5") == 0 || g_strcmp0(scheme, "socks") == 0 ||
-              g_strcmp0(scheme, "socks4") == 0)) {
-    *port = 1080;
+  const char* rest = uri;
+  const char* scheme_end = strstr(uri, "://");
+  if (scheme_end != nullptr) {
+    scheme = g_strndup(uri, static_cast<gsize>(scheme_end - uri));
+    rest = scheme_end + 3;
   } else {
-    *port = 8080;
+    scheme = g_strdup("http");
   }
 
-  if (scheme != nullptr &&
-      (g_strcmp0(scheme, "socks5") == 0 || g_strcmp0(scheme, "socks") == 0 ||
-       g_strcmp0(scheme, "socks4") == 0)) {
-    *type = g_strdup("socks5");
+  const char* slash = strchr(rest, '/');
+  if (slash != nullptr) {
+    authority = g_strndup(rest, static_cast<gsize>(slash - rest));
   } else {
-    *type = g_strdup("http");
+    authority = g_strdup(rest);
   }
 
-  g_free(scheme);
-  g_free(userinfo);
-  g_free(port_str);
-  g_free(path);
+  const char* at = strrchr(authority, '@');
+  const char* host_port = at != nullptr ? at + 1 : authority;
+
+  const char* colon = strrchr(host_port, ':');
+  if (colon != nullptr && colon > host_port) {
+    *host = g_strndup(host_port, static_cast<gsize>(colon - host_port));
+    *port = static_cast<guint>(g_ascii_strtoull(colon + 1, nullptr, 10));
+  } else {
+    *host = g_strdup(host_port);
+    *port = DefaultPortForScheme(scheme);
+  }
+
+  if (*port == 0) {
+    *port = DefaultPortForScheme(scheme);
+  }
+
+  *type = g_strdup(IsSocksScheme(scheme) ? "socks5" : "http");
   return *host != nullptr && (*host)[0] != '\0' && *port > 0;
 }
 
-FlValue* BuildProxyMap(const gchar* host, guint port, const gchar* type,
-                       const gchar* username, const gchar* password) {
+FlValue* BuildProxyMap(const gchar* host, guint port, const gchar* type) {
   g_autoptr(FlValue) result = fl_value_new_map();
   fl_value_set_string_take(result, "host", fl_value_new_string(host));
   fl_value_set_string_take(result, "port", fl_value_new_int(static_cast<int64_t>(port)));
   fl_value_set_string_take(result, "type", fl_value_new_string(type));
-  fl_value_set_string_take(result, "username",
-                           fl_value_new_string(username != nullptr ? username : ""));
-  fl_value_set_string_take(result, "password",
-                           fl_value_new_string(password != nullptr ? password : ""));
+  fl_value_set_string_take(result, "username", fl_value_new_string(""));
+  fl_value_set_string_take(result, "password", fl_value_new_string(""));
   return fl_value_ref(result);
 }
 
@@ -74,7 +82,7 @@ FlValue* LookupSystemProxy() {
   }
 
   gchar** proxies =
-      g_proxy_resolver_lookup_sync(resolver, "https://telegram.org", nullptr, nullptr, &error);
+      g_proxy_resolver_lookup(resolver, "https://telegram.org", nullptr, &error);
   if (proxies == nullptr) {
     return nullptr;
   }
@@ -92,31 +100,9 @@ FlValue* LookupSystemProxy() {
       continue;
     }
 
-    gchar* username = nullptr;
-    gchar* password = nullptr;
-    g_autoptr(GUri) uri = g_uri_parse(*iter, G_URI_FLAGS_NONE, &error);
-    g_clear_error(&error);
-    if (uri != nullptr) {
-      const gchar* userinfo = g_uri_get_userinfo(uri);
-      if (userinfo != nullptr && userinfo[0] != '\0') {
-        gchar** parts = g_strsplit(userinfo, ":", 2);
-        if (parts != nullptr) {
-          if (parts[0] != nullptr) {
-            username = g_uri_unescape_string(parts[0], nullptr);
-          }
-          if (parts[1] != nullptr) {
-            password = g_uri_unescape_string(parts[1], nullptr);
-          }
-          g_strfreev(parts);
-        }
-      }
-    }
-
-    result = BuildProxyMap(host, port, type, username, password);
+    result = BuildProxyMap(host, port, type);
     g_free(host);
     g_free(type);
-    g_free(username);
-    g_free(password);
     break;
   }
 
