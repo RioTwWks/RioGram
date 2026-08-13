@@ -15,7 +15,14 @@ NAME="RioGram-${VERSION}"
 
 case "${PLATFORM}" in
   linux)
-    tar -czf "${OUT_DIR}/${NAME}-linux-x64.tar.gz" -C build/linux/x64/release/bundle .
+    bundle_dir="build/linux/x64/release/bundle"
+    top_dir="${NAME}-linux-x64"
+    if tar --help 2>&1 | grep -q one-top-level; then
+      tar --one-top-level="${top_dir}" -czf "${OUT_DIR}/${NAME}-linux-x64.tar.gz" \
+        -C "${bundle_dir}" .
+    else
+      tar -czf "${OUT_DIR}/${NAME}-linux-x64.tar.gz" -C "${bundle_dir}" .
+    fi
     ;;
   macos)
     (cd "${ROOT_DIR}/build/macos/Build/Products/Release" && \

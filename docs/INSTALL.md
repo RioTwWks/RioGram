@@ -7,26 +7,25 @@
 ## Linux
 
 1. Скачайте `RioGram-X.Y.Z-linux-x64.tar.gz`
-2. Распакуйте:
+2. Распакуйте (создаётся каталог `RioGram-X.Y.Z-linux-x64/`):
    ```bash
-   mkdir -p ~/Apps/RioGram && tar -xzf RioGram-*.tar.gz -C ~/Apps/RioGram
+   tar -xzf RioGram-*.tar.gz
    ```
+   Если используете `-C <каталог>`, **сначала создайте** его: `mkdir -p riogram`
 3. Запустите:
    ```bash
-   ~/Apps/RioGram/riogram
+   ./RioGram-*/riogram
    ```
 
-При необходимости создайте `.desktop`-файл для меню приложений.
-
-**Зависимости:** GTK 3 (обычно уже установлен в Ubuntu/Fedora).
+**Требования:** glibc x86_64 (Ubuntu/Debian/Fedora), GTK 3. Alpine/musl не поддерживается.
 
 ---
 
 ## Windows
 
 1. Скачайте `RioGram-X.Y.Z-windows-x64.zip`
-2. Распакуйте в `C:\Program Files\RioGram\` (или любую папку)
-3. Запустите `riogram.exe`
+2. Распакуйте в любую папку (например `C:\RioGram\`)
+3. Запустите `riogram.exe` **из этой папки** (рядом должны лежать `tdjson.dll`, `libssl-3-x64.dll`, `libcrypto-3-x64.dll`, `zlib1.dll`)
 
 При предупреждении SmartScreen: «Подробнее» → «Выполнить в любом случае» (сборка пока без код-подписи).
 
@@ -49,6 +48,8 @@
 3. Установите APK
 
 Для Google Play используется `.aab` — только для публикации в магазин.
+
+> **Важно:** в релизных APK прокси (`PROXY_PHANTOM_*`, `PROXY_STEALTH_*`) и API-ключи **вшиты при сборке** из GitHub Secrets. Для работы клиента VPS с PhantomProxy/StealthGate должны быть запущены. Свои прокси — только через пересборку APK ([BUILD.md](BUILD.md)).
 
 ---
 
