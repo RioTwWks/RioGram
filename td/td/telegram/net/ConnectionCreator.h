@@ -110,6 +110,13 @@ class ConnectionCreator final : public NetQueryCallback {
   uint64 resolve_proxy_query_token_{0};
   uint64 resolve_transport_proxy_query_token_{0};
 
+  struct PendingPingProxyRequest {
+    Proxy proxy;
+    IPAddress ip_address;
+    Promise<double> promise;
+  };
+  std::vector<PendingPingProxyRequest> pending_ping_proxy_requests_;
+
   struct ClientInfo {
     class Backoff {
 #if TD_ANDROID || TD_DARWIN_IOS || TD_DARWIN_VISION_OS || TD_DARWIN_WATCH_OS || TD_TIZEN
@@ -232,6 +239,7 @@ class ConnectionCreator final : public NetQueryCallback {
 
   void update_transport_proxy_id(int32 proxy_id, Slice comment);
   void on_transport_proxy_resolved(Result<IPAddress> r_ip_address);
+  void flush_pending_ping_proxy_requests();
   void on_proxy_resolved(Result<IPAddress> r_ip_address, bool dummy);
 
   struct FindConnectionExtra {

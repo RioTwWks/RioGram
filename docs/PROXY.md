@@ -56,9 +56,12 @@ MAGIC "SGFB" | VERSION | SHA256(auth_token) | secret_mode | backend | initial_da
 
 Если в ОС настроен прокси (корпоративная сеть, VPN), RioGram определяет его автоматически:
 
-1. **Переменные окружения** — `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` (Linux/Windows/macOS)
-2. **GNOME** — `gsettings org.gnome.system.proxy` (Linux desktop)
-3. **Android** — `http.proxyHost` / `http_proxy` (Wi‑Fi proxy)
+1. **Linux (GProxyResolver)** — `GProxyResolver` через native plugin (GNOME, KDE, NetworkManager)
+2. **Переменные окружения** — `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` (Linux/Windows/macOS)
+3. **`/etc/environment`** — systemd/login-сессии без экспорта в shell
+4. **GNOME** — `gsettings org.gnome.system.proxy` (fallback)
+5. **KDE** — `kreadconfig5 kioslaverc` (fallback)
+6. **Android** — `http.proxyHost` / `http_proxy` (Wi‑Fi proxy)
 
 Поведение:
 

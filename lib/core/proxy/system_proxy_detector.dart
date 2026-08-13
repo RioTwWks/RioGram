@@ -16,18 +16,52 @@ class SystemProxyDetector {
   static Future<SystemProxyConfig?> detect() async {
     final fromPlatform = await _readPlatformProxy();
     if (fromPlatform != null) {
+      debugPrint(
+        'SystemProxyDetector: platform ${fromPlatform.type.name} '
+        '${fromPlatform.host}:${fromPlatform.port}',
+      );
       return fromPlatform;
     }
 
     final fromEnv = _readEnvironmentProxy();
     if (fromEnv != null) {
+      debugPrint(
+        'SystemProxyDetector: env ${fromEnv.type.name} '
+        '${fromEnv.host}:${fromEnv.port}',
+      );
       return fromEnv;
     }
 
     if (!kIsWeb && Platform.isLinux) {
-      return _readGnomeProxy();
+      final fromEtc = await _readEtcEnvironmentProxy();
+      if (fromEtc != null) {
+        debugPrint(
+          'SystemProxyDetector: /etc/environment ${fromEtc.type.name} '
+          '${fromEtc.host}:${fromEtc.port}',
+        );
+        return fromEtc;
+      }
+
+      final fromKde = await _readKdeProxy();
+      if (fromKde != null) {
+        debugPrint(
+          'SystemProxyDetector: KDE ${fromKde.type.name} '
+          '${fromKde.host}:${fromKde.port}',
+        );
+        return fromKde;
+      }
+
+      final fromGnome = await _readGnomeProxy();
+      if (fromGnome != null) {
+        debugPrint(
+          'SystemProxyDetector: GNOME ${fromGnome.type.name} '
+          '${fromGnome.host}:${fromGnome.port}',
+        );
+        return fromGnome;
+      }
     }
 
+    debugPrint('SystemProxyDetector: системный прокси не найден');
     return null;
   }
 
@@ -78,6 +112,112 @@ class SystemProxyDetector {
           return parsed;
         }
       }
+    }
+    return null;
+  }
+
+  static Future<SystemProxyConfig?> _readEtcEnvironmentProxy() async {
+    try {
+      final file = File('/etc/environment');
+      if (!await file.exists()) {
+        return null;
+      }
+      final lines = await file.readAsLines();
+      final values = <String, String>{};
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty || trimmed.startsWith('#')) {
+          continue;
+        }
+        final eq = trimmed.indexOf('=');
+        if (eq <= 0) {
+          continue;
+        }
+        var key = trimmed.substring(0, eq).trim();
+        var value = trimmed.substring(eq + 1).trim();
+        if (value.length >= 2 &&
+            ((value.startsWith('"') && value.endsWith('"')) ||
+                (value.startsWith("'") && value.endsWith("'")))) {
+          value = value.substring(1, value.length - 1);
+        }
+        values[key] = value;
+      }
+
+      const keys = [
+        'HTTPS_PROXY',
+        'https_proxy',
+        'HTTP_PROXY',
+        'http_proxy',
+        'ALL_PROXY',
+        'all_proxy',
+      ];
+      for (final key in keys) {
+        final value = values[key];
+        if (value != null && value.isNotEmpty) {
+          final parsed = _parseProxyUrl(value);
+          if (parsed != null) {
+            return parsed;
+          }
+        }
+      }
+    } catch (error) {
+      debugPrint('SystemProxyDetector: /etc/environment error: $error');
+    }
+    return null;
+  }
+
+  static Future<SystemProxyConfig?> _readKdeProxy() async {
+    try {
+      final type = await Process.run('kreadconfig5', [
+        '--file',
+        'kioslaverc',
+        '--group',
+        'Proxy Settings',
+        '--key',
+        'ProxyType',
+      ]);
+      if (type.exitCode != 0) {
+        return null;
+      }
+      final proxyType = int.tryParse((type.stdout as String).trim());
+      if (proxyType != 1) {
+        return null;
+      }
+
+      final socks = await Process.run('kreadconfig5', [
+        '--file',
+        'kioslaverc',
+        '--group',
+        'Proxy Settings',
+        '--key',
+        'socksProxy',
+      ]);
+      if (socks.exitCode == 0) {
+        final socksValue = (socks.stdout as String).trim();
+        if (socksValue.isNotEmpty && socksValue != '/') {
+          final parsed = _parseProxyUrl(socksValue);
+          if (parsed != null) {
+            return parsed.copyWith(type: SystemProxyType.socks5);
+          }
+        }
+      }
+
+      final http = await Process.run('kreadconfig5', [
+        '--file',
+        'kioslaverc',
+        '--group',
+        'Proxy Settings',
+        '--key',
+        'httpProxy',
+      ]);
+      if (http.exitCode == 0) {
+        final httpValue = (http.stdout as String).trim();
+        if (httpValue.isNotEmpty && httpValue != '/') {
+          return _parseProxyUrl(httpValue);
+        }
+      }
+    } catch (error) {
+      debugPrint('SystemProxyDetector: KDE error: $error');
     }
     return null;
   }

@@ -162,10 +162,15 @@ class AuthManager extends ChangeNotifier {
       }
       _isAuthRequestInProgress = false;
       _phase = AuthPhase.error;
+      final proxyManager = _proxyManager;
+      final systemProxy = proxyManager?.systemProxy;
+      final systemHint = systemProxy != null && systemProxy.isConfigured
+          ? ' Системный прокси: ${systemProxy.host}:${systemProxy.port}.'
+          : '';
       _errorMessage =
-          'Таймаут запроса (${authRequestTimeout.inSeconds} с). '
-          'Проверьте, что PhantomProxy/StealthGate запущены на VPS и доступны '
-          'по адресам из .env (в релизных сборках они вшиты при сборке).';
+          'Таймаут запроса (${authRequestTimeout.inSeconds} с).$systemHint '
+          'Проверьте PhantomProxy/StealthGate на VPS и доступность портов '
+          '15443/14443 (в релизе — адреса из .env).';
       notifyListeners();
     });
   }

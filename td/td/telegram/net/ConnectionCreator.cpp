@@ -354,6 +354,13 @@ void ConnectionCreator::ping_proxy_resolved(Proxy &&proxy, IPAddress ip_address,
   FindConnectionExtra extra;
   auto r_socket_fd = find_connection(proxy, ip_address, main_dc_id, false, extra);
   if (r_socket_fd.is_error()) {
+    if (transport_proxy_id_ != 0 && !transport_proxy_ip_address_.is_valid() &&
+        r_socket_fd.error().message() == "Transport proxy is not resolved yet") {
+      pending_ping_proxy_requests_.push_back(
+          PendingPingProxyRequest{std::move(proxy), ip_address, std::move(promise)});
+      loop();
+      return;
+    }
     return promise.set_error(400, r_socket_fd.error().public_message());
   }
   auto socket_fd = r_socket_fd.move_as_ok();
@@ -687,7 +694,10 @@ Result<SocketFd> ConnectionCreator::find_connection(const Proxy &proxy, const IP
                               << (info.use_http ? " over HTTP" : "");
 
   if (proxy.use_mtproto_proxy()) {
-    if (transport_proxy_id_ != 0 && transport_proxy_ip_address_.is_valid()) {
+    if (transport_proxy_id_ != 0) {
+      if (!transport_proxy_ip_address_.is_valid()) {
+        return Status::Error(400, "Transport proxy is not resolved yet");
+      }
       const auto &transport_proxy = proxies_[transport_proxy_id_].first;
       extra.transport_proxy = transport_proxy;
       extra.use_transport_for_mtproto = true;
@@ -1529,8 +1539,20 @@ void ConnectionCreator::on_transport_proxy_resolved(Result<IPAddress> r_ip_addre
   transport_proxy_ip_address_ = r_ip_address.move_as_ok();
   VLOG(connections) << "Set transport proxy IP address to " << transport_proxy_ip_address_;
   resolve_transport_proxy_timestamp_ = Timestamp::in(5 * 60);
+  flush_pending_ping_proxy_requests();
   for (auto &client : clients_) {
     client_loop(client.second);
+  }
+}
+
+void ConnectionCreator::flush_pending_ping_proxy_requests() {
+  if (!transport_proxy_ip_address_.is_valid() || pending_ping_proxy_requests_.empty()) {
+    return;
+  }
+  auto pending = std::move(pending_ping_proxy_requests_);
+  pending_ping_proxy_requests_.clear();
+  for (auto &request : pending) {
+    ping_proxy_resolved(std::move(request.proxy), request.ip_address, std::move(request.promise));
   }
 }
 
