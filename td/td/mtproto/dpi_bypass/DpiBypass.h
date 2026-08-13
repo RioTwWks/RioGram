@@ -13,7 +13,7 @@ namespace mtproto {
 namespace dpi_bypass {
 
 // DPI_BYPASS: режим отладки совместимости с PhantomProxy / StealthGate.
-// true  — только Chrome, ClientHello одним TCP-сегментом (референс: PhantomProxy testclient).
+// true  — Yandex-профиль без ECH, ClientHello одним TCP-сегментом (совместимость с PhantomProxy).
 // false — полный DPI bypass: случайный профиль + фрагментация ClientHello.
 constexpr bool kDpiBypassStableProxyMode = true;
 

@@ -55,7 +55,8 @@ class AppConfig {
     return ProxyConfig(
       name: name,
       host: host,
-      port: int.tryParse(dotenv.maybeGet(portKey) ?? '443') ?? 443,
+      port: int.tryParse(dotenv.maybeGet(portKey) ?? (name == 'PhantomProxy' ? '15443' : '14443')) ??
+          (name == 'PhantomProxy' ? 15443 : 14443),
       secret: dotenv.maybeGet(secretKey) ?? '',
     );
   }

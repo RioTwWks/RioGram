@@ -62,8 +62,6 @@ class AuthManager extends ChangeNotifier {
 
         final proxyManager = _proxyManager;
         if (proxyManager != null) {
-          // Блокируем исходящие соединения, пока не включён MTProto-прокси.
-          _client.setNetworkEnabled(false);
           await proxyManager.setupProxies();
           if (!proxyManager.hasActiveProxy) {
             throw StateError(
@@ -71,7 +69,6 @@ class AuthManager extends ChangeNotifier {
                   'Прокси недоступен. Проверьте VPS, порт и secret в .env',
             );
           }
-          _client.setNetworkEnabled(true);
         }
 
         final authReady = _waitForAuthorizationState(

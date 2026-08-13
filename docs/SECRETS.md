@@ -34,10 +34,10 @@
 | `TELEGRAM_API_ID` | Да (release) | Числовой `api_id` с [my.telegram.org/apps](https://my.telegram.org/apps) |
 | `TELEGRAM_API_HASH` | Да (release) | `api_hash` |
 | `PROXY_PHANTOM_HOST` | Нет | Хост PhantomProxy |
-| `PROXY_PHANTOM_PORT` | Нет | Порт (по умолчанию 443) |
-| `PROXY_PHANTOM_SECRET` | Нет | Секрет MTProto |
+| `PROXY_PHANTOM_PORT` | Нет | Порт (по умолчанию **15443**) |
+| `PROXY_PHANTOM_SECRET` | Нет | Секрет MTProto (`ee` + ключ + домен в hex) |
 | `PROXY_STEALTH_HOST` | Нет | Хост StealthGate Front |
-| `PROXY_STEALTH_PORT` | Нет | Порт (по умолчанию 443) |
+| `PROXY_STEALTH_PORT` | Нет | Порт (по умолчанию **14443**) |
 | `PROXY_STEALTH_SECRET` | Нет | Секрет StealthGate |
 
 ### Подпись мобильных сборок (Release)
