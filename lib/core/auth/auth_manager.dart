@@ -61,12 +61,9 @@ class AuthManager extends ChangeNotifier {
         await _client.configure(_config);
 
         final proxyManager = _proxyManager;
-        final authReady = _waitForAuthorizationState(
-          'authorizationStateWaitPhoneNumber',
-          timeout: initTimeout,
-        );
-
         if (proxyManager != null) {
+          // Блокируем исходящие соединения, пока не включён MTProto-прокси.
+          _client.setNetworkEnabled(false);
           await proxyManager.setupProxies();
           if (!proxyManager.hasActiveProxy) {
             throw StateError(
@@ -74,7 +71,13 @@ class AuthManager extends ChangeNotifier {
                   'Прокси недоступен. Проверьте VPS, порт и secret в .env',
             );
           }
+          _client.setNetworkEnabled(true);
         }
+
+        final authReady = _waitForAuthorizationState(
+          'authorizationStateWaitPhoneNumber',
+          timeout: initTimeout,
+        );
 
         // Состояние могло прийти во время setupProxies — тогда _phase уже обновлён.
         final isReady = _phase == AuthPhase.waitPhoneNumber ||

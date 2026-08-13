@@ -17,7 +17,10 @@
    ./RioGram-*/riogram
    ```
 
-**Требования:** glibc x86_64 (Ubuntu/Debian/Fedora), GTK 3. Alpine/musl не поддерживается.
+**Требования:** glibc x86_64, GTK 3, **GLib ≥ 2.72** (Ubuntu 22.04+, Astra Linux 1.8+, Debian 12+).  
+Сборки с `ubuntu-latest` (GLib 2.80+) не запустятся на дистрибутивах со старым GLib — нужен релиз, собранный на Ubuntu 22.04.
+
+Проверка GLib: `pkg-config --modversion glib-2.0`
 
 ---
 
@@ -49,7 +52,7 @@
 
 Для Google Play используется `.aab` — только для публикации в магазин.
 
-> **Важно:** в релизных APK прокси (`PROXY_PHANTOM_*`, `PROXY_STEALTH_*`) и API-ключи **вшиты при сборке** из GitHub Secrets. Для работы клиента VPS с PhantomProxy/StealthGate должны быть запущены. Свои прокси — только через пересборку APK ([BUILD.md](BUILD.md)).
+> **Важно:** в релизных APK прокси и API-ключи **вшиты при сборке**. Для работы нужен доступ в интернет (разрешение `INTERNET` в манифесте) и запущенный PhantomProxy/StealthGate на VPS из `.env`. Свои прокси — только через пересборку ([BUILD.md](BUILD.md)).
 
 ---
 
