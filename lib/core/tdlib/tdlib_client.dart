@@ -48,6 +48,16 @@ class TdlibClient {
     _startReceiveLoop();
   }
 
+  /// Включает или отключает сетевую активность TDLib (до настройки прокси — off).
+  void setNetworkEnabled(bool enabled) {
+    send({
+      '@type': 'setNetworkType',
+      'type': {
+        '@type': enabled ? 'networkTypeOther' : 'networkTypeNone',
+      },
+    });
+  }
+
   /// Отправляет параметры TDLib. Вызывать после подписки на [updates].
   Future<void> configure(AppConfig config) async {
     if (_client == null) {

@@ -32,7 +32,9 @@ env:
 jobs:
   build-linux:
     name: Linux x64
-    runs-on: ubuntu-latest
+    # ubuntu-22.04: бинарник совместим с GLib 2.72 (22.04 LTS, Astra и др.).
+    # ubuntu-latest (24.04) тянет GLib 2.80+ → symbol g_once_init_enter_pointer.
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4

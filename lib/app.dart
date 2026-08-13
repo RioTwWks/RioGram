@@ -70,7 +70,8 @@ class _AppScopeState extends State<_AppScope> {
     _notificationService = NotificationService()..init();
 
     final hasProxies =
-        widget.config.phantomProxy != null || widget.config.stealthProxy != null;
+        widget.config.phantomProxy?.isConfigured == true ||
+        widget.config.stealthProxy?.isConfigured == true;
     if (hasProxies) {
       _proxyManager = ProxyManager(client: _client, config: widget.config);
     }
