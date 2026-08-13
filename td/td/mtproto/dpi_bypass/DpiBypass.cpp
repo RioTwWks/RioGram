@@ -13,8 +13,9 @@ namespace dpi_bypass {
 
 BrowserProfile pick_random_profile() {
   if (kDpiBypassStableProxyMode) {
-    // DPI_BYPASS: фиксированный Chrome для стабильного Fake TLS handshake с прокси.
-    return BrowserProfile::Chrome;
+    // DPI_BYPASS: Yandex-профиль без ECH — PhantomProxy с reject_fronting отклоняет ECH (0xfe0d).
+    // utls HelloChrome_Auto тоже без ECH; наш Chrome-профиль содержит ECH и не подходит.
+    return BrowserProfile::Yandex;
   }
 
   // DPI_BYPASS: случайный выбор профиля при каждом подключении.

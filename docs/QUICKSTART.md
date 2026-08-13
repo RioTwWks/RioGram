@@ -20,11 +20,11 @@ TELEGRAM_API_ID=12345678
 TELEGRAM_API_HASH=your_hash
 
 PROXY_PHANTOM_HOST=178.x.x.x
-PROXY_PHANTOM_PORT=443
+PROXY_PHANTOM_PORT=15443
 PROXY_PHANTOM_SECRET=dd...
 
 PROXY_STEALTH_HOST=185.x.x.x
-PROXY_STEALTH_PORT=443
+PROXY_STEALTH_PORT=14443
 PROXY_STEALTH_SECRET=dd...
 ```
 
@@ -63,5 +63,5 @@ flutter run -d linux    # windows / macos / android
 |----------|---------|
 | `libtdjson не найден` | Соберите TDLib и скопируйте библиотеку |
 | `api_id/api_hash` | Заполните `.env` |
-| Прокси недоступен | Проверьте VPS, секрет, порт 443 |
+| Прокси недоступен | `./scripts/verify-proxy.sh`, порт 15443/14443, секрет с доменом |
 | Все прокси красные | Проверьте StealthGate Front/Back связку |

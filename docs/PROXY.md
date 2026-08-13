@@ -86,11 +86,14 @@ PROXY_PHANTOM_SECRET=ee40197aeb7c14b99661503f76fce2ca67626f6c2e636f6d
 В `td/td/mtproto/dpi_bypass/DpiBypass.h`:
 
 ```cpp
-constexpr bool kDpiBypassStableProxyMode = true;  // Chrome, без фрагментации ClientHello
+constexpr bool kDpiBypassStableProxyMode = true;  // Yandex без ECH, без фрагментации ClientHello
 ```
 
-- `true` (по умолчанию) — стабильный handshake с PhantomProxy/StealthGate.
+- `true` (по умолчанию) — стабильный handshake с PhantomProxy/StealthGate (профиль Yandex, **без ECH**).
 - `false` — полный DPI bypass: случайный профиль (Chrome/Firefox/Yandex/Safari) + фрагментация ClientHello.
+
+> **Важно:** PhantomProxy с политикой `reject_fronting` отклоняет ClientHello с ECH (расширение `0xfe0d`).
+> Профиль Chrome в TDLib содержит ECH и не подходит для stable mode. Используется Yandex-профиль.
 
 После смены флага пересобрать TDLib:
 
@@ -148,6 +151,12 @@ just test-split   # из репозитория StealthGate
 ## Проверка до запуска RioGram
 
 ### 1. TCP и TLS с клиентской машины
+
+```bash
+./scripts/verify-proxy.sh
+```
+
+Или вручную:
 
 ```bash
 nc -vz 37.9.4.136 15443
