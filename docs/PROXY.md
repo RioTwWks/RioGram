@@ -52,6 +52,26 @@ MAGIC "SGFB" | VERSION | SHA256(auth_token) | secret_mode | backend | initial_da
 
 Подробнее: [StealthGate SPLIT.md](https://github.com/RioTwWks/StealthGate/blob/main/docs/SPLIT.md).
 
+### Системный HTTP/SOCKS-прокси
+
+Если в ОС настроен прокси (корпоративная сеть, VPN), RioGram определяет его автоматически:
+
+1. **Переменные окружения** — `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` (Linux/Windows/macOS)
+2. **GNOME** — `gsettings org.gnome.system.proxy` (Linux desktop)
+3. **Android** — `http.proxyHost` / `http_proxy` (Wi‑Fi proxy)
+
+Поведение:
+
+| Сценарий | Что происходит |
+|----------|----------------|
+| Только системный прокси | TDLib подключается к Telegram через HTTP CONNECT / SOCKS5 |
+| Системный + PhantomProxy/StealthGate | Системный прокси — **транспорт** до VPS; MTProto Fake TLS — поверх туннеля |
+| Только MTProto в `.env` | Как раньше, прямое подключение к RU edge |
+
+Транспортный прокси регистрируется с comment `RioGram:Transport` (см. патч TDLib `ConnectionCreator`).
+
+---
+
 ## Handshake клиента (что ожидают прокси)
 
 ```

@@ -6,6 +6,8 @@ import '../../models/proxy_models.dart';
 import '../config/app_config.dart';
 import '../tdlib/tdlib_client.dart';
 import 'proxy_preferences.dart';
+import 'system_proxy_config.dart';
+import 'system_proxy_detector.dart';
 
 export '../../models/proxy_models.dart' show ProxyEntry, ProxyHealth;
 
@@ -57,7 +59,11 @@ class ProxyManager extends ChangeNotifier {
 
   String? get activeProxyName => activeProxy?.name;
 
+  SystemProxyConfig? get systemProxy => _systemProxy;
+
   bool get hasActiveProxy => activeProxy != null && _status == ProxyStatus.active;
+
+  SystemProxyConfig? _systemProxy;
 
   /// Загрузка настроек и регистрация прокси в TDLib.
   Future<void> setupProxies() async {
@@ -65,7 +71,12 @@ class ProxyManager extends ChangeNotifier {
     _proxies.clear();
     _pendingConfigs.clear();
     _configsById.clear();
+    _systemProxy = null;
     _lastError = null;
+
+    _systemProxy = await SystemProxyDetector.detect();
+    final systemProxy = _systemProxy;
+    var expectedRegistrations = 0;
 
     final configs = [
       _config.phantomProxy,
@@ -86,17 +97,41 @@ class ProxyManager extends ChangeNotifier {
           'например google.com в hex: 676f6f676c652e636f6d';
     }
 
+    if (systemProxy != null && systemProxy.isConfigured) {
+      expectedRegistrations++;
+      final isTransportOnly = validConfigs.isNotEmpty;
+      _client.send({
+        '@type': 'addProxy',
+        'proxy': _systemProxyPayload(systemProxy),
+        'enable': false,
+        'comment': isTransportOnly
+            ? SystemProxyConfig.transportComment
+            : 'Системный прокси',
+        '@extra': isTransportOnly ? 'addProxy_Transport' : 'addProxy_System',
+      });
+    }
+
     if (validConfigs.isEmpty) {
-      _status = ProxyStatus.error;
-      if (_lastError == null) {
-        _lastError = 'Нет прокси с корректным secret в .env';
+      if (systemProxy == null || !systemProxy.isConfigured) {
+        _status = ProxyStatus.error;
+        if (_lastError == null) {
+          _lastError = 'Нет прокси с корректным secret в .env и системный прокси не найден';
+        }
+        notifyListeners();
+        return;
       }
+
+      _status = ProxyStatus.unknown;
       notifyListeners();
+      await _waitForProxyRegistration(expectedRegistrations);
+      await _enableSystemProxyOnly();
+      _startHealthChecks();
       return;
     }
 
     _status = ProxyStatus.unknown;
     _pendingConfigs.addAll(validConfigs);
+    expectedRegistrations += validConfigs.length;
     notifyListeners();
 
     for (final proxy in validConfigs) {
@@ -109,9 +144,23 @@ class ProxyManager extends ChangeNotifier {
       });
     }
 
-    await _waitForProxyRegistration(validConfigs.length);
+    await _waitForProxyRegistration(expectedRegistrations);
     await _enableFirstAvailable();
     _startHealthChecks();
+  }
+
+  Future<void> _enableSystemProxyOnly() async {
+    final systemEntry = _proxies.cast<ProxyEntry?>().firstWhere(
+          (proxy) => proxy?.name == 'Системный прокси',
+          orElse: () => null,
+        );
+    if (systemEntry == null) {
+      _status = ProxyStatus.error;
+      _lastError ??= 'Системный прокси не зарегистрирован в TDLib';
+      notifyListeners();
+      return;
+    }
+    await _enableProxy(systemEntry.id);
   }
 
   Future<void> setAutoFailoverEnabled(bool enabled) async {
@@ -277,27 +326,36 @@ class ProxyManager extends ChangeNotifier {
 
     final extra = addedProxy['@extra'] as String?;
     ProxyConfig? config;
-    if (extra != null && extra.startsWith('addProxy_')) {
+    String? displayName;
+    if (extra == 'addProxy_System') {
+      displayName = 'Системный прокси';
+    } else if (extra == 'addProxy_Transport') {
+      displayName = 'Системный прокси (транспорт)';
+    } else if (extra != null && extra.startsWith('addProxy_')) {
       final name = extra.substring('addProxy_'.length);
       final index = _pendingConfigs.indexWhere((item) => item.name == name);
       if (index >= 0) {
         config = _pendingConfigs.removeAt(index);
+        displayName = config.name;
       }
     } else if (_pendingConfigs.isNotEmpty) {
       config = _pendingConfigs.removeAt(0);
+      displayName = config.name;
     }
 
-    if (config == null) {
+    if (displayName == null) {
       return;
     }
 
-    _configsById[id] = config;
+    if (config != null) {
+      _configsById[id] = config;
+    }
     _proxies.add(
       ProxyEntry(
         id: id,
-        name: config.name,
-        host: config.host,
-        port: config.port,
+        name: displayName,
+        host: config?.host ?? _systemProxy?.host ?? '',
+        port: config?.port ?? _systemProxy?.port ?? 0,
       ),
     );
     notifyListeners();
@@ -328,6 +386,26 @@ class ProxyManager extends ChangeNotifier {
     };
   }
 
+  Map<String, dynamic> _systemProxyPayload(SystemProxyConfig proxy) {
+    return {
+      '@type': 'proxy',
+      'server': proxy.host,
+      'port': proxy.port,
+      'type': proxy.type == SystemProxyType.socks5
+          ? {
+              '@type': 'proxyTypeSocks5',
+              'username': proxy.username,
+              'password': proxy.password,
+            }
+          : {
+              '@type': 'proxyTypeHttp',
+              'username': proxy.username,
+              'password': proxy.password,
+              'http_only': false,
+            },
+    };
+  }
+
   Future<void> _waitForProxyRegistration(int expectedCount) async {
     final deadline = DateTime.now().add(const Duration(seconds: 8));
     while (_proxies.length < expectedCount && DateTime.now().isBefore(deadline)) {
@@ -343,15 +421,26 @@ class ProxyManager extends ChangeNotifier {
       return;
     }
 
-    // Сначала включаем первый зарегистрированный прокси — без этого
-    // авторизация в РФ зависает. Ping используем только как health-сигнал.
-    final first = _proxies.first;
+    final mtprotoProxies = _proxies
+        .where(
+          (proxy) =>
+              proxy.name != 'Системный прокси (транспорт)' &&
+              proxy.name != 'Системный прокси',
+        )
+        .toList(growable: false);
+    if (mtprotoProxies.isEmpty) {
+      await _enableSystemProxyOnly();
+      return;
+    }
+
+    // Сначала включаем первый MTProto-прокси — без этого авторизация в РФ зависает.
+    final first = mtprotoProxies.first;
     await _enableProxy(first.id);
 
     final ping = await pingProxy(first.id);
     if (!ping.ok) {
       debugPrint('ProxyManager: стартовый ping ${first.name}: ${ping.error}');
-      for (final proxy in _proxies.skip(1)) {
+      for (final proxy in mtprotoProxies.skip(1)) {
         final other = await pingProxy(proxy.id);
         if (other.ok) {
           await _enableProxy(proxy.id);

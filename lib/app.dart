@@ -69,12 +69,7 @@ class _AppScopeState extends State<_AppScope> {
     _themeManager = ThemeManager()..load();
     _notificationService = NotificationService()..init();
 
-    final hasProxies =
-        widget.config.phantomProxy?.isConfigured == true ||
-        widget.config.stealthProxy?.isConfigured == true;
-    if (hasProxies) {
-      _proxyManager = ProxyManager(client: _client, config: widget.config);
-    }
+    _proxyManager = ProxyManager(client: _client, config: widget.config);
 
     _chatManager = ChatManager(
       client: _client,

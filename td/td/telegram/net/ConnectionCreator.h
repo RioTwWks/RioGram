@@ -100,11 +100,15 @@ class ConnectionCreator final : public NetQueryCallback {
   FlatHashMap<int32, int32> proxy_last_used_saved_date_;
   int32 max_proxy_id_ = 0;
   int32 active_proxy_id_ = 0;
+  int32 transport_proxy_id_ = 0;
   ActorOwn<GetHostByNameActor> get_host_by_name_actor_;
   ActorOwn<GetHostByNameActor> block_get_host_by_name_actor_;
   IPAddress proxy_ip_address_;
+  IPAddress transport_proxy_ip_address_;
   Timestamp resolve_proxy_timestamp_;
+  Timestamp resolve_transport_proxy_timestamp_;
   uint64 resolve_proxy_query_token_{0};
+  uint64 resolve_transport_proxy_query_token_{0};
 
   struct ClientInfo {
     class Backoff {
@@ -226,7 +230,9 @@ class ConnectionCreator final : public NetQueryCallback {
                              uint64 auth_data_generation, uint64 session_id);
   void client_set_timeout_at(ClientInfo &client, double wakeup_at);
 
-  void on_proxy_resolved(Result<IPAddress> ip_address, bool dummy);
+  void update_transport_proxy_id(int32 proxy_id, Slice comment);
+  void on_transport_proxy_resolved(Result<IPAddress> r_ip_address);
+  void on_proxy_resolved(Result<IPAddress> r_ip_address, bool dummy);
 
   struct FindConnectionExtra {
     DcOptionsSet::Stat *stat{nullptr};
@@ -234,6 +240,8 @@ class ConnectionCreator final : public NetQueryCallback {
     string debug_str;
     IPAddress ip_address;
     IPAddress mtproto_ip_address;
+    Proxy transport_proxy;
+    bool use_transport_for_mtproto{false};
     bool check_mode{false};
   };
   Result<SocketFd> find_connection(const Proxy &proxy, const IPAddress &proxy_ip_address, DcId dc_id,
@@ -250,7 +258,7 @@ class ConnectionCreator final : public NetQueryCallback {
                                        Slice debug_str,
                                        unique_ptr<mtproto::RawConnection::StatsCallback> stats_callback,
                                        ActorShared<> parent, bool use_connection_token,
-                                       Promise<ConnectionData> promise);
+                                       Promise<ConnectionData> promise, const Proxy &transport_proxy = Proxy());
 
   ActorId<GetHostByNameActor> get_dns_resolver();
 
