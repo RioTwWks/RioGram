@@ -8,6 +8,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_DIR="${TD_INSTALL_DIR:-${ROOT_DIR}/td/build/install}"
 # shellcheck source=lib/file-copy.sh
 source "${ROOT_DIR}/scripts/lib/file-copy.sh"
+# shellcheck source=lib/vcpkg-runtime.sh
+source "${ROOT_DIR}/scripts/lib/vcpkg-runtime.sh"
 
 copy_linux() {
   copy_into "${INSTALL_DIR}/lib/libtdjson.so" "${ROOT_DIR}/linux/runner/libtdjson.so"
@@ -19,6 +21,19 @@ copy_windows() {
     dll="${INSTALL_DIR}/lib/tdjson.dll"
   fi
   copy_into "${dll}" "${ROOT_DIR}/windows/runner/tdjson.dll"
+
+  local vcpkg_bin
+  if vcpkg_bin="$(resolve_vcpkg_bin_dir "${ROOT_DIR}")" && [[ -d "${vcpkg_bin}" ]]; then
+    shopt -s nullglob
+    for runtime_dll in \
+      "${vcpkg_bin}"/libcrypto*.dll \
+      "${vcpkg_bin}"/libssl*.dll \
+      "${vcpkg_bin}"/zlib*.dll \
+      "${vcpkg_bin}"/z.dll; do
+      copy_into "${runtime_dll}" "${ROOT_DIR}/windows/runner/$(basename "${runtime_dll}")"
+    done
+    shopt -u nullglob
+  fi
 }
 
 copy_macos() {

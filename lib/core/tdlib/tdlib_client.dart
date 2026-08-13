@@ -36,8 +36,9 @@ class TdlibClient {
     _bindings = TdlibBindings.load();
     if (_bindings == null) {
       throw TdlibException(
-        'libtdjson не найден. Соберите TDLib (@build-tdlib) и скопируйте библиотеку '
-        'в каталог runner для вашей платформы.',
+        'libtdjson не найден. Соберите TDLib (@build-tdlib), скопируйте библиотеку '
+        'в каталог runner и (на Windows) положите рядом с exe зависимости vcpkg: '
+        'libssl-3-x64.dll, libcrypto-3-x64.dll, zlib1.dll.',
       );
     }
 

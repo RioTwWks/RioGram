@@ -163,8 +163,9 @@ class AuthManager extends ChangeNotifier {
       _isAuthRequestInProgress = false;
       _phase = AuthPhase.error;
       _errorMessage =
-          'Таймаут запроса. Проверьте, что PhantomProxy запущен на VPS '
-          'и доступен по адресу из .env.';
+          'Таймаут запроса (${authRequestTimeout.inSeconds} с). '
+          'Проверьте, что PhantomProxy/StealthGate запущены на VPS и доступны '
+          'по адресам из .env (в релизных сборках они вшиты при сборке).';
       notifyListeners();
     });
   }

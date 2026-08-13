@@ -136,6 +136,18 @@ jobs:
           flutter build windows --release
           ./scripts/copy-tdlib-to-bundle.sh windows
 
+      - name: Verify Windows bundle
+        shell: pwsh
+        run: |
+          $dir = "build/windows/x64/runner/Release"
+          foreach ($file in @("tdjson.dll", "libssl-3-x64.dll", "libcrypto-3-x64.dll", "zlib1.dll", "riogram.exe")) {
+            if (-not (Test-Path "$dir/$file")) {
+              $z = Get-ChildItem "$dir/z*.dll" -ErrorAction SilentlyContinue
+              if ($file -eq "zlib1.dll" -and $z) { continue }
+              throw "Missing $file in $dir"
+            }
+          }
+
       - name: Package
         shell: pwsh
         run: |

@@ -25,13 +25,13 @@ class TdlibBindings {
 
   static DynamicLibrary _openLibrary() {
     if (Platform.isLinux) {
-      return DynamicLibrary.open('libtdjson.so');
+      return _openBesideExecutable('libtdjson.so');
     }
     if (Platform.isWindows) {
-      return DynamicLibrary.open('tdjson.dll');
+      return _openBesideExecutable('tdjson.dll');
     }
     if (Platform.isMacOS) {
-      return DynamicLibrary.open('libtdjson.dylib');
+      return _openBesideExecutable('libtdjson.dylib');
     }
     if (Platform.isAndroid) {
       return DynamicLibrary.open('libtdjson.so');
@@ -40,6 +40,15 @@ class TdlibBindings {
       return DynamicLibrary.process();
     }
     throw UnsupportedError('Платформа ${Platform.operatingSystem} не поддерживается');
+  }
+
+  static DynamicLibrary _openBesideExecutable(String libraryName) {
+    final executableDir = File(Platform.resolvedExecutable).parent.path;
+    final candidate = '$executableDir${Platform.pathSeparator}$libraryName';
+    if (File(candidate).existsSync()) {
+      return DynamicLibrary.open(candidate);
+    }
+    return DynamicLibrary.open(libraryName);
   }
 
   void bind() {
