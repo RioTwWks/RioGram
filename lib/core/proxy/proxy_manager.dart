@@ -31,6 +31,7 @@ class ProxyManager extends ChangeNotifier {
 
   static const Duration pingTimeout = Duration(seconds: 20);
   static const Duration healthCheckInterval = Duration(seconds: 30);
+  static const Duration transportProxyWarmup = Duration(seconds: 3);
 
   final List<ProxyEntry> _proxies = [];
   final List<ProxyConfig> _pendingConfigs = [];
@@ -145,6 +146,10 @@ class ProxyManager extends ChangeNotifier {
     }
 
     await _waitForProxyRegistration(expectedRegistrations);
+    if (systemProxy != null && systemProxy.isConfigured && validConfigs.isNotEmpty) {
+      // Дать TDLib время на DNS resolve транспортного прокси перед ping MTProto.
+      await Future<void>.delayed(transportProxyWarmup);
+    }
     await _enableFirstAvailable();
     _startHealthChecks();
   }
@@ -448,7 +453,13 @@ class ProxyManager extends ChangeNotifier {
         }
         debugPrint('ProxyManager: ping ${proxy.name}: ${other.error}');
       }
-      _lastError = ping.error ?? 'Ping прокси не подтвердил доступность';
+      final systemHint = _systemProxy != null && _systemProxy!.isConfigured
+          ? ' Системный прокси: ${_systemProxy!.host}:${_systemProxy!.port} '
+              '(${_systemProxy!.type.name}).'
+          : '';
+      _lastError =
+          '${ping.error ?? 'Ping прокси не подтвердил доступность'}.$systemHint '
+          'Прокси включён — можно попробовать авторизацию.';
       notifyListeners();
     }
   }
