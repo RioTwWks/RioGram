@@ -9,6 +9,8 @@ import 'core/proxy/proxy_manager.dart';
 import 'core/theme/theme_manager.dart';
 import 'core/tdlib/tdlib_client.dart';
 import 'models/auth_models.dart';
+import 'screens/auth/code_screen.dart';
+import 'screens/auth/password_screen.dart';
 import 'screens/auth/phone_screen.dart';
 import 'screens/chats/chats_screen.dart';
 
@@ -136,10 +138,9 @@ class _RootScreenState extends State<_RootScreen> {
       AuthPhase.initializing => const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
-      AuthPhase.waitPhoneNumber ||
-      AuthPhase.waitCode ||
-      AuthPhase.waitPassword =>
-        const PhoneScreen(),
+      AuthPhase.waitPhoneNumber => const PhoneScreen(),
+      AuthPhase.waitCode => const CodeScreen(),
+      AuthPhase.waitPassword => const PasswordScreen(),
       AuthPhase.ready => const ChatsScreen(),
       AuthPhase.error => Scaffold(
           body: Center(

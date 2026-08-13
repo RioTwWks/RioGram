@@ -31,8 +31,9 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.closeOnDispose) {
-        context.read<ChatManager>().openChat(widget.chatId);
+      final manager = context.read<ChatManager>();
+      if (manager.activeChatId != widget.chatId) {
+        manager.openChat(widget.chatId);
       }
     });
     _controller.addListener(_onTextChanged);
@@ -126,9 +127,19 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: chatManager.isLoadingMessages
                 ? const Center(child: CircularProgressIndicator())
-                : messages.isEmpty
-                    ? const Center(child: Text('Нет сообщений'))
-                    : ListView.builder(
+                : chatManager.messagesError != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            chatManager.messagesError!,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    : messages.isEmpty
+                        ? const Center(child: Text('Нет сообщений'))
+                        : ListView.builder(
                         controller: _scrollController,
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: messages.length,

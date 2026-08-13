@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/auth/auth_manager.dart';
-import '../../models/auth_models.dart';
-import 'password_screen.dart';
 
 class CodeScreen extends StatefulWidget {
   const CodeScreen({super.key});
@@ -25,10 +23,6 @@ class _CodeScreenState extends State<CodeScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthManager>();
-
-    if (auth.phase == AuthPhase.waitPassword) {
-      return const PasswordScreen();
-    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Код подтверждения')),

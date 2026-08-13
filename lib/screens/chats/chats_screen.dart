@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
 import '../../models/chat_models.dart';
+import '../../widgets/chat_avatar.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../chat/chat_screen.dart';
 import '../settings/settings_screen.dart';
@@ -183,39 +184,50 @@ class _ChatsList extends StatelessWidget {
         final selected = chat.id == selectedChatId;
         final subtitle = chat.lastMessage;
         final time = chat.lastMessageDate != null
-            ? DateFormat.Md('ru').add_Hm().format(chat.lastMessageDate!)
+            ? DateFormat('dd.MM HH:mm').format(chat.lastMessageDate!)
             : null;
 
         return ListTile(
           selected: selected,
-          leading: CircleAvatar(
-            child: Text(chat.title.isNotEmpty ? chat.title[0] : '?'),
+          leading: ChatAvatar(
+            title: chat.title,
+            localPath: chat.avatarLocalPath,
           ),
-          title: Text(chat.title),
-          subtitle: subtitle != null ? Text(subtitle, maxLines: 1) : null,
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
+          title: Row(
             children: [
-              if (time != null)
-                Text(time, style: Theme.of(context).textTheme.labelSmall),
-              if (chat.unreadCount > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: CircleAvatar(
-                    radius: 10,
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: Text(
-                      '${chat.unreadCount}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    ),
-                  ),
+              Expanded(
+                child: Text(
+                  chat.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              if (time != null) ...[
+                const SizedBox(width: 8),
+                Text(time, style: Theme.of(context).textTheme.labelSmall),
+              ],
             ],
           ),
+          subtitle: subtitle != null
+              ? Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null,
+          trailing: chat.unreadCount > 0
+              ? CircleAvatar(
+                  radius: 10,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Text(
+                    '${chat.unreadCount}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
+                  ),
+                )
+              : null,
           onTap: () => onChatTap(chat.id),
         );
       },

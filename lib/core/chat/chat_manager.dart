@@ -24,6 +24,8 @@ class ChatManager extends ChangeNotifier {
   int? _activeChatId;
   String? _typingStatus;
   bool _isLoadingMessages = false;
+  String? _messagesError;
+  Timer? _messagesLoadTimeout;
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
   List<ChatSummary> get chats => List.unmodifiable(_chats);
@@ -31,6 +33,7 @@ class ChatManager extends ChangeNotifier {
   int? get activeChatId => _activeChatId;
   String? get typingStatus => _typingStatus;
   bool get isLoadingMessages => _isLoadingMessages;
+  String? get messagesError => _messagesError;
 
   ChatSummary? get activeChat {
     if (_activeChatId == null) {
@@ -56,24 +59,18 @@ class ChatManager extends ChangeNotifier {
     _activeChatId = chatId;
     _messages.clear();
     _typingStatus = null;
+    _messagesError = null;
     _isLoadingMessages = true;
+    _startMessagesLoadTimeout(chatId);
     notifyListeners();
 
-    _client.send({'@type': 'openChat', 'chat_id': chatId});
     _client.send({
-      '@type': 'getChatHistory',
+      '@type': 'openChat',
       'chat_id': chatId,
-      'from_message_id': 0,
-      'offset': 0,
-      'limit': 50,
-      'only_local': false,
+      '@extra': 'openChat_$chatId',
     });
-    _client.send({
-      '@type': 'viewMessages',
-      'chat_id': chatId,
-      'message_ids': [],
-      'force_read': true,
-    });
+    _requestChatHistory(chatId, onlyLocal: true);
+    _requestChatHistory(chatId, onlyLocal: false);
   }
 
   void closeChat() {
@@ -165,7 +162,113 @@ class ChatManager extends ChangeNotifier {
         _handleTyping(update);
       case 'updateFile':
         _handleFileUpdate(update);
+      case 'updateChatPhoto':
+        _handleChatPhoto(update);
+      case 'ok':
+        _handleOk(update);
+      case 'error':
+        _handleError(update);
     }
+  }
+
+  void _handleOk(Map<String, dynamic> update) {
+    // getChatHistory вызывается сразу в openChat; ok дублировать не нужно.
+  }
+
+  void _handleError(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null) {
+      return;
+    }
+
+    final message = (update['message'] as String? ?? '').toLowerCase();
+
+    if (extra.startsWith('getChatHistory_') || extra.startsWith('getChatHistoryLocal_')) {
+      final chatId = _chatIdFromExtra(extra, 'getChatHistoryLocal_') ??
+          _chatIdFromExtra(extra, 'getChatHistory_');
+      if (chatId == null || chatId != _activeChatId) {
+        return;
+      }
+
+      if (message.contains('chat') && message.contains('open')) {
+        _client.send({'@type': 'openChat', 'chat_id': chatId});
+        _requestChatHistory(chatId, onlyLocal: true);
+        _requestChatHistory(chatId, onlyLocal: false);
+        return;
+      }
+
+      _messagesLoadTimeout?.cancel();
+      _isLoadingMessages = false;
+      _messagesError = update['message'] as String? ?? 'Не удалось загрузить сообщения';
+      notifyListeners();
+      return;
+    }
+
+    if (extra.startsWith('openChat_')) {
+      final chatId = _chatIdFromExtra(extra, 'openChat_');
+      if (chatId == null || chatId != _activeChatId) {
+        return;
+      }
+
+      _messagesLoadTimeout?.cancel();
+      _isLoadingMessages = false;
+      _messagesError = update['message'] as String? ?? 'Не удалось открыть чат';
+      notifyListeners();
+    }
+  }
+
+  int? _chatIdFromExtra(String? extra, String prefix) {
+    if (extra == null || !extra.startsWith(prefix)) {
+      return null;
+    }
+    return int.tryParse(extra.substring(prefix.length));
+  }
+
+  void _requestChatHistory(int chatId, {required bool onlyLocal}) {
+    _client.send({
+      '@type': 'getChatHistory',
+      'chat_id': chatId,
+      'from_message_id': 0,
+      'offset': 0,
+      'limit': 50,
+      'only_local': onlyLocal,
+      '@extra': onlyLocal
+          ? 'getChatHistoryLocal_$chatId'
+          : 'getChatHistory_$chatId',
+    });
+  }
+
+  void _startMessagesLoadTimeout(int chatId) {
+    _messagesLoadTimeout?.cancel();
+    _messagesLoadTimeout = Timer(const Duration(seconds: 30), () {
+      if (_activeChatId != chatId || !_isLoadingMessages) {
+        return;
+      }
+      _isLoadingMessages = false;
+      _messagesError = 'Таймаут загрузки сообщений';
+      notifyListeners();
+    });
+  }
+
+  void _handleChatPhoto(Map<String, dynamic> update) {
+    final chatId = update['chat_id'] as int?;
+    final photo = update['photo'] as Map<String, dynamic>?;
+    if (chatId == null || photo == null) {
+      return;
+    }
+
+    final index = _chats.indexWhere((chat) => chat.id == chatId);
+    if (index < 0) {
+      return;
+    }
+
+    final avatar = TdlibChatParser.parseAvatar(photo);
+    _chats[index] = _chats[index].copyWith(
+      avatarFileId: avatar.fileId,
+      avatarLocalPath: avatar.localPath,
+    );
+    _requestAvatarDownload(avatar.fileId, avatar.localPath);
+    notifyListeners();
   }
 
   void _handleChats(Map<String, dynamic> update) {
@@ -187,9 +290,16 @@ class ChatManager extends ChangeNotifier {
         lastMessage: summary.lastMessage ?? _chats[index].lastMessage,
         lastMessageDate: summary.lastMessageDate ?? _chats[index].lastMessageDate,
         unreadCount: summary.unreadCount,
+        avatarFileId: summary.avatarFileId ?? _chats[index].avatarFileId,
+        avatarLocalPath: summary.avatarLocalPath ?? _chats[index].avatarLocalPath,
       );
     } else {
       _chats.add(summary);
+    }
+    final chatIndex = _chats.indexWhere((chat) => chat.id == summary.id);
+    if (chatIndex >= 0) {
+      final chat = _chats[chatIndex];
+      _requestAvatarDownload(chat.avatarFileId, chat.avatarLocalPath);
     }
     _sortChats();
     notifyListeners();
@@ -218,24 +328,61 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleMessages(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
-    if (chatId != _activeChatId) {
+    final extra = update['@extra'] as String?;
+    final isLocal = extra?.startsWith('getChatHistoryLocal_') ?? false;
+    final chatId = update['chat_id'] as int? ??
+        _chatIdFromExtra(extra, 'getChatHistoryLocal_') ??
+        _chatIdFromExtra(extra, 'getChatHistory_');
+    if (chatId == null || chatId != _activeChatId) {
       return;
     }
 
     final rawMessages = update['messages'] as List<dynamic>? ?? [];
-    _messages
-      ..clear()
-      ..addAll(
-        rawMessages
-            .whereType<Map<String, dynamic>>()
-            .map(ChatMessage.fromTdlib)
-            .toList()
-            .reversed,
-      );
+    final parsed = rawMessages
+        .whereType<Map<String, dynamic>>()
+        .map(ChatMessage.fromTdlib)
+        .toList()
+        .reversed
+        .toList();
+
+    if (parsed.isNotEmpty) {
+      _messages
+        ..clear()
+        ..addAll(parsed);
+      _requestMediaDownloads();
+    }
+
+    if (isLocal) {
+      // Кэш показан сразу — не ждём сеть (прокси может быть недоступен).
+      _isLoadingMessages = false;
+      _messagesError = null;
+      notifyListeners();
+      return;
+    }
+
+    _messagesLoadTimeout?.cancel();
+    _messagesError = null;
     _isLoadingMessages = false;
-    _requestMediaDownloads();
+    if (parsed.isNotEmpty) {
+      _markMessagesRead(chatId, parsed);
+    }
     notifyListeners();
+  }
+
+  void _markMessagesRead(int chatId, List<ChatMessage> messages) {
+    final ids = messages.map((message) => message.id).where((id) => id > 0).toList();
+    if (ids.isEmpty) {
+      return;
+    }
+
+    _client.send({
+      '@type': 'viewMessages',
+      'chat_id': chatId,
+      'message_ids': ids,
+      'source': {'@type': 'messageSourceChatHistory'},
+      'force_read': true,
+      '@extra': 'viewMessages_$chatId',
+    });
   }
 
   void _handleSingleMessage(Map<String, dynamic> update) {
@@ -304,7 +451,7 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
-    var changed = false;
+    var messagesChanged = false;
     for (var i = 0; i < _messages.length; i++) {
       final message = _messages[i];
       if (message.mediaFileId == fileId) {
@@ -318,13 +465,39 @@ class ChatManager extends ChangeNotifier {
             fileName: message.content.fileName,
           ),
         );
-        changed = true;
+        messagesChanged = true;
       }
     }
 
-    if (changed) {
+    var chatsChanged = false;
+    for (var i = 0; i < _chats.length; i++) {
+      if (_chats[i].avatarFileId == fileId) {
+        _chats[i] = _chats[i].copyWith(avatarLocalPath: localPath);
+        chatsChanged = true;
+      }
+    }
+
+    if (messagesChanged || chatsChanged) {
       notifyListeners();
     }
+  }
+
+  void _requestAvatarDownload(int? fileId, String? localPath) {
+    if (fileId == null) {
+      return;
+    }
+    if (localPath != null && localPath.isNotEmpty) {
+      return;
+    }
+
+    _client.send({
+      '@type': 'downloadFile',
+      'file_id': fileId,
+      'priority': 16,
+      'offset': 0,
+      'limit': 0,
+      'synchronous': false,
+    });
   }
 
   void _requestDownloadForMessage(ChatMessage message) {
@@ -412,6 +585,7 @@ class ChatManager extends ChangeNotifier {
 
   @override
   void dispose() {
+    _messagesLoadTimeout?.cancel();
     _subscription?.cancel();
     super.dispose();
   }

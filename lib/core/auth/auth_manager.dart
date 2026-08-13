@@ -186,7 +186,12 @@ class AuthManager extends ChangeNotifier {
       case 'error':
         final extra = update['@extra'] as String?;
         if (extra != null &&
-            (extra.startsWith('ping_') || extra.startsWith('addProxy_'))) {
+            (extra.startsWith('ping_') ||
+                extra.startsWith('addProxy_') ||
+                extra.startsWith('openChat_') ||
+                extra.startsWith('getChatHistory_') ||
+                extra.startsWith('getChatHistoryLocal_') ||
+                extra.startsWith('viewMessages_'))) {
           break;
         }
 

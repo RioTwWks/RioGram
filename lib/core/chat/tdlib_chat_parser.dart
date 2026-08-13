@@ -1,5 +1,16 @@
 import '../../models/chat_models.dart';
 
+/// Данные аватара чата из TDLib chatPhotoInfo.
+class ChatAvatarData {
+  const ChatAvatarData({
+    this.fileId,
+    this.localPath,
+  });
+
+  final int? fileId;
+  final String? localPath;
+}
+
 /// Парсинг TDLib-обновлений для чатов и сообщений.
 class TdlibChatParser {
   const TdlibChatParser._();
@@ -21,13 +32,38 @@ class TdlibChatParser {
       date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
     }
 
+    final avatar = parseAvatar(chat['photo'] as Map<String, dynamic>?);
+
     return ChatSummary(
       id: id,
       title: title,
       lastMessage: preview,
       lastMessageDate: date,
       unreadCount: chat['unread_count'] as int? ?? 0,
+      avatarFileId: avatar.fileId,
+      avatarLocalPath: avatar.localPath,
     );
+  }
+
+  static ChatAvatarData parseAvatar(Map<String, dynamic>? photo) {
+    if (photo == null) {
+      return const ChatAvatarData();
+    }
+
+    // big — чёткое фото; small — fallback.
+    final fileInfo = photo['big'] as Map<String, dynamic>? ??
+        photo['small'] as Map<String, dynamic>?;
+    if (fileInfo == null) {
+      return const ChatAvatarData();
+    }
+
+    final fileId = fileInfo['id'] as int?;
+    final local = fileInfo['local'] as Map<String, dynamic>?;
+    final localPath = local != null && local['is_downloading_completed'] == true
+        ? local['path'] as String?
+        : null;
+
+    return ChatAvatarData(fileId: fileId, localPath: localPath);
   }
 
   static ChatMessage? parseMessage(Map<String, dynamic> json) {

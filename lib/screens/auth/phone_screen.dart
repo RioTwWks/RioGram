@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/auth/auth_manager.dart';
-import '../../models/auth_models.dart';
-import 'code_screen.dart';
 
 class PhoneScreen extends StatefulWidget {
   const PhoneScreen({super.key});
@@ -25,10 +23,6 @@ class _PhoneScreenState extends State<PhoneScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthManager>();
-
-    if (auth.phase == AuthPhase.waitCode) {
-      return const CodeScreen();
-    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Вход в RioGram')),

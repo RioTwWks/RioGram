@@ -118,6 +118,8 @@ class ChatSummary {
     this.lastMessage,
     this.lastMessageDate,
     this.unreadCount = 0,
+    this.avatarFileId,
+    this.avatarLocalPath,
   });
 
   final int id;
@@ -125,12 +127,16 @@ class ChatSummary {
   final String? lastMessage;
   final DateTime? lastMessageDate;
   final int unreadCount;
+  final int? avatarFileId;
+  final String? avatarLocalPath;
 
   ChatSummary copyWith({
     String? title,
     String? lastMessage,
     DateTime? lastMessageDate,
     int? unreadCount,
+    int? avatarFileId,
+    String? avatarLocalPath,
   }) {
     return ChatSummary(
       id: id,
@@ -138,6 +144,8 @@ class ChatSummary {
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageDate: lastMessageDate ?? this.lastMessageDate,
       unreadCount: unreadCount ?? this.unreadCount,
+      avatarFileId: avatarFileId ?? this.avatarFileId,
+      avatarLocalPath: avatarLocalPath ?? this.avatarLocalPath,
     );
   }
 }
