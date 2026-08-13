@@ -31,9 +31,11 @@ PROXY_STEALTH_SECRET=dd...
 ## 3. Сборка TDLib
 
 ```bash
-./scripts/build-tdlib.sh
-./scripts/copy-tdlib.sh linux   # или windows / macos / android
+CC=gcc CXX=g++ ./scripts/build-tdlib.sh   # LTO=OFF, JOBS по RAM
+./scripts/copy-tdlib.sh linux             # или windows / macos / android
 ```
+
+> Если ПК зависает на ~90%: `JOBS=1 TD_ENABLE_LTO=OFF ./scripts/build-tdlib.sh` — см. [BUILD.md](BUILD.md).
 
 Подробнее по всем платформам: [docs/BUILD.md](docs/BUILD.md)
 

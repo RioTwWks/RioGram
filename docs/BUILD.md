@@ -185,6 +185,34 @@ flutter build ios --release --no-codesign
 | Ошибка | Решение |
 |--------|---------|
 | `libtdjson не найден` | `./scripts/build-tdlib.sh` + `copy-tdlib.sh <platform>` |
+| **ПК зависает на ~90% сборки TDLib** | OOM на этапе LTO-линковки. См. ниже |
 | `cannot find -lstdc++` (Linux) | `CC=gcc CXX=g++` при сборке TDLib |
 | `TELEGRAM_API_ID` в release CI | Добавьте secrets в GitHub |
 | Android NDK не найден | `flutter doctor`, установите NDK через sdkmanager |
+
+### Зависание / hard reset при сборке TDLib
+
+Сборка TDLib — сотни тяжёлых C++ translation units. На **~90%** часто начинается **линковка** `libtdjson.so`. С включённым LTO (`-DTD_ENABLE_LTO=ON`) линкер может занять **8–16+ GB RAM** и заморозить систему без swap.
+
+**Безопасная сборка (рекомендуется локально):**
+
+```bash
+CC=gcc CXX=g++ JOBS=1 TD_ENABLE_LTO=OFF ./scripts/build-tdlib.sh
+```
+
+Скрипт по умолчанию уже ставит `TD_ENABLE_LTO=OFF` и ограничивает `JOBS` по объёму RAM (~1.8 GB на job).
+
+| RAM | Рекомендуемые `JOBS` |
+|-----|----------------------|
+| ≤ 8 GB | `JOBS=1` |
+| 8–16 GB | `JOBS=2` |
+| 16+ GB | авто (или `JOBS=$(nproc)`) |
+
+Если после жёсткой перезагрузки сборка ведёт себя странно:
+
+```bash
+rm -rf td/build
+CC=gcc CXX=g++ JOBS=1 TD_ENABLE_LTO=OFF ./scripts/build-tdlib.sh
+```
+
+Дополнительно: включите swap (4–8 GB), закройте браузер и IDE на время линковки.
