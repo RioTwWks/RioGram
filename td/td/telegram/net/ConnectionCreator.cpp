@@ -44,6 +44,16 @@ namespace td {
 
 int VERBOSITY_NAME(connections) = VERBOSITY_NAME(INFO);
 
+namespace {
+
+constexpr Slice TRANSPORT_PROXY_COMMENT = Slice("RioGram:Transport");
+
+bool is_transport_proxy_comment(Slice comment) {
+  return comment == TRANSPORT_PROXY_COMMENT;
+}
+
+}  // namespace
+
 namespace detail {
 
 class StatsCallback final : public mtproto::RawConnection::StatsCallback {
@@ -205,6 +215,7 @@ void ConnectionCreator::add_proxy(int32 old_proxy_id, td_api::object_ptr<td_api:
     return proxy_id;
   }();
   set_proxy_comment(proxy_id, proxies_[proxy_id].second, comment);
+  update_transport_proxy_id(proxy_id, comment);
   if (enable) {
     enable_proxy_impl(proxy_id);
   }
@@ -233,6 +244,10 @@ void ConnectionCreator::remove_proxy(int32 proxy_id, Promise<Unit> promise) {
 
   if (proxy_id == active_proxy_id_) {
     disable_proxy_impl();
+  }
+  if (proxy_id == transport_proxy_id_) {
+    transport_proxy_id_ = 0;
+    transport_proxy_ip_address_ = {};
   }
 
   proxies_.erase(proxy_id);
@@ -358,7 +373,8 @@ void ConnectionCreator::ping_proxy_resolved(Proxy &&proxy, IPAddress ip_address,
   auto token = next_token();
   auto ref = prepare_connection(extra.ip_address, std::move(socket_fd), proxy, extra.mtproto_ip_address,
                                 extra.transport_type, "Ping", extra.debug_str, nullptr, create_reference(token), false,
-                                std::move(connection_promise));
+                                std::move(connection_promise),
+                                extra.use_transport_for_mtproto ? extra.transport_proxy : Proxy());
   if (!ref.empty()) {
     children_[token] = {false, std::move(ref)};
   }
@@ -671,6 +687,20 @@ Result<SocketFd> ConnectionCreator::find_connection(const Proxy &proxy, const IP
                               << (info.use_http ? " over HTTP" : "");
 
   if (proxy.use_mtproto_proxy()) {
+    if (transport_proxy_id_ != 0 && transport_proxy_ip_address_.is_valid()) {
+      const auto &transport_proxy = proxies_[transport_proxy_id_].first;
+      extra.transport_proxy = transport_proxy;
+      extra.use_transport_for_mtproto = true;
+      extra.mtproto_ip_address = proxy_ip_address;
+      extra.ip_address = transport_proxy_ip_address_;
+      extra.debug_str = PSTRING() << "Transport "
+                                  << (transport_proxy.use_socks5_proxy() ? "Socks5" : "HTTP")
+                                  << ' ' << transport_proxy_ip_address_ << " --> MTProto " << proxy_ip_address
+                                  << extra.debug_str;
+      VLOG(connections) << "Create: " << extra.debug_str;
+      return SocketFd::open(transport_proxy_ip_address_);
+    }
+
     extra.debug_str = PSTRING() << "MTProto " << proxy_ip_address << extra.debug_str;
 
     VLOG(connections) << "Create: " << extra.debug_str;
@@ -698,7 +728,106 @@ ActorOwn<> ConnectionCreator::prepare_connection(IPAddress ip_address, SocketFd 
                                                  Slice debug_str,
                                                  unique_ptr<mtproto::RawConnection::StatsCallback> stats_callback,
                                                  ActorShared<> parent, bool use_connection_token,
-                                                 Promise<ConnectionData> promise) {
+                                                 Promise<ConnectionData> promise, const Proxy &transport_proxy) {
+  if (transport_type.secret.emulate_tls() && transport_proxy.use_proxy()) {
+    VLOG(connections) << "Create chained transport + MTProto TLS connection " << debug_str;
+    class TlsFinishCallback final : public TransparentProxy::Callback {
+     public:
+      TlsFinishCallback(Promise<ConnectionData> promise, IPAddress ip_address,
+                        unique_ptr<mtproto::RawConnection::StatsCallback> stats_callback, bool use_connection_token)
+          : promise_(std::move(promise))
+          , ip_address_(std::move(ip_address))
+          , stats_callback_(std::move(stats_callback))
+          , use_connection_token_(use_connection_token) {
+      }
+      void set_result(Result<BufferedFd<SocketFd>> r_buffered_socket_fd) final {
+        if (r_buffered_socket_fd.is_error()) {
+          if (use_connection_token_) {
+            connection_token_ = mtproto::ConnectionManager::ConnectionToken();
+          }
+          promise_.set_error(400, r_buffered_socket_fd.error().public_message());
+          return;
+        }
+        ConnectionData data;
+        data.ip_address = ip_address_;
+        data.buffered_socket_fd = r_buffered_socket_fd.move_as_ok();
+        data.connection_token = std::move(connection_token_);
+        data.stats_callback = std::move(stats_callback_);
+        promise_.set_value(std::move(data));
+      }
+      void on_connected() final {
+        if (use_connection_token_) {
+          connection_token_ = mtproto::ConnectionManager::connection_proxy(
+              static_cast<ActorId<mtproto::ConnectionManager>>(G()->state_manager()));
+        }
+      }
+
+     private:
+      Promise<ConnectionData> promise_;
+      mtproto::ConnectionManager::ConnectionToken connection_token_;
+      IPAddress ip_address_;
+      unique_ptr<mtproto::RawConnection::StatsCallback> stats_callback_;
+      bool use_connection_token_{false};
+    };
+
+    class TransportTlsCallback final : public TransparentProxy::Callback {
+     public:
+      TransportTlsCallback(Promise<ConnectionData> promise, IPAddress ip_address,
+                           unique_ptr<mtproto::RawConnection::StatsCallback> stats_callback, bool use_connection_token,
+                           string domain, string secret, ActorShared<> parent)
+          : promise_(std::move(promise))
+          , ip_address_(std::move(ip_address))
+          , stats_callback_(std::move(stats_callback))
+          , use_connection_token_(use_connection_token)
+          , domain_(std::move(domain))
+          , secret_(std::move(secret))
+          , parent_(std::move(parent)) {
+      }
+      void set_result(Result<BufferedFd<SocketFd>> r_buffered_socket_fd) final {
+        if (r_buffered_socket_fd.is_error()) {
+          if (use_connection_token_ && stats_callback_) {
+            stats_callback_->on_error();
+          }
+          promise_.set_error(400, r_buffered_socket_fd.error().public_message());
+          return;
+        }
+        auto tls_callback = make_unique<TlsFinishCallback>(std::move(promise_), ip_address_, std::move(stats_callback_),
+                                                           use_connection_token_);
+        tls_child_ = create_actor<mtproto::TlsInit>(
+            "TlsInit", std::move(r_buffered_socket_fd.move_as_ok()), domain_, secret_, std::move(tls_callback),
+            parent_, G()->get_dns_time_difference());
+      }
+      void on_connected() final {
+      }
+
+     private:
+      Promise<ConnectionData> promise_;
+      IPAddress ip_address_;
+      unique_ptr<mtproto::RawConnection::StatsCallback> stats_callback_;
+      bool use_connection_token_{false};
+      string domain_;
+      string secret_;
+      ActorShared<> parent_;
+      ActorOwn<> tls_child_;
+    };
+
+    auto callback = make_unique<TransportTlsCallback>(
+        std::move(promise), mtproto_ip_address, std::move(stats_callback), use_connection_token,
+        transport_type.secret.get_domain(), transport_type.secret.get_proxy_secret().str(), parent);
+    if (transport_proxy.use_socks5_proxy()) {
+      return ActorOwn<>(create_actor<Socks5>(PSLICE() << actor_name_prefix << "Socks5", std::move(socket_fd),
+                                             mtproto_ip_address, transport_proxy.user().str(),
+                                             transport_proxy.password().str(), std::move(callback), std::move(parent)));
+    }
+    if (transport_proxy.use_http_tcp_proxy()) {
+      return ActorOwn<>(create_actor<HttpProxy>(PSLICE() << actor_name_prefix << "HttpProxy", std::move(socket_fd),
+                                                mtproto_ip_address, transport_proxy.user().str(),
+                                                transport_proxy.password().str(), std::move(callback),
+                                                std::move(parent)));
+    }
+    return {};
+  }
+
   if (proxy.use_socks5_proxy() || proxy.use_http_tcp_proxy() || transport_type.secret.emulate_tls()) {
     VLOG(connections) << "Create new transparent proxy connection " << debug_str;
     class Callback final : public TransparentProxy::Callback {
@@ -908,7 +1037,8 @@ void ConnectionCreator::client_loop(ClientInfo &client) {
     auto token = next_token();
     auto ref = prepare_connection(extra.ip_address, std::move(socket_fd), proxy, extra.mtproto_ip_address,
                                   extra.transport_type, Slice(), extra.debug_str, std::move(stats_callback),
-                                  create_reference(token), true, std::move(promise));
+                                  create_reference(token), true, std::move(promise),
+                                  extra.use_transport_for_mtproto ? extra.transport_proxy : Proxy());
     if (!ref.empty()) {
       children_[token] = {true, std::move(ref)};
     }
@@ -1192,6 +1322,9 @@ void ConnectionCreator::init_proxies() {
 
     on_proxy_changed(true);
   }
+  for (auto &proxy_it : proxies_) {
+    update_transport_proxy_id(proxy_it.first, proxy_it.second.second);
+  }
 }
 
 void ConnectionCreator::hangup_shared() {
@@ -1280,6 +1413,23 @@ DcOptions ConnectionCreator::get_default_dc_options(bool is_test) {
   return res;
 }
 
+void ConnectionCreator::update_transport_proxy_id(int32 proxy_id, Slice comment) {
+  if (!is_transport_proxy_comment(comment)) {
+    return;
+  }
+  auto it = proxies_.find(proxy_id);
+  if (it == proxies_.end()) {
+    return;
+  }
+  const auto &proxy = it->second.first;
+  if (!proxy.use_socks5_proxy() && !proxy.use_http_tcp_proxy()) {
+    return;
+  }
+  transport_proxy_id_ = proxy_id;
+  transport_proxy_ip_address_ = {};
+  resolve_transport_proxy_timestamp_ = Timestamp::now();
+}
+
 void ConnectionCreator::loop() {
   if (G()->close_flag()) {
     return;
@@ -1292,6 +1442,25 @@ void ConnectionCreator::loop() {
   }
 
   Timestamp timeout;
+  if (transport_proxy_id_ != 0) {
+    if (resolve_transport_proxy_timestamp_.is_in_past()) {
+      if (resolve_transport_proxy_query_token_ == 0) {
+        resolve_transport_proxy_query_token_ = next_token();
+        const Proxy &proxy = proxies_[transport_proxy_id_].first;
+        bool prefer_ipv6 = G()->get_option_boolean("prefer_ipv6");
+        VLOG(connections) << "Resolve transport proxy IP address " << resolve_transport_proxy_query_token_ << " of "
+                          << proxy.server();
+        send_closure(get_dns_resolver(), &GetHostByNameActor::run, proxy.server().str(), proxy.port(), prefer_ipv6,
+                     PromiseCreator::lambda(
+                         [actor_id = create_reference(resolve_transport_proxy_query_token_)](Result<IPAddress> result) {
+                           send_closure(actor_id, &ConnectionCreator::on_transport_proxy_resolved, std::move(result));
+                         }));
+      }
+    } else {
+      CHECK(resolve_transport_proxy_query_token_ == 0);
+      timeout.relax(resolve_transport_proxy_timestamp_);
+    }
+  }
   if (active_proxy_id_ != 0) {
     if (resolve_proxy_timestamp_.is_in_past()) {
       if (resolve_proxy_query_token_ == 0) {
@@ -1336,6 +1505,31 @@ void ConnectionCreator::on_proxy_resolved(Result<IPAddress> r_ip_address, bool d
   proxy_ip_address_ = r_ip_address.move_as_ok();
   VLOG(connections) << "Set proxy IP address to " << proxy_ip_address_;
   resolve_proxy_timestamp_ = Timestamp::in(5 * 60);
+  for (auto &client : clients_) {
+    client_loop(client.second);
+  }
+}
+
+void ConnectionCreator::on_transport_proxy_resolved(Result<IPAddress> r_ip_address) {
+  SCOPE_EXIT {
+    loop();
+  };
+
+  if (get_link_token() != resolve_transport_proxy_query_token_) {
+    VLOG(connections) << "Ignore unneeded transport proxy IP address " << get_link_token() << ", expected "
+                      << resolve_transport_proxy_query_token_;
+    return;
+  }
+
+  resolve_transport_proxy_query_token_ = 0;
+  if (r_ip_address.is_error()) {
+    VLOG(connections) << "Receive error for resolving transport proxy IP address: " << r_ip_address.error();
+    resolve_transport_proxy_timestamp_ = Timestamp::in(1 * 60);
+    return;
+  }
+  transport_proxy_ip_address_ = r_ip_address.move_as_ok();
+  VLOG(connections) << "Set transport proxy IP address to " << transport_proxy_ip_address_;
+  resolve_transport_proxy_timestamp_ = Timestamp::in(5 * 60);
   for (auto &client : clients_) {
     client_loop(client.second);
   }
