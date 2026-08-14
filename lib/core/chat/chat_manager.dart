@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/chat_models.dart';
 import '../../models/formatted_text.dart';
+import '../../models/message_enrichment.dart';
 import '../notifications/notification_service.dart';
 import '../tdlib/tdlib_client.dart';
 import 'formatted_text_builder.dart';
@@ -55,6 +56,7 @@ class ChatManager extends ChangeNotifier {
   bool _selectionMode = false;
   final Set<int> _selectedMessageIds = {};
   Timer? _typingStatusClearTimer;
+  final Map<int, int> _lastReadOutboxMessageId = {};
 
   List<ChatSummary> get chats => List.unmodifiable(_visibleChats);
   List<ChatFolderTab> get chatFolders => List.unmodifiable(_chatFolders);
@@ -132,6 +134,45 @@ class ChatManager extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  int _lastReadOutboxForActiveChat() =>
+      _activeChatId == null ? 0 : (_lastReadOutboxMessageId[_activeChatId!] ?? 0);
+
+  ChatMessage? _parseMessage(Map<String, dynamic> json) {
+    return TdlibChatParser.parseMessage(
+      json,
+      lastReadOutboxMessageId: _lastReadOutboxForActiveChat(),
+    );
+  }
+
+  void _refreshDeliveryStatuses() {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+    final lastRead = _lastReadOutboxMessageId[chatId] ?? 0;
+    var changed = false;
+    for (var i = 0; i < _messages.length; i++) {
+      final message = _messages[i];
+      if (!message.isOutgoing) {
+        continue;
+      }
+      if (message.deliveryStatus == MessageDeliveryStatus.sending ||
+          message.deliveryStatus == MessageDeliveryStatus.failed) {
+        continue;
+      }
+      final status = message.id > 0 && message.id <= lastRead
+          ? MessageDeliveryStatus.read
+          : MessageDeliveryStatus.sent;
+      if (status != message.deliveryStatus) {
+        _messages[i] = message.copyWith(deliveryStatus: status);
+        changed = true;
+      }
+    }
+    if (changed) {
+      notifyListeners();
+    }
   }
 
   String replyPreviewFor(ChatMessage message) {
@@ -692,6 +733,132 @@ class ChatManager extends ChangeNotifier {
     });
   }
 
+  void addMessageReaction(int messageId, String emoji) {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+    _client.send({
+      '@type': 'addMessageReaction',
+      'chat_id': chatId,
+      'message_id': messageId,
+      'reaction_type': {
+        '@type': 'reactionTypeEmoji',
+        'emoji': emoji,
+      },
+      'is_big': false,
+      'update_recent_reactions': true,
+    });
+  }
+
+  void removeMessageReaction(int messageId, String emoji) {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+    _client.send({
+      '@type': 'removeMessageReaction',
+      'chat_id': chatId,
+      'message_id': messageId,
+      'reaction_type': {
+        '@type': 'reactionTypeEmoji',
+        'emoji': emoji,
+      },
+    });
+  }
+
+  void toggleMessageReaction(int messageId, String emoji) {
+    final message = messageById(messageId);
+    final existing = message?.reactions.where((r) => r.emoji == emoji);
+    if (existing != null && existing.isNotEmpty && existing.first.isChosen) {
+      removeMessageReaction(messageId, emoji);
+    } else {
+      addMessageReaction(messageId, emoji);
+    }
+  }
+
+  void sendPoll({
+    required String question,
+    required List<String> options,
+    bool isAnonymous = true,
+    bool allowMultipleAnswers = false,
+    PollKind kind = PollKind.regular,
+    int? correctOptionId,
+  }) {
+    final chatId = _activeChatId;
+    if (chatId == null || question.trim().isEmpty || options.length < 2) {
+      return;
+    }
+
+    final pollOptions = options
+        .map(
+          (option) => {
+            '@type': 'pollOption',
+            'text': {
+              '@type': 'formattedText',
+              'text': option.trim(),
+              'entities': [],
+            },
+          },
+        )
+        .toList();
+
+    final pollType = kind == PollKind.quiz
+        ? {
+            '@type': 'pollTypeQuiz',
+            'correct_option_id': correctOptionId ?? 0,
+            'explanation': {
+              '@type': 'formattedText',
+              'text': '',
+              'entities': [],
+            },
+          }
+        : {
+            '@type': 'pollTypeRegular',
+            'allow_multiple_answers': allowMultipleAnswers,
+          };
+
+    _client.send({
+      '@type': 'sendMessage',
+      'chat_id': chatId,
+      'input_message_content': {
+        '@type': 'inputMessagePoll',
+        'question': {
+          '@type': 'formattedText',
+          'text': question.trim(),
+          'entities': [],
+        },
+        'options': pollOptions,
+        'is_anonymous': isAnonymous,
+        'type': pollType,
+        'open_period': 0,
+        'close_date': 0,
+      },
+    });
+  }
+
+  void setPollAnswer(int messageId, List<int> optionIds) {
+    final chatId = _activeChatId;
+    if (chatId == null || optionIds.isEmpty) {
+      return;
+    }
+    _client.send({
+      '@type': 'setPollAnswer',
+      'chat_id': chatId,
+      'message_id': messageId,
+      'option_ids': optionIds,
+    });
+  }
+
+  void answerCallbackQuery(String callbackQueryId, {String? text}) {
+    _client.send({
+      '@type': 'answerCallbackQuery',
+      'callback_query_id': callbackQueryId,
+      'text': text,
+      'show_alert': false,
+    });
+  }
+
   void _handleUpdate(Map<String, dynamic> update) {
     final type = update['@type'];
 
@@ -728,6 +895,8 @@ class ChatManager extends ChangeNotifier {
         _handleUpdateChatNotificationSettings(update);
       case 'updateChatReadInbox':
         _handleUpdateChatReadInbox(update);
+      case 'updateChatReadOutbox':
+        _handleUpdateChatReadOutbox(update);
       case 'updateChatIsMarkedAsUnread':
         _handleUpdateChatIsMarkedAsUnread(update);
       case 'chats':
@@ -748,6 +917,12 @@ class ChatManager extends ChangeNotifier {
         _handleDeleteMessages(update);
       case 'updateMessageContent':
         _handleMessageContent(update);
+      case 'updateMessageReactions':
+        _handleMessageReactions(update);
+      case 'updateMessageInteractionInfo':
+        _handleMessageInteractionInfo(update);
+      case 'updateNewCallbackQuery':
+        _handleNewCallbackQuery(update);
       case 'updateUserChatAction':
         _handleTyping(update);
       case 'updateFile':
@@ -1082,6 +1257,19 @@ class ChatManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _handleUpdateChatReadOutbox(Map<String, dynamic> update) {
+    final chatId = update['chat_id'] as int?;
+    if (chatId == null) {
+      return;
+    }
+
+    _lastReadOutboxMessageId[chatId] =
+        update['last_read_outbox_message_id'] as int? ?? 0;
+    if (chatId == _activeChatId) {
+      _refreshDeliveryStatuses();
+    }
+  }
+
   void _handleUpdateChatIsMarkedAsUnread(Map<String, dynamic> update) {
     final chatId = update['chat_id'] as int?;
     if (chatId == null) {
@@ -1222,9 +1410,16 @@ class ChatManager extends ChangeNotifier {
     }
 
     final rawMessages = update['messages'] as List<dynamic>? ?? [];
+    final lastRead = _lastReadOutboxMessageId[chatId] ?? 0;
     final parsed = rawMessages
         .whereType<Map<String, dynamic>>()
-        .map(ChatMessage.fromTdlib)
+        .map(
+          (raw) => TdlibChatParser.parseMessage(
+            raw,
+            lastReadOutboxMessageId: lastRead,
+          ),
+        )
+        .whereType<ChatMessage>()
         .toList()
         .reversed
         .toList();
@@ -1270,7 +1465,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleSingleMessage(Map<String, dynamic> update) {
-    final message = TdlibChatParser.parseMessage(update);
+    final message = _parseMessage(update);
     if (message == null) {
       return;
     }
@@ -1278,7 +1473,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleNewMessage(Map<String, dynamic> update) {
-    final message = TdlibChatParser.parseMessage(
+    final message = _parseMessage(
       update['message'] as Map<String, dynamic>,
     );
     if (message == null) {
@@ -1298,11 +1493,21 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleSendSucceeded(Map<String, dynamic> update) {
-    final message = TdlibChatParser.parseMessage(
+    final oldMessageId = update['old_message_id'] as int?;
+    final message = _parseMessage(
       update['message'] as Map<String, dynamic>,
     );
     if (message == null) {
       return;
+    }
+
+    if (oldMessageId != null && oldMessageId != message.id) {
+      final pendingIndex = _messages.indexWhere((item) => item.id == oldMessageId);
+      if (pendingIndex >= 0) {
+        _messages[pendingIndex] = message;
+        notifyListeners();
+        return;
+      }
     }
     _replaceMessage(message);
   }
@@ -1381,6 +1586,48 @@ class ChatManager extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  void _handleMessageReactions(Map<String, dynamic> update) {
+    final chatId = update['chat_id'] as int?;
+    final messageId = update['message_id'] as int?;
+    if (chatId != _activeChatId || messageId == null) {
+      return;
+    }
+
+    final reactions = MessageEnrichmentParser.parseReactions(
+      update['reactions'] as Map<String, dynamic>?,
+    );
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index >= 0) {
+      _messages[index] = _messages[index].copyWith(reactions: reactions);
+      notifyListeners();
+    }
+  }
+
+  void _handleMessageInteractionInfo(Map<String, dynamic> update) {
+    final chatId = update['chat_id'] as int?;
+    final messageId = update['message_id'] as int?;
+    if (chatId != _activeChatId || messageId == null) {
+      return;
+    }
+
+    final info = MessageInteractionInfo.fromTdlib(
+      update['interaction_info'] as Map<String, dynamic>?,
+    );
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index >= 0) {
+      _messages[index] = _messages[index].copyWith(interactionInfo: info);
+      notifyListeners();
+    }
+  }
+
+  void _handleNewCallbackQuery(Map<String, dynamic> update) {
+    final callbackQueryId = update['id'] as String?;
+    if (callbackQueryId == null) {
+      return;
+    }
+    answerCallbackQuery(callbackQueryId);
   }
 
   void _handleTyping(Map<String, dynamic> update) {

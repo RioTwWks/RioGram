@@ -10,6 +10,8 @@ import '../../models/formatted_text.dart';
 import '../../widgets/forward_messages_dialog.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
+import '../../widgets/message_reactions_row.dart';
+import '../../widgets/poll_message_body.dart';
 
 /// Экран переписки: форматирование, ответ, пересылка, редактирование, удаление.
 class ChatScreen extends StatefulWidget {
@@ -124,6 +126,27 @@ class _ChatScreenState extends State<ChatScreen> {
     context.read<ChatManager>().setScheduledSendAt(scheduled);
   }
 
+  Future<void> _createPoll() async {
+    final data = await PollComposeDialog.show(context);
+    if (data == null || !mounted) {
+      return;
+    }
+    context.read<ChatManager>().sendPoll(
+          question: data.question,
+          options: data.options,
+          kind: data.kind,
+          correctOptionId: data.correctOptionId,
+        );
+  }
+
+  Future<void> _addReactionToMessage(ChatMessage message) async {
+    final emoji = await ReactionPickerSheet.show(context);
+    if (emoji == null || !mounted) {
+      return;
+    }
+    context.read<ChatManager>().addMessageReaction(message.id, emoji);
+  }
+
   Future<void> _showMessageMenu(ChatMessage message) async {
     final manager = context.read<ChatManager>();
     final canEdit = message.canEditText || message.canEditCaption;
@@ -138,6 +161,11 @@ class _ChatScreenState extends State<ChatScreen> {
               leading: const Icon(Icons.reply),
               title: const Text('Ответить'),
               onTap: () => Navigator.pop(context, 'reply'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_reaction_outlined),
+              title: const Text('Реакция'),
+              onTap: () => Navigator.pop(context, 'react'),
             ),
             if (canEdit)
               ListTile(
@@ -190,6 +218,8 @@ class _ChatScreenState extends State<ChatScreen> {
       case 'reply':
         _clearComposer();
         manager.setReplyToMessage(message);
+      case 'react':
+        await _addReactionToMessage(message);
       case 'edit':
         _clearComposer(clearText: false);
         _controller.text = message.editableComposerText ?? '';
@@ -384,6 +414,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final typing = chatManager.typingStatus;
     final selectionMode = chatManager.isSelectionMode;
     final editing = chatManager.editingMessage;
+    final showViewCount = chat?.kind == ChatKind.channel;
 
     if (messages.isNotEmpty) {
       _scrollToBottom();
@@ -466,6 +497,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 replyPreview:
                                     chatManager.replyPreviewFor(message),
                                 selectionMode: selectionMode,
+                                showViewCount: showViewCount,
                                 isSelected: chatManager.selectedMessageIds
                                     .contains(message.id),
                                 onTap: selectionMode
@@ -475,6 +507,23 @@ class _ChatScreenState extends State<ChatScreen> {
                                 onLongPress: selectionMode
                                     ? null
                                     : () => _showMessageMenu(message),
+                                onReactionTap: (emoji) => chatManager
+                                    .toggleMessageReaction(message.id, emoji),
+                                onAddReaction: () =>
+                                    _addReactionToMessage(message),
+                                onPollVote: (optionId) => chatManager
+                                    .setPollAnswer(message.id, [optionId]),
+                                onInlineButtonTap: (button) {
+                                  if (button.callbackData != null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Callback: ${button.callbackData}',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
                               );
                             },
                           ),
@@ -485,6 +534,7 @@ class _ChatScreenState extends State<ChatScreen> {
               controller: _controller,
               onSend: _sendMessage,
               onAttach: _pickFile,
+              onPoll: _createPoll,
               onSchedule: _pickSchedule,
               replyDraft: chatManager.pendingReply,
               onClearReply: chatManager.clearReply,

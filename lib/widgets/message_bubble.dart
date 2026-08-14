@@ -5,7 +5,12 @@ import 'package:intl/intl.dart';
 
 import '../models/chat_models.dart';
 import '../models/formatted_text.dart';
+import '../models/message_enrichment.dart';
 import 'formatted_text_widget.dart';
+import 'inline_keyboard_widget.dart';
+import 'message_delivery_icon.dart';
+import 'message_reactions_row.dart';
+import 'poll_message_body.dart';
 
 /// Пузырь сообщения в переписке.
 class MessageBubble extends StatelessWidget {
@@ -15,16 +20,26 @@ class MessageBubble extends StatelessWidget {
     this.replyPreview,
     this.isSelected = false,
     this.selectionMode = false,
+    this.showViewCount = false,
     this.onTap,
     this.onLongPress,
+    this.onReactionTap,
+    this.onAddReaction,
+    this.onPollVote,
+    this.onInlineButtonTap,
   });
 
   final ChatMessage message;
   final String? replyPreview;
   final bool isSelected;
   final bool selectionMode;
+  final bool showViewCount;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final void Function(String emoji)? onReactionTap;
+  final VoidCallback? onAddReaction;
+  final void Function(int optionId)? onPollVote;
+  final void Function(InlineKeyboardButtonModel button)? onInlineButtonTap;
 
   @override
   Widget build(BuildContext context) {
@@ -73,11 +88,36 @@ class MessageBubble extends StatelessWidget {
                       reply: message.replyTo!,
                       preview: replyPreview,
                     ),
-                  _MessageBody(message: message),
+                  _MessageBody(
+                    message: message,
+                    onPollVote: onPollVote,
+                  ),
+                  if (message.reactions.isNotEmpty || onAddReaction != null) ...[
+                    const SizedBox(height: 8),
+                    MessageReactionsRow(
+                      reactions: message.reactions,
+                      onReactionTap: onReactionTap,
+                      onAddReaction: onAddReaction,
+                    ),
+                  ],
+                  if (message.inlineKeyboard.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    InlineKeyboardWidget(
+                      rows: message.inlineKeyboard,
+                      onCallbackTap: onInlineButtonTap,
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (showViewCount &&
+                          (message.interactionInfo?.viewCount ?? 0) > 0) ...[
+                        MessageViewCountLabel(
+                          viewCount: message.interactionInfo!.viewCount,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       if (message.schedulingInfo != null) ...[
                         Icon(
                           Icons.schedule,
@@ -100,6 +140,11 @@ class MessageBubble extends StatelessWidget {
                         time,
                         style: theme.textTheme.labelSmall,
                       ),
+                      if (message.isOutgoing &&
+                          message.deliveryStatus != null) ...[
+                        const SizedBox(width: 4),
+                        MessageDeliveryIcon(status: message.deliveryStatus!),
+                      ],
                     ],
                   ),
                 ],
@@ -177,9 +222,13 @@ class _ReplyQuote extends StatelessWidget {
 }
 
 class _MessageBody extends StatelessWidget {
-  const _MessageBody({required this.message});
+  const _MessageBody({
+    required this.message,
+    this.onPollVote,
+  });
 
   final ChatMessage message;
+  final void Function(int optionId)? onPollVote;
 
   @override
   Widget build(BuildContext context) {
@@ -193,6 +242,13 @@ class _MessageBody extends StatelessWidget {
               fontStyle: FontStyle.italic,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
+      );
+    }
+
+    if (content.kind == MessageKind.poll && content.poll != null) {
+      return PollMessageBody(
+        poll: content.poll!,
+        onVote: onPollVote,
       );
     }
 

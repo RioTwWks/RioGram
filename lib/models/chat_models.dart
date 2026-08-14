@@ -1,4 +1,5 @@
 import 'formatted_text.dart';
+import 'message_enrichment.dart';
 
 /// Тип содержимого сообщения.
 enum MessageKind {
@@ -6,6 +7,7 @@ enum MessageKind {
   photo,
   video,
   document,
+  poll,
   unsupported,
 }
 
@@ -123,6 +125,7 @@ class MessageContent {
     this.formattedCaption,
     this.localPath,
     this.fileName,
+    this.poll,
   });
 
   final MessageKind kind;
@@ -132,6 +135,7 @@ class MessageContent {
   final FormattedText? formattedCaption;
   final String? localPath;
   final String? fileName;
+  final PollContent? poll;
 
   factory MessageContent.fromTdlib(Map<String, dynamic> content) {
     final type = content['@type'] as String? ?? '';
@@ -173,6 +177,14 @@ class MessageContent {
             fileName: _documentName(content),
             caption: captionFormatted?.preview,
             formattedCaption: captionFormatted,
+          );
+        }(),
+      'messagePoll' => () {
+          final poll = PollContent.fromTdlib(content);
+          return MessageContent(
+            kind: MessageKind.poll,
+            preview: '📊 ${poll.question}',
+            poll: poll,
           );
         }(),
       _ => MessageContent(
@@ -412,6 +424,10 @@ class ChatMessage {
     this.canBeDeletedForAllUsers = false,
     this.editDate,
     this.isDeleted = false,
+    this.deliveryStatus,
+    this.interactionInfo,
+    this.reactions = const [],
+    this.inlineKeyboard = const [],
   });
 
   final int id;
@@ -430,6 +446,10 @@ class ChatMessage {
   final bool canBeDeletedForAllUsers;
   final DateTime? editDate;
   final bool isDeleted;
+  final MessageDeliveryStatus? deliveryStatus;
+  final MessageInteractionInfo? interactionInfo;
+  final List<MessageReactionSummary> reactions;
+  final List<List<InlineKeyboardButtonModel>> inlineKeyboard;
 
   bool get isEdited => editDate != null;
 
@@ -468,6 +488,10 @@ class ChatMessage {
     bool? canBeDeletedForAllUsers,
     DateTime? editDate,
     bool? isDeleted,
+    MessageDeliveryStatus? deliveryStatus,
+    MessageInteractionInfo? interactionInfo,
+    List<MessageReactionSummary>? reactions,
+    List<List<InlineKeyboardButtonModel>>? inlineKeyboard,
   }) {
     return ChatMessage(
       id: id,
@@ -488,10 +512,17 @@ class ChatMessage {
           canBeDeletedForAllUsers ?? this.canBeDeletedForAllUsers,
       editDate: editDate ?? this.editDate,
       isDeleted: isDeleted ?? this.isDeleted,
+      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
+      interactionInfo: interactionInfo ?? this.interactionInfo,
+      reactions: reactions ?? this.reactions,
+      inlineKeyboard: inlineKeyboard ?? this.inlineKeyboard,
     );
   }
 
-  factory ChatMessage.fromTdlib(Map<String, dynamic> json) {
+  factory ChatMessage.fromTdlib(
+    Map<String, dynamic> json, {
+    int lastReadOutboxMessageId = 0,
+  }) {
     final dateSeconds = json['date'] as int? ?? 0;
     final contentMap = json['content'] as Map<String, dynamic>? ?? {};
 
@@ -534,6 +565,19 @@ class ChatMessage {
       canBeDeletedForAllUsers:
           json['can_be_deleted_for_all_users'] as bool? ?? false,
       editDate: editDate,
+      deliveryStatus: MessageEnrichmentParser.parseDeliveryStatus(
+        json,
+        lastReadOutboxMessageId: lastReadOutboxMessageId,
+      ),
+      interactionInfo: MessageInteractionInfo.fromTdlib(
+        json['interaction_info'] as Map<String, dynamic>?,
+      ),
+      reactions: MessageEnrichmentParser.parseReactions(
+        json['reactions'] as Map<String, dynamic>?,
+      ),
+      inlineKeyboard: MessageEnrichmentParser.parseInlineKeyboard(
+        json['reply_markup'] as Map<String, dynamic>?,
+      ),
     );
   }
 }
