@@ -48,8 +48,10 @@ class ChatFolderSidebar extends StatelessWidget {
                     (folder) => _SidebarIconButton(
                       icon: _folderIcon(folder.iconName),
                       tooltip: folder.name,
-                      selected: activeList is ChatListFolder &&
-                          activeList.folderId == folder.id,
+                      selected: switch (activeList) {
+                        ChatListFolder(folderId: final id) => id == folder.id,
+                        _ => false,
+                      },
                       onTap: () => onSelected(folder.listKey),
                     ),
                   ),
