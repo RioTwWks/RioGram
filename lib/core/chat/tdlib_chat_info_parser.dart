@@ -1,3 +1,4 @@
+import '../../models/channel_models.dart';
 import '../../models/chat_info_models.dart';
 
 /// Парсинг TDLib-ответов для экрана информации о чате.
@@ -93,6 +94,17 @@ class TdlibChatInfoParser {
     }
     final rights = status!['rights'] as Map<String, dynamic>?;
     return rights?['can_change_info'] as bool? ?? false;
+  }
+
+  static bool parseCanPostMessages(Map<String, dynamic>? status) {
+    if (status?['@type'] == 'chatMemberStatusCreator') {
+      return true;
+    }
+    if (status?['@type'] != 'chatMemberStatusAdministrator') {
+      return false;
+    }
+    final rights = status!['rights'] as Map<String, dynamic>?;
+    return rights?['can_post_messages'] as bool? ?? false;
   }
 
   static ChatMemberInfo parseChatMember(Map<String, dynamic> json) {
@@ -211,6 +223,8 @@ class TdlibChatInfoParser {
       myStatus: parseMemberStatus(status),
       canManageMembers: parseCanManageMembers(status),
       canChangeInfo: parseCanChangeInfo(status),
+      canPostMessages: parseCanPostMessages(status),
+      hasLinkedChat: json['has_linked_chat'] as bool? ?? false,
       adminSettings: ChatAdminSettings(
         isSlowModeEnabled: json['is_slow_mode_enabled'] as bool? ?? false,
         joinByRequest: json['join_by_request'] as bool? ?? false,
@@ -233,6 +247,7 @@ class TdlibChatInfoParser {
       inviteLink: parseInviteLink(
         json['invite_link'] as Map<String, dynamic>?,
       ),
+      linkedChatId: _parseLinkedChatId(json['linked_chat_id']),
       adminSettings: ChatAdminSettings(
         slowModeDelay: json['slow_mode_delay'] as int? ?? 0,
         slowModeDelayExpiresIn:
@@ -255,5 +270,33 @@ class TdlibChatInfoParser {
 
   static bool parseIsPinned(Map<String, dynamic> message) {
     return message['is_pinned'] as bool? ?? false;
+  }
+
+  static MessageThreadContext? parseMessageThreadInfo(
+    Map<String, dynamic> json, {
+    required int channelChatId,
+    required int channelMessageId,
+    String? postPreview,
+  }) {
+    if (json['@type'] != 'messageThreadInfo') {
+      return null;
+    }
+    final threadId = json['message_thread_id'] as int? ?? 0;
+    final discussionChatId = json['chat_id'] as int? ?? 0;
+    if (threadId == 0 || discussionChatId == 0) {
+      return null;
+    }
+    return MessageThreadContext(
+      channelChatId: channelChatId,
+      channelMessageId: channelMessageId,
+      discussionChatId: discussionChatId,
+      messageThreadId: threadId,
+      postPreview: postPreview,
+    );
+  }
+
+  static int? _parseLinkedChatId(dynamic value) {
+    final id = value as int? ?? 0;
+    return id == 0 ? null : id;
   }
 }

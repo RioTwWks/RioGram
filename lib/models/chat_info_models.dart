@@ -260,6 +260,9 @@ class ChatDetailInfo {
     this.canChangeInfo = false,
     this.canUpgradeToSupergroup = false,
     this.upgradedToSupergroupId,
+    this.linkedChatId,
+    this.hasLinkedChat = false,
+    this.canPostMessages = false,
   });
 
   final int chatId;
@@ -274,6 +277,15 @@ class ChatDetailInfo {
   final bool canChangeInfo;
   final bool canUpgradeToSupergroup;
   final int? upgradedToSupergroupId;
+  final int? linkedChatId;
+  final bool hasLinkedChat;
+  final bool canPostMessages;
+
+  bool get isSubscribed =>
+      myStatus != ChatMemberStatusKind.left &&
+      myStatus != ChatMemberStatusKind.banned;
+
+  bool get canSendInChannel => canPostMessages || permissions.canSendBasicMessages;
 
   bool get isGroupLike =>
       myStatus != ChatMemberStatusKind.unknown ||
@@ -303,6 +315,9 @@ class ChatDetailInfo {
           other.canUpgradeToSupergroup || canUpgradeToSupergroup,
       upgradedToSupergroupId:
           other.upgradedToSupergroupId ?? upgradedToSupergroupId,
+      linkedChatId: other.linkedChatId ?? linkedChatId,
+      hasLinkedChat: other.hasLinkedChat || hasLinkedChat,
+      canPostMessages: other.canPostMessages || canPostMessages,
     );
   }
 
@@ -320,6 +335,9 @@ class ChatDetailInfo {
       canChangeInfo: canChangeInfo,
       canUpgradeToSupergroup: canUpgradeToSupergroup,
       upgradedToSupergroupId: upgradedToSupergroupId,
+      linkedChatId: linkedChatId,
+      hasLinkedChat: hasLinkedChat,
+      canPostMessages: canPostMessages,
     );
   }
 
@@ -337,6 +355,9 @@ class ChatDetailInfo {
       canChangeInfo: canChangeInfo,
       canUpgradeToSupergroup: canUpgradeToSupergroup,
       upgradedToSupergroupId: upgradedToSupergroupId,
+      linkedChatId: linkedChatId,
+      hasLinkedChat: hasLinkedChat,
+      canPostMessages: canPostMessages,
     );
   }
 }

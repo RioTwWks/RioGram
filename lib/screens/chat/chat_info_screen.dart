@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
 import '../../models/chat_info_models.dart';
+import '../../models/channel_models.dart';
+import '../../models/chat_info_models.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/chat_list_tile.dart';
@@ -22,6 +24,8 @@ class ChatInfoScreen extends StatefulWidget {
 }
 
 class _ChatInfoScreenState extends State<ChatInfoScreen> {
+  var _isJoining = false;
+
   @override
   void initState() {
     super.initState();
@@ -74,6 +78,29 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
     await context.read<ChatManager>().leaveChat(widget.chatId);
     if (mounted) {
       Navigator.pop(context);
+    }
+  }
+
+  Future<void> _subscribeToChannel(ChatManager manager, ChatSummary chat) async {
+    setState(() => _isJoining = true);
+    try {
+      await manager.subscribeToChannel(chat.id);
+      manager.loadChatInfo(chat.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Вы подписались на «${chat.title}»')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isJoining = false);
+      }
     }
   }
 
@@ -343,6 +370,15 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
               label: const Text('Создать ссылку-приглашение'),
             ),
           ],
+          if (info?.linkedChatId != null) ...[
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.forum_outlined),
+              title: const Text('Группа обсуждения'),
+              subtitle: Text('ID ${info!.linkedChatId}'),
+            ),
+          ],
           if (info != null && _hasAdminSettings(info)) ...[
             const SizedBox(height: 24),
             Text('Настройки', style: Theme.of(context).textTheme.titleMedium),
@@ -414,7 +450,28 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
               label: const Text('Преобразовать в супергруппу'),
             ),
           if (info?.canUpgradeToSupergroup == true) const SizedBox(height: 8),
-          if (chat.canLeave)
+          if (chat.kind == ChatKind.channel &&
+              manager.channelMembershipFor(chat.id) ==
+                  ChannelMembershipKind.notSubscribed)
+            FilledButton.icon(
+              onPressed: _isJoining ? null : () => _subscribeToChannel(manager, chat),
+              icon: _isJoining
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add),
+              label: const Text('Подписаться'),
+            ),
+          if (chat.kind == ChatKind.channel &&
+              manager.channelMembershipFor(chat.id) ==
+                  ChannelMembershipKind.notSubscribed)
+            const SizedBox(height: 8),
+          if (chat.canLeave &&
+              !(chat.kind == ChatKind.channel &&
+                  manager.channelMembershipFor(chat.id) ==
+                      ChannelMembershipKind.notSubscribed))
             OutlinedButton.icon(
               onPressed: () => _confirmLeave(chat),
               icon: const Icon(Icons.logout),

@@ -466,6 +466,7 @@ class ChatSummary {
     this.basicGroupId,
     this.supergroupId,
     this.isForum = false,
+    this.canSendMessages = true,
   });
 
   final int id;
@@ -486,6 +487,7 @@ class ChatSummary {
   final int? basicGroupId;
   final int? supergroupId;
   final bool isForum;
+  final bool canSendMessages;
 
   /// Базовая группа (legacy), которую можно апгрейдить до supergroup.
   bool get isBasicGroup => basicGroupId != null;
@@ -501,6 +503,10 @@ class ChatSummary {
 
   /// Можно покинуть чат (группа / канал).
   bool get canLeave => kind == ChatKind.group || kind == ChatKind.channel;
+
+  /// Read-only канал для подписчика без права публикации.
+  bool get isChannelReadOnly =>
+      kind == ChatKind.channel && !canSendMessages;
 
   /// Текст превью: черновик имеет приоритет над последним сообщением.
   String? get previewText {
@@ -548,6 +554,7 @@ class ChatSummary {
     int? basicGroupId,
     int? supergroupId,
     bool? isForum,
+    bool? canSendMessages,
   }) {
     return ChatSummary(
       id: id,
@@ -570,6 +577,7 @@ class ChatSummary {
       basicGroupId: basicGroupId ?? this.basicGroupId,
       supergroupId: supergroupId ?? this.supergroupId,
       isForum: isForum ?? this.isForum,
+      canSendMessages: canSendMessages ?? this.canSendMessages,
     );
   }
 
@@ -630,6 +638,8 @@ class ChatMessage {
     this.coverLocalPath,
     this.isPinned = false,
     this.canBePinned = false,
+    this.isChannelPost = false,
+    this.canGetMessageThread = false,
   });
 
   final int id;
@@ -658,8 +668,12 @@ class ChatMessage {
   final String? coverLocalPath;
   final bool isPinned;
   final bool canBePinned;
+  final bool isChannelPost;
+  final bool canGetMessageThread;
 
   bool get isEdited => editDate != null;
+
+  int get replyCount => interactionInfo?.replyCount ?? 0;
 
   bool get canEditWithinWindow {
     if (!canBeEdited || isDeleted) {
@@ -707,6 +721,8 @@ class ChatMessage {
     String? coverLocalPath,
     bool? isPinned,
     bool? canBePinned,
+    bool? isChannelPost,
+    bool? canGetMessageThread,
     bool clearFileTransfer = false,
     bool clearCoverLocalPath = false,
   }) {
@@ -741,6 +757,9 @@ class ChatMessage {
           clearCoverLocalPath ? null : (coverLocalPath ?? this.coverLocalPath),
       isPinned: isPinned ?? this.isPinned,
       canBePinned: canBePinned ?? this.canBePinned,
+      isChannelPost: isChannelPost ?? this.isChannelPost,
+      canGetMessageThread:
+          canGetMessageThread ?? this.canGetMessageThread,
     );
   }
 
@@ -807,7 +826,17 @@ class ChatMessage {
       groupedId: json['grouped_id'] as int?,
       isPinned: json['is_pinned'] as bool? ?? false,
       canBePinned: _parseCanBePinned(json),
+      isChannelPost: json['is_channel_post'] as bool? ?? false,
+      canGetMessageThread: _parseCanGetMessageThread(json),
     );
+  }
+
+  static bool _parseCanGetMessageThread(Map<String, dynamic> json) {
+    final properties = json['properties'] as Map<String, dynamic>?;
+    if (properties != null) {
+      return properties['can_get_message_thread'] as bool? ?? false;
+    }
+    return json['can_get_message_thread'] as bool? ?? false;
   }
 
   static bool _parseCanBePinned(Map<String, dynamic> json) {

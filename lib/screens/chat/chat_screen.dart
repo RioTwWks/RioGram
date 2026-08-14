@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
+import '../../models/channel_models.dart';
 import '../../models/chat_models.dart';
 import '../../models/formatted_text.dart';
 import '../../models/media_models.dart';
+import '../../widgets/channel_status_bar.dart';
 import '../../widgets/forward_messages_dialog.dart';
 import '../../widgets/media_attach_sheet.dart';
 import '../../widgets/message_bubble.dart';
@@ -18,6 +20,7 @@ import '../../widgets/sticker_panel_sheet.dart';
 import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
 import 'chat_info_screen.dart';
+import 'message_thread_screen.dart';
 
 /// Экран переписки: форматирование, ответ, пересылка, редактирование, удаление.
 class ChatScreen extends StatefulWidget {
@@ -38,6 +41,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _typingTimer;
+  var _isSubscribing = false;
 
   @override
   void initState() {
@@ -551,6 +555,40 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _openComments(ChatMessage message) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MessageThreadScreen(
+          channelChatId: widget.chatId,
+          channelMessageId: message.id,
+          postPreview: message.content.preview,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _subscribeToChannel(ChatManager manager, ChatSummary chat) async {
+    setState(() => _isSubscribing = true);
+    try {
+      await manager.subscribeToChannel(chat.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Вы подписались на «${chat.title}»')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubscribing = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatManager = context.watch<ChatManager>();
@@ -561,6 +599,15 @@ class _ChatScreenState extends State<ChatScreen> {
     final selectionMode = chatManager.isSelectionMode;
     final editing = chatManager.editingMessage;
     final showViewCount = chat?.kind == ChatKind.channel;
+    final membership = chatManager.channelMembershipFor(widget.chatId);
+    final showSubscribeBanner =
+        chat?.kind == ChatKind.channel &&
+        membership == ChannelMembershipKind.notSubscribed;
+    final showReadOnlyBar =
+        chat?.kind == ChatKind.channel &&
+        !showSubscribeBanner &&
+        !chatManager.canSendInActiveChat;
+    final showComments = chat?.kind == ChatKind.channel;
 
     if (messages.isNotEmpty) {
       _scrollToBottom();
@@ -637,6 +684,12 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
+          if (showSubscribeBanner && chat != null)
+            ChannelSubscribeBanner(
+              channelTitle: chat.title,
+              isLoading: _isSubscribing,
+              onSubscribe: () => _subscribeToChannel(chatManager, chat),
+            ),
           Expanded(
             child: chatManager.isLoadingMessages
                 ? const Center(child: CircularProgressIndicator())
@@ -702,13 +755,21 @@ class _ChatScreenState extends State<ChatScreen> {
                                     ? () => chatManager
                                         .cancelMessageTransfer(message)
                                     : null,
+                                showComments: showComments &&
+                                    message.canGetMessageThread,
+                                onCommentsTap: message.canGetMessageThread
+                                    ? () => _openComments(message)
+                                    : null,
                               );
                             },
                           ),
           ),
           if (!selectionMode) ...[
-            const Divider(height: 1),
-            MessageInputBar(
+            if (showReadOnlyBar)
+              const ChannelReadOnlyBar()
+            else ...[
+              const Divider(height: 1),
+              MessageInputBar(
               controller: _controller,
               onSend: _sendMessage,
               onAttach: _attachMedia,
@@ -734,6 +795,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onVoiceAction: _recordVoice,
               onStickerAction: _openStickerPanel,
             ),
+            ],
           ],
         ],
       ),

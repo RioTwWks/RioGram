@@ -1,5 +1,6 @@
 import '../../models/chat_models.dart';
 import '../../models/group_models.dart';
+import 'tdlib_chat_info_parser.dart';
 
 /// Данные аватара чата из TDLib chatPhotoInfo.
 class ChatAvatarData {
@@ -70,6 +71,9 @@ class TdlibChatParser {
       supergroupId: typeInfo.supergroupId,
       isForum: typeInfo.isForum ||
           (chat['view_as_topics'] as bool? ?? false),
+      canSendMessages: TdlibChatInfoParser.parsePermissions(
+        chat['permissions'] as Map<String, dynamic>?,
+      ).canSendBasicMessages,
     );
   }
 
