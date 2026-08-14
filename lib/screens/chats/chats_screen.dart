@@ -11,6 +11,7 @@ import '../../widgets/chat_search_panel.dart';
 import '../../widgets/new_chat_dialog.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../chat/chat_screen.dart';
+import '../chat/forum_topics_screen.dart';
 import '../settings/settings_screen.dart';
 
 /// Адаптивный экран чатов: mobile / master-detail / три колонки (desktop).
@@ -23,6 +24,8 @@ class ChatsScreen extends StatefulWidget {
 
 class _ChatsScreenState extends State<ChatsScreen> {
   int? _selectedChatId;
+  int? _selectedForumTopicId;
+  String? _selectedForumTopicName;
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
@@ -277,6 +280,44 @@ class _ChatsScreenState extends State<ChatsScreen> {
       );
     }
 
+    final chat = chatManager.chatById(_selectedChatId!);
+    if (chat?.isForumChat == true && _selectedForumTopicId == null) {
+      return ForumTopicsScreen(
+        key: ValueKey('forum_${_selectedChatId!}'),
+        chatId: _selectedChatId!,
+        embedded: true,
+        onTopicSelected: (forumTopicId, topicName) {
+          setState(() {
+            _selectedForumTopicId = forumTopicId;
+            _selectedForumTopicName = topicName;
+          });
+          chatManager.openForumTopic(
+            _selectedChatId!,
+            forumTopicId,
+            topicName: topicName,
+          );
+        },
+      );
+    }
+
+    if (_selectedForumTopicId != null) {
+      return ChatScreen(
+        key: ValueKey('forum_topic_${_selectedChatId!}_$_selectedForumTopicId'),
+        chatId: _selectedChatId!,
+        forumTopicId: _selectedForumTopicId,
+        forumTopicName: _selectedForumTopicName,
+        closeOnDispose: false,
+        onBackToTopics: () {
+          setState(() {
+            _selectedForumTopicId = null;
+            _selectedForumTopicName = null;
+          });
+          chatManager.closeChat();
+          chatManager.loadForumTopics(_selectedChatId!);
+        },
+      );
+    }
+
     return ChatScreen(
       key: ValueKey(_selectedChatId),
       chatId: _selectedChatId!,
@@ -344,10 +385,36 @@ class _ChatsScreenState extends State<ChatsScreen> {
   }
 
   void _openChat(BuildContext context, ChatManager chatManager, int chatId) {
+    final chat = chatManager.chatById(chatId);
     final isWide =
         MediaQuery.sizeOf(context).width >= _wideBreakpoint;
+
+    if (chat?.isForumChat == true) {
+      if (isWide) {
+        setState(() {
+          _selectedChatId = chatId;
+          _selectedForumTopicId = null;
+          _selectedForumTopicName = null;
+        });
+        chatManager.clearForumTopicSelection();
+        chatManager.loadForumTopics(chatId);
+        return;
+      }
+
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ForumTopicsScreen(chatId: chatId),
+        ),
+      );
+      return;
+    }
+
     if (isWide) {
-      setState(() => _selectedChatId = chatId);
+      setState(() {
+        _selectedChatId = chatId;
+        _selectedForumTopicId = null;
+        _selectedForumTopicName = null;
+      });
       chatManager.openChat(chatId);
       return;
     }

@@ -6,6 +6,7 @@ import '../../models/audio_models.dart';
 import '../../models/chat_models.dart';
 import '../../models/channel_models.dart';
 import '../../models/chat_info_models.dart';
+import '../../models/forum_models.dart';
 import '../../models/group_models.dart';
 import '../../models/message_enrichment.dart';
 import '../media/media_cache_manager.dart';
@@ -13,6 +14,7 @@ import '../notifications/notification_service.dart';
 import '../../models/sticker_models.dart';
 import '../tdlib/tdlib_client.dart';
 import 'formatted_text_builder.dart';
+import 'tdlib_forum_parser.dart';
 import 'tdlib_chat_info_parser.dart';
 import 'tdlib_chat_parser.dart';
 
@@ -79,6 +81,15 @@ class ChatManager extends ChangeNotifier {
   String? _messageThreadError;
   String? _pendingThreadPreview;
 
+  int? _activeForumTopicId;
+  String? _activeForumTopicName;
+  final Map<int, List<ForumTopicSummary>> _forumTopicsByChatId = {};
+  final Map<int, int> _forumTopicsTotalCount = {};
+  bool _isLoadingForumTopics = false;
+  String? _forumTopicsError;
+  int? _loadingForumTopicsForChatId;
+  ForumTopicsPageOffset _forumTopicsNextOffset = const ForumTopicsPageOffset();
+
   MessageReplyDraft? _pendingReply;
   DateTime? _scheduledSendAt;
   MessageEditDraft? _editingMessage;
@@ -136,6 +147,12 @@ class ChatManager extends ChangeNotifier {
       List.unmodifiable(_messageThreadMessages);
   bool get isLoadingMessageThread => _isLoadingMessageThread;
   String? get messageThreadError => _messageThreadError;
+  int? get activeForumTopicId => _activeForumTopicId;
+  String? get activeForumTopicName => _activeForumTopicName;
+  bool get isForumTopicOpen => _activeForumTopicId != null;
+  bool get isLoadingForumTopics => _isLoadingForumTopics;
+  String? get forumTopicsError => _forumTopicsError;
+  int? get loadingForumTopicsForChatId => _loadingForumTopicsForChatId;
 
   MessageReplyDraft? get pendingReply => _pendingReply;
   MessageEditDraft? get editingMessage => _editingMessage;
@@ -237,6 +254,16 @@ class ChatManager extends ChangeNotifier {
   bool channelHasComments(int chatId) {
     final info = _chatInfoById[chatId];
     return info?.hasLinkedChat == true || info?.linkedChatId != null;
+  }
+
+  List<ForumTopicSummary> forumTopicsFor(int chatId) {
+    return List.unmodifiable(_forumTopicsByChatId[chatId] ?? const []);
+  }
+
+  int forumTopicsTotalCountFor(int chatId) {
+    return _forumTopicsTotalCount[chatId] ??
+        _forumTopicsByChatId[chatId]?.length ??
+        0;
   }
 
   Future<int> subscribeToChannel(int chatId) => joinChat(chatId);
@@ -697,6 +724,92 @@ class ChatManager extends ChangeNotifier {
     });
   }
 
+  void clearForumTopics(int chatId) {
+    _forumTopicsByChatId.remove(chatId);
+    _forumTopicsTotalCount.remove(chatId);
+    if (_loadingForumTopicsForChatId == chatId) {
+      _loadingForumTopicsForChatId = null;
+      _isLoadingForumTopics = false;
+      _forumTopicsError = null;
+    }
+    notifyListeners();
+  }
+
+  void loadForumTopics(int chatId, {String query = '', bool loadMore = false}) {
+    _loadingForumTopicsForChatId = chatId;
+    _isLoadingForumTopics = true;
+    _forumTopicsError = null;
+    if (!loadMore) {
+      _forumTopicsNextOffset = const ForumTopicsPageOffset();
+      _forumTopicsByChatId.remove(chatId);
+    }
+    notifyListeners();
+
+    final offset = loadMore ? _forumTopicsNextOffset : const ForumTopicsPageOffset();
+    _client.send({
+      '@type': 'getForumTopics',
+      'chat_id': chatId,
+      'query': query.trim(),
+      'offset_date': offset.offsetDate,
+      'offset_message_id': offset.offsetMessageId,
+      'offset_forum_topic_id': offset.offsetForumTopicId,
+      'limit': 50,
+      '@extra': loadMore ? 'forumTopicsMore_$chatId' : 'forumTopics_$chatId',
+    });
+  }
+
+  void createForumTopic(int chatId, String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    _client.send({
+      '@type': 'createForumTopic',
+      'chat_id': chatId,
+      'name': trimmed,
+      'is_name_implicit': false,
+      'icon': {
+        '@type': 'forumTopicIcon',
+        'color': 0x6FB9F0,
+        'custom_emoji_id': 0,
+      },
+      '@extra': 'createForumTopic_$chatId',
+    });
+  }
+
+  void openForumTopic(
+    int chatId,
+    int forumTopicId, {
+    String? topicName,
+  }) {
+    _activeChatId = chatId;
+    _activeForumTopicId = forumTopicId;
+    _activeForumTopicName = topicName;
+    _messages.clear();
+    _typingStatus = null;
+    _messagesError = null;
+    _pendingReply = null;
+    _scheduledSendAt = null;
+    _editingMessage = null;
+    _exitSelectionMode();
+    _isLoadingMessages = true;
+    _startMessagesLoadTimeout(chatId);
+    notifyListeners();
+
+    _client.send({
+      '@type': 'openChat',
+      'chat_id': chatId,
+      '@extra': 'openChat_$chatId',
+    });
+    _requestForumTopicHistory(chatId, forumTopicId);
+  }
+
+  void clearForumTopicSelection() {
+    _activeForumTopicId = null;
+    _activeForumTopicName = null;
+    notifyListeners();
+  }
+
   Future<int> _sendChatAction({
     required Map<String, dynamic> request,
     required String extraPrefix,
@@ -849,6 +962,8 @@ class ChatManager extends ChangeNotifier {
   }
 
   void openChat(int chatId) {
+    _activeForumTopicId = null;
+    _activeForumTopicName = null;
     _activeChatId = chatId;
     _messages.clear();
     _typingStatus = null;
@@ -880,6 +995,8 @@ class ChatManager extends ChangeNotifier {
       _client.send({'@type': 'closeChat', 'chat_id': _activeChatId});
     }
     _activeChatId = null;
+    _activeForumTopicId = null;
+    _activeForumTopicName = null;
     _messages.clear();
     _typingStatus = null;
     _pendingReply = null;
@@ -1081,6 +1198,7 @@ class ChatManager extends ChangeNotifier {
       };
     }
 
+    _applyForumTopicToPayload(payload);
     _client.send(payload);
     _pendingReply = null;
     _scheduledSendAt = null;
@@ -1426,6 +1544,7 @@ class ChatManager extends ChangeNotifier {
       };
     }
 
+    _applyForumTopicToPayload(payload);
     _client.send(payload);
     _clearComposerStateAfterSend();
   }
@@ -1453,7 +1572,19 @@ class ChatManager extends ChangeNotifier {
       };
     }
 
+    _applyForumTopicToPayload(payload);
     return payload;
+  }
+
+  void _applyForumTopicToPayload(Map<String, dynamic> payload) {
+    final topicId = _activeForumTopicId;
+    if (topicId == null) {
+      return;
+    }
+    payload['topic_id'] = {
+      '@type': 'messageTopicForum',
+      'forum_topic_id': topicId,
+    };
   }
 
   Map<String, dynamic>? _sendOptionsMap() {
@@ -1502,6 +1633,11 @@ class ChatManager extends ChangeNotifier {
       '@type': 'sendChatAction',
       'chat_id': chatId,
       'action': {'@type': actionType},
+      if (_activeForumTopicId != null)
+        'topic_id': {
+          '@type': 'messageTopicForum',
+          'forum_topic_id': _activeForumTopicId,
+        },
     });
   }
 
@@ -1701,6 +1837,10 @@ class ChatManager extends ChangeNotifier {
         _handleChatInviteLinkResponse(update);
       case 'messageThreadInfo':
         _handleMessageThreadInfo(update);
+      case 'forumTopics':
+        _handleForumTopics(update);
+      case 'forumTopicInfo':
+        _handleForumTopicInfo(update);
       case 'createdBasicGroupChat':
         _handleCreatedBasicGroupChat(update);
       case 'chatJoinResultSuccess':
@@ -1916,6 +2056,28 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    if (extra.startsWith('forumTopics_') || extra.startsWith('forumTopicsMore_')) {
+      _forumTopicsError =
+          update['message'] as String? ?? 'Не удалось загрузить темы';
+      _isLoadingForumTopics = false;
+      notifyListeners();
+      return;
+    }
+
+    if (extra.startsWith('forumTopicHistory_')) {
+      final parts = extra.substring('forumTopicHistory_'.length).split('_');
+      if (parts.length == 2 &&
+          int.tryParse(parts[0]) == _activeChatId &&
+          int.tryParse(parts[1]) == _activeForumTopicId) {
+        _messagesLoadTimeout?.cancel();
+        _isLoadingMessages = false;
+        _messagesError =
+            update['message'] as String? ?? 'Не удалось загрузить тему';
+        notifyListeners();
+      }
+      return;
+    }
+
     if (_isChatActionExtra(extra)) {
       _failChatAction(
         extra,
@@ -1941,6 +2103,9 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _requestChatHistory(int chatId, {required bool onlyLocal}) {
+    if (_activeForumTopicId != null) {
+      return;
+    }
     _client.send({
       '@type': 'getChatHistory',
       'chat_id': chatId,
@@ -1951,6 +2116,18 @@ class ChatManager extends ChangeNotifier {
       '@extra': onlyLocal
           ? 'getChatHistoryLocal_$chatId'
           : 'getChatHistory_$chatId',
+    });
+  }
+
+  void _requestForumTopicHistory(int chatId, int forumTopicId) {
+    _client.send({
+      '@type': 'getForumTopicHistory',
+      'chat_id': chatId,
+      'forum_topic_id': forumTopicId,
+      'from_message_id': 0,
+      'offset': 0,
+      'limit': 50,
+      '@extra': 'forumTopicHistory_${chatId}_$forumTopicId',
     });
   }
 
@@ -2388,6 +2565,11 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    if (extra != null && extra.startsWith('forumTopicHistory_')) {
+      _handleForumTopicHistory(update, extra);
+      return;
+    }
+
     final isLocal = extra?.startsWith('getChatHistoryLocal_') ?? false;
     final chatId = update['chat_id'] as int? ??
         _chatIdFromExtra(extra, 'getChatHistoryLocal_') ??
@@ -2460,9 +2642,11 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleNewMessage(Map<String, dynamic> update) {
-    final message = _parseMessage(
-      update['message'] as Map<String, dynamic>,
-    );
+    final raw = update['message'] as Map<String, dynamic>;
+    if (!_messageMatchesActiveForumTopic(raw)) {
+      return;
+    }
+    final message = _parseMessage(raw);
     if (message == null) {
       return;
     }
@@ -3195,6 +3379,119 @@ class ChatManager extends ChangeNotifier {
       '@type': 'getUser',
       'user_id': userId,
     });
+  }
+
+  bool _messageMatchesActiveForumTopic(Map<String, dynamic> json) {
+    final activeTopicId = _activeForumTopicId;
+    if (activeTopicId == null) {
+      return true;
+    }
+    final topic = json['topic_id'] as Map<String, dynamic>?;
+    if (topic?['@type'] != 'messageTopicForum') {
+      return false;
+    }
+    return topic?['forum_topic_id'] == activeTopicId;
+  }
+
+  void _handleForumTopics(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null ||
+        (!extra.startsWith('forumTopics_') &&
+            !extra.startsWith('forumTopicsMore_'))) {
+      return;
+    }
+    final prefix = extra.startsWith('forumTopicsMore_')
+        ? 'forumTopicsMore_'
+        : 'forumTopics_';
+    final chatId = int.tryParse(extra.substring(prefix.length));
+    if (chatId == null || chatId != _loadingForumTopicsForChatId) {
+      return;
+    }
+
+    final topics = TdlibForumParser.parseForumTopics(update);
+    final existing = _forumTopicsByChatId[chatId] ?? [];
+    final mergedIds = existing.map((topic) => topic.forumTopicId).toSet();
+    _forumTopicsByChatId[chatId] = [
+      ...existing,
+      ...topics.where((topic) => !mergedIds.contains(topic.forumTopicId)),
+    ]..sort((a, b) => b.order.compareTo(a.order));
+    _forumTopicsTotalCount[chatId] =
+        TdlibForumParser.parseForumTopicsTotalCount(update) ??
+            _forumTopicsByChatId[chatId]!.length;
+    _forumTopicsNextOffset = TdlibForumParser.parseForumTopicsOffset(update);
+    _isLoadingForumTopics = false;
+    notifyListeners();
+  }
+
+  void _handleForumTopicInfo(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null || !extra.startsWith('createForumTopic_')) {
+      return;
+    }
+    final chatId = int.tryParse(extra.substring('createForumTopic_'.length));
+    if (chatId == null) {
+      return;
+    }
+    final created = TdlibForumParser.parseForumTopicInfo(update);
+    if (created == null) {
+      return;
+    }
+    final existing = _forumTopicsByChatId[chatId] ?? [];
+    if (existing.any((topic) => topic.forumTopicId == created.forumTopicId)) {
+      loadForumTopics(chatId);
+      return;
+    }
+    _forumTopicsByChatId[chatId] = [created, ...existing]
+      ..sort((a, b) => b.order.compareTo(a.order));
+    notifyListeners();
+  }
+
+  void _handleForumTopicHistory(Map<String, dynamic> update, String extra) {
+    final prefix = 'forumTopicHistory_';
+    final suffix = extra.substring(prefix.length);
+    final separator = suffix.lastIndexOf('_');
+    if (separator <= 0) {
+      return;
+    }
+    final chatId = int.tryParse(suffix.substring(0, separator));
+    final forumTopicId = int.tryParse(suffix.substring(separator + 1));
+    if (chatId == null ||
+        forumTopicId == null ||
+        chatId != _activeChatId ||
+        forumTopicId != _activeForumTopicId) {
+      return;
+    }
+
+    final rawMessages = update['messages'] as List<dynamic>? ?? [];
+    final lastRead = _lastReadOutboxMessageId[chatId] ?? 0;
+    final parsed = rawMessages
+        .whereType<Map<String, dynamic>>()
+        .where(_messageMatchesActiveForumTopic)
+        .map(
+          (raw) => TdlibChatParser.parseMessage(
+            raw,
+            lastReadOutboxMessageId: lastRead,
+          ),
+        )
+        .whereType<ChatMessage>()
+        .toList()
+        .reversed
+        .toList();
+
+    if (parsed.isNotEmpty) {
+      _messages
+        ..clear()
+        ..addAll(parsed);
+      _requestMediaDownloads();
+    }
+
+    _messagesLoadTimeout?.cancel();
+    _messagesError = null;
+    _isLoadingMessages = false;
+    if (parsed.isNotEmpty) {
+      _markMessagesRead(chatId, parsed);
+    }
+    notifyListeners();
   }
 
   @override
