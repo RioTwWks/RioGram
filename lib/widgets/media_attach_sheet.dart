@@ -57,6 +57,12 @@ class MediaAttachSheet extends StatelessWidget {
             onTap: () => Navigator.pop(context, MediaAttachAction.album),
           ),
           ListTile(
+            leading: const Icon(Icons.audiotrack_outlined),
+            title: const Text('Аудиофайл'),
+            subtitle: const Text('Музыка / MP3 как messageAudio'),
+            onTap: () => Navigator.pop(context, MediaAttachAction.audio),
+          ),
+          ListTile(
             leading: const Icon(Icons.attach_file),
             title: const Text('Файл'),
             onTap: () => Navigator.pop(context, MediaAttachAction.document),

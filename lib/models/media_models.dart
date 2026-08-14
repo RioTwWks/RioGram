@@ -35,6 +35,7 @@ enum MediaAttachAction {
   videoCompressed,
   videoAsFile,
   videoNote,
+  audio,
   document,
   album,
 }

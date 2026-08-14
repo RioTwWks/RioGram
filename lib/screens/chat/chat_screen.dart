@@ -14,6 +14,7 @@ import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
 import '../../widgets/poll_message_body.dart';
+import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
 
 /// Экран переписки: форматирование, ответ, пересылка, редактирование, удаление.
@@ -148,7 +149,28 @@ class _ChatScreenState extends State<ChatScreen> {
         if (docPath != null) {
           await manager.sendDocument(docPath);
         }
+      case MediaAttachAction.audio:
+        final audio = await FilePicker.platform.pickFiles(type: FileType.audio);
+        final audioPath = audio?.files.single.path;
+        if (audioPath != null) {
+          await manager.sendAudio(audioPath);
+        }
     }
+  }
+
+  Future<void> _recordVoice() async {
+    final manager = context.read<ChatManager>();
+    manager.sendChatAction(OutgoingChatAction.recordingVoice);
+    final result = await VoiceRecorderSheet.show(context);
+    manager.sendChatAction(OutgoingChatAction.cancel);
+    if (result == null || !mounted) {
+      return;
+    }
+    await manager.sendVoiceNote(
+      path: result.path,
+      durationSeconds: result.durationSeconds,
+      waveform: result.waveform,
+    );
   }
 
   void _openMediaViewer(ChatMessage anchor) {
@@ -614,6 +636,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                 onMediaTap: selectionMode
                                     ? null
                                     : _openMediaViewer,
+                                onCancelTransfer: message.fileTransfer != null
+                                    ? () => chatManager
+                                        .cancelMessageTransfer(message)
+                                    : null,
                               );
                             },
                           ),
@@ -643,9 +669,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ComposerFormatting.wrapSelection(_controller, '`', '`'),
               onFormatLink: () =>
                   ComposerFormatting.insertLink(context, _controller),
-              onVoiceAction: () => chatManager.sendChatAction(
-                OutgoingChatAction.recordingVoice,
-              ),
+              onVoiceAction: _recordVoice,
               onStickerAction: () => chatManager.sendChatAction(
                 OutgoingChatAction.choosingSticker,
               ),
