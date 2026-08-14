@@ -49,6 +49,10 @@ class ChatListTile extends StatelessWidget {
     required this.onTap,
     this.onPinToggle,
     this.onArchiveToggle,
+    this.onToggleUnread,
+    this.onClearHistory,
+    this.onDeleteChat,
+    this.onDeleteForAll,
   });
 
   final ChatSummary chat;
@@ -57,6 +61,10 @@ class ChatListTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onPinToggle;
   final VoidCallback? onArchiveToggle;
+  final VoidCallback? onToggleUnread;
+  final VoidCallback? onClearHistory;
+  final VoidCallback? onDeleteChat;
+  final VoidCallback? onDeleteForAll;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +82,11 @@ class ChatListTile extends StatelessWidget {
           : chat.isMuted
               ? theme.colorScheme.onSurface.withValues(alpha: 0.45)
               : theme.colorScheme.onSurface.withValues(alpha: 0.65),
+      fontWeight: chat.showsUnreadIndicator ? FontWeight.w600 : FontWeight.normal,
+    );
+
+    final titleStyle = theme.textTheme.titleMedium?.copyWith(
+      fontWeight: chat.showsUnreadIndicator ? FontWeight.w700 : FontWeight.w600,
     );
 
     return Material(
@@ -110,9 +123,7 @@ class ChatListTile extends StatelessWidget {
                             chat.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: titleStyle,
                           ),
                         ),
                         if (isPinned) ...[
@@ -136,6 +147,9 @@ class ChatListTile extends StatelessWidget {
                             time,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                              fontWeight: chat.showsUnreadIndicator
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
                             ),
                           ),
                       ],
@@ -153,8 +167,7 @@ class ChatListTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              if (chat.unreadCount > 0)
-                _UnreadBadge(count: chat.unreadCount, muted: chat.isMuted),
+              _UnreadIndicator(chat: chat),
             ],
           ),
         ),
@@ -165,6 +178,9 @@ class ChatListTile extends StatelessWidget {
   void _showActions(BuildContext context) {
     final isPinned = chat.isPinnedIn(activeList);
     final isArchive = activeList is ChatListArchive;
+    final markUnreadLabel = chat.isMarkedAsUnread
+        ? 'Отметить прочитанным'
+        : 'Отметить непрочитанным';
 
     showModalBottomSheet<void>(
       context: context,
@@ -182,6 +198,14 @@ class ChatListTile extends StatelessWidget {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.mark_chat_unread_outlined),
+                title: Text(markUnreadLabel),
+                onTap: () {
+                  Navigator.pop(context);
+                  onToggleUnread?.call();
+                },
+              ),
+              ListTile(
                 leading: Icon(isArchive ? Icons.unarchive_outlined : Icons.archive_outlined),
                 title: Text(isArchive ? 'Из архива' : 'В архив'),
                 onTap: () {
@@ -189,11 +213,119 @@ class ChatListTile extends StatelessWidget {
                   onArchiveToggle?.call();
                 },
               ),
+              if (chat.canBeDeletedOnlyForSelf && onClearHistory != null)
+                ListTile(
+                  leading: const Icon(Icons.cleaning_services_outlined),
+                  title: const Text('Очистить историю'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirm(
+                      context,
+                      title: 'Очистить историю?',
+                      message: 'Сообщения будут удалены только у вас.',
+                      onConfirm: onClearHistory!,
+                    );
+                  },
+                ),
+              if (onDeleteChat != null)
+                ListTile(
+                  leading: Icon(
+                    chat.canLeave ? Icons.logout : Icons.delete_outline,
+                  ),
+                  title: Text(chat.canLeave ? 'Покинуть чат' : 'Удалить чат'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirm(
+                      context,
+                      title: chat.canLeave ? 'Покинуть чат?' : 'Удалить чат?',
+                      message: chat.canLeave
+                          ? 'Вы больше не будете получать сообщения из этого чата.'
+                          : 'Чат будет удалён из списка.',
+                      onConfirm: onDeleteChat!,
+                    );
+                  },
+                ),
+              if (chat.canBeDeletedForAllUsers && onDeleteForAll != null)
+                ListTile(
+                  leading: const Icon(Icons.delete_forever_outlined, color: Colors.red),
+                  title: const Text(
+                    'Удалить для всех',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirm(
+                      context,
+                      title: 'Удалить для всех?',
+                      message: 'История будет удалена у всех участников.',
+                      destructive: true,
+                      onConfirm: onDeleteForAll!,
+                    );
+                  },
+                ),
             ],
           ),
         );
       },
     );
+  }
+
+  Future<void> _confirm(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+    bool destructive = false,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            style: destructive
+                ? FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  )
+                : null,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Подтвердить'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      onConfirm();
+    }
+  }
+}
+
+class _UnreadIndicator extends StatelessWidget {
+  const _UnreadIndicator({required this.chat});
+
+  final ChatSummary chat;
+
+  @override
+  Widget build(BuildContext context) {
+    if (chat.unreadCount > 0) {
+      return _UnreadBadge(count: chat.unreadCount, muted: chat.isMuted);
+    }
+    if (chat.isMarkedAsUnread) {
+      return Container(
+        width: 12,
+        height: 12,
+        decoration: const BoxDecoration(
+          color: Color(0xFF3390EC),
+          shape: BoxShape.circle,
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
 

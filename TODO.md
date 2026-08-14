@@ -230,10 +230,10 @@
 - [x] Иконки типа чата: личный, группа, канал, бот, секретный
 
 #### Действия со списком
-- [ ] Поиск по чатам (`searchChats`, `searchMessages` глобально)
-- [ ] Удаление / очистка истории (`deleteChatHistory`, `leaveChat`)
-- [ ] Отметить как прочитанное (`toggleChatIsMarkedAsUnread`)
-- [ ] «Избранное» / Saved Messages (`chatTypeSecret` / специальный чат «Избранное»)
+- [x] Поиск по чатам (`searchChats`, `searchMessages` глобально)
+- [x] Удаление / очистка истории (`deleteChatHistory`, `leaveChat`)
+- [x] Отметить как прочитанное (`toggleChatIsMarkedAsUnread`)
+- [x] «Избранное» / Saved Messages (`chatTypeSecret` / специальный чат «Избранное»)
 
 #### Десктопная навигация
 - [x] Master-detail ≥720px (базово)

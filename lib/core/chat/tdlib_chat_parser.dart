@@ -60,7 +60,28 @@ class TdlibChatParser {
       isMuted: isChatMuted(notificationSettings),
       draftPreview: draftPreview,
       privateUserId: typeInfo.privateUserId,
+      isMarkedAsUnread: chat['is_marked_as_unread'] as bool? ?? false,
+      canBeDeletedOnlyForSelf:
+          chat['can_be_deleted_only_for_self'] as bool? ?? true,
+      canBeDeletedForAllUsers:
+          chat['can_be_deleted_for_all_users'] as bool? ?? false,
     );
+  }
+
+  static List<SearchMessageHit> parseFoundMessages(
+    Map<String, dynamic> update,
+  ) {
+    final messages = update['messages'] as List<dynamic>? ?? [];
+    return messages.whereType<Map<String, dynamic>>().map((message) {
+      final content = message['content'] as Map<String, dynamic>? ?? {};
+      final dateSeconds = message['date'] as int? ?? 0;
+      return SearchMessageHit(
+        chatId: message['chat_id'] as int? ?? 0,
+        messageId: message['id'] as int? ?? 0,
+        preview: MessageContent.fromTdlib(content).preview,
+        date: DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000),
+      );
+    }).where((hit) => hit.chatId != 0 && hit.messageId != 0).toList();
   }
 
   static List<ChatPositionInfo> parsePositions(List<dynamic>? raw) {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/chat_list_tile.dart';
+import '../../widgets/chat_search_panel.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../chat/chat_screen.dart';
 import '../settings/settings_screen.dart';
@@ -19,8 +20,15 @@ class ChatsScreen extends StatefulWidget {
 
 class _ChatsScreenState extends State<ChatsScreen> {
   int? _selectedChatId;
+  final _searchController = TextEditingController();
 
   static const _wideBreakpoint = 720.0;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,30 +48,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
     ProxyManager? proxy,
   ) {
     return Scaffold(
-      appBar: _buildAppBar(context, proxy, showBack: false),
-      body: Column(
-        children: [
-          ChatListTabs(
-            activeList: chatManager.activeChatList,
-            folders: chatManager.chatFolders,
-            onSelected: chatManager.switchChatList,
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: _ChatsList(
-              chatManager: chatManager,
-              selectedChatId: _selectedChatId,
-              onChatTap: (chatId) {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ChatScreen(chatId: chatId),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(context, chatManager, proxy, showBack: false),
+      body: _buildChatListBody(context, chatManager),
     );
   }
 
@@ -83,25 +69,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
                   elevation: 1,
                   child: SafeArea(
                     bottom: false,
-                    child: _buildToolbar(context, proxy),
+                    child: _buildToolbar(context, chatManager, proxy),
                   ),
                 ),
-                ChatListTabs(
-                  activeList: chatManager.activeChatList,
-                  folders: chatManager.chatFolders,
-                  onSelected: chatManager.switchChatList,
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: _ChatsList(
-                    chatManager: chatManager,
-                    selectedChatId: _selectedChatId,
-                    onChatTap: (chatId) {
-                      setState(() => _selectedChatId = chatId);
-                      chatManager.openChat(chatId);
-                    },
-                  ),
-                ),
+                Expanded(child: _buildChatListBody(context, chatManager)),
               ],
             ),
           ),
@@ -122,19 +93,84 @@ class _ChatsScreenState extends State<ChatsScreen> {
     );
   }
 
+  Widget _buildChatListBody(BuildContext context, ChatManager chatManager) {
+    return Column(
+      children: [
+        ChatSearchBar(
+          controller: _searchController,
+          onChanged: chatManager.setSearchQuery,
+          onClear: chatManager.clearSearch,
+        ),
+        if (!chatManager.isSearchActive) ...[
+          ChatListTabs(
+            activeList: chatManager.activeChatList,
+            folders: chatManager.chatFolders,
+            onSelected: chatManager.switchChatList,
+          ),
+          const Divider(height: 1),
+        ],
+        Expanded(
+          child: chatManager.isSearchActive
+              ? ChatSearchResults(
+                  chatManager: chatManager,
+                  onChatTap: (chatId) => _openChat(context, chatManager, chatId),
+                  onMessageTap: (chatId, messageId) {
+                    chatManager.openChatAtMessage(chatId, messageId);
+                    _openChat(context, chatManager, chatId);
+                  },
+                )
+              : _ChatsList(
+                  chatManager: chatManager,
+                  selectedChatId: _selectedChatId,
+                  showSavedMessagesShortcut:
+                      chatManager.activeChatList is ChatListMain &&
+                          chatManager.savedMessagesChatId != null,
+                  onSavedMessagesTap: () {
+                    final chatId = chatManager.savedMessagesChatId;
+                    if (chatId != null) {
+                      _openChat(context, chatManager, chatId);
+                    }
+                  },
+                  onChatTap: (chatId) => _openChat(context, chatManager, chatId),
+                ),
+        ),
+      ],
+    );
+  }
+
+  void _openChat(BuildContext context, ChatManager chatManager, int chatId) {
+    final isWide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
+    if (isWide) {
+      setState(() => _selectedChatId = chatId);
+      chatManager.openChat(chatId);
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatScreen(chatId: chatId),
+      ),
+    );
+  }
+
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
+    ChatManager chatManager,
     ProxyManager? proxy, {
     required bool showBack,
   }) {
     return AppBar(
       title: const Text('Чаты'),
       automaticallyImplyLeading: showBack,
-      actions: _buildAppBarActions(context, proxy),
+      actions: _buildAppBarActions(context, chatManager, proxy),
     );
   }
 
-  Widget _buildToolbar(BuildContext context, ProxyManager? proxy) {
+  Widget _buildToolbar(
+    BuildContext context,
+    ChatManager chatManager,
+    ProxyManager? proxy,
+  ) {
     return SizedBox(
       height: kToolbarHeight,
       child: Row(
@@ -143,14 +179,29 @@ class _ChatsScreenState extends State<ChatsScreen> {
           const Expanded(
             child: Text('Чаты', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
           ),
-          ..._buildAppBarActions(context, proxy),
+          ..._buildAppBarActions(context, chatManager, proxy),
         ],
       ),
     );
   }
 
-  List<Widget> _buildAppBarActions(BuildContext context, ProxyManager? proxy) {
+  List<Widget> _buildAppBarActions(
+    BuildContext context,
+    ChatManager chatManager,
+    ProxyManager? proxy,
+  ) {
     return [
+      if (chatManager.savedMessagesChatId != null)
+        IconButton(
+          tooltip: 'Избранное',
+          onPressed: () {
+            final chatId = chatManager.savedMessagesChatId;
+            if (chatId != null) {
+              _openChat(context, chatManager, chatId);
+            }
+          },
+          icon: const Icon(Icons.bookmark_outline),
+        ),
       if (proxy != null)
         Padding(
           padding: const EdgeInsets.only(right: 4),
@@ -181,18 +232,24 @@ class _ChatsList extends StatelessWidget {
     required this.chatManager,
     required this.selectedChatId,
     required this.onChatTap,
+    required this.showSavedMessagesShortcut,
+    required this.onSavedMessagesTap,
   });
 
   final ChatManager chatManager;
   final int? selectedChatId;
   final ValueChanged<int> onChatTap;
+  final bool showSavedMessagesShortcut;
+  final VoidCallback onSavedMessagesTap;
 
   @override
   Widget build(BuildContext context) {
-    final chats = chatManager.chats;
+    final chats = chatManager.chats
+        .where((chat) => chat.kind != ChatKind.savedMessages)
+        .toList();
     final activeList = chatManager.activeChatList;
 
-    if (chats.isEmpty) {
+    if (chats.isEmpty && !showSavedMessagesShortcut) {
       final emptyLabel = switch (activeList) {
         ChatListArchive() => 'Архив пуст',
         ChatListFolder() => 'В папке нет чатов',
@@ -201,11 +258,23 @@ class _ChatsList extends StatelessWidget {
       return Center(child: Text(emptyLabel));
     }
 
+    final itemCount = chats.length + (showSavedMessagesShortcut ? 1 : 0);
+
     return ListView.separated(
-      itemCount: chats.length,
-      separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
+      itemCount: itemCount,
+      separatorBuilder: (context, index) {
+        if (showSavedMessagesShortcut && index == 0) {
+          return const Divider(height: 1);
+        }
+        return const Divider(height: 1, indent: 72);
+      },
       itemBuilder: (context, index) {
-        final chat = chats[index];
+        if (showSavedMessagesShortcut && index == 0) {
+          return SavedMessagesShortcut(onTap: onSavedMessagesTap);
+        }
+
+        final chatIndex = showSavedMessagesShortcut ? index - 1 : index;
+        final chat = chats[chatIndex];
         final selected = chat.id == selectedChatId;
 
         return ChatListDismissible(
@@ -219,6 +288,14 @@ class _ChatsList extends StatelessWidget {
             onTap: () => onChatTap(chat.id),
             onPinToggle: () => _togglePin(chatManager, chat, activeList),
             onArchiveToggle: () => _toggleArchive(chatManager, chat.id),
+            onToggleUnread: () => _toggleUnread(chatManager, chat),
+            onClearHistory: chat.canBeDeletedOnlyForSelf
+                ? () => chatManager.clearChatHistory(chat.id)
+                : null,
+            onDeleteChat: () => chatManager.deleteChat(chat.id),
+            onDeleteForAll: chat.canBeDeletedForAllUsers
+                ? () => chatManager.deleteChatForAll(chat.id)
+                : null,
           ),
         );
       },
@@ -239,5 +316,12 @@ class _ChatsList extends StatelessWidget {
     } else {
       chatManager.archiveChat(chatId);
     }
+  }
+
+  void _toggleUnread(ChatManager chatManager, ChatSummary chat) {
+    chatManager.toggleMarkedAsUnread(
+      chat.id,
+      isMarkedAsUnread: !chat.isMarkedAsUnread,
+    );
   }
 }
