@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
+import '../../core/proxy/proxy_manager.dart';
 import '../../models/chat_models.dart';
-import '../../widgets/chat_avatar.dart';
+import '../../widgets/chat_desktop_shortcuts.dart';
+import '../../widgets/chat_folder_sidebar.dart';
+import '../../widgets/chat_list_tile.dart';
+import '../../widgets/chat_search_panel.dart';
+import '../../widgets/new_chat_dialog.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../chat/chat_screen.dart';
 import '../settings/settings_screen.dart';
-import '../../core/proxy/proxy_manager.dart';
 
-/// Адаптивный экран: список чатов и переписка (master-detail на широких экранах).
+/// Адаптивный экран чатов: mobile / master-detail / три колонки (desktop).
 class ChatsScreen extends StatefulWidget {
   const ChatsScreen({super.key});
 
@@ -20,43 +23,77 @@ class ChatsScreen extends StatefulWidget {
 
 class _ChatsScreenState extends State<ChatsScreen> {
   int? _selectedChatId;
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
 
+  /// Master-detail с 720px.
   static const _wideBreakpoint = 720.0;
+
+  /// Три колонки: папки | чаты | переписка (как Telegram Desktop).
+  static const _threeColumnBreakpoint = 840.0;
+
+  static const _chatListWidth = 340.0;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final chatManager = context.watch<ChatManager>();
     final proxy = context.watch<ProxyManager?>();
-    final isWide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
+    final width = MediaQuery.sizeOf(context).width;
 
-    if (isWide) {
-      return _buildWideLayout(context, chatManager, proxy);
+    if (width < _wideBreakpoint) {
+      return _buildMobileLayout(context, chatManager, proxy);
     }
-    return _buildNarrowLayout(context, chatManager, proxy);
+    if (width < _threeColumnBreakpoint) {
+      return _wrapDesktopShortcuts(
+        context,
+        chatManager,
+        _buildTwoColumnLayout(context, chatManager, proxy),
+      );
+    }
+    return _wrapDesktopShortcuts(
+      context,
+      chatManager,
+      _buildThreeColumnLayout(context, chatManager, proxy),
+    );
   }
 
-  Widget _buildNarrowLayout(
+  Widget _wrapDesktopShortcuts(
+    BuildContext context,
+    ChatManager chatManager,
+    Widget child,
+  ) {
+    return ChatDesktopShortcuts(
+      onFocusSearch: _focusSearch,
+      onNewChat: () => _openNewChatDialog(context, chatManager),
+      onPreviousChat: () => _selectAdjacentChat(context, chatManager, -1),
+      onNextChat: () => _selectAdjacentChat(context, chatManager, 1),
+      child: child,
+    );
+  }
+
+  Widget _buildMobileLayout(
     BuildContext context,
     ChatManager chatManager,
     ProxyManager? proxy,
   ) {
     return Scaffold(
-      appBar: _buildAppBar(context, proxy, showBack: false),
-      body: _ChatsList(
-        chats: chatManager.chats,
-        selectedChatId: _selectedChatId,
-        onChatTap: (chatId) {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ChatScreen(chatId: chatId),
-            ),
-          );
-        },
+      appBar: _buildAppBar(context, chatManager, proxy, showBack: false),
+      body: _buildChatListPanel(
+        context,
+        chatManager,
+        showFolderTabs: true,
       ),
     );
   }
 
-  Widget _buildWideLayout(
+  Widget _buildTwoColumnLayout(
     BuildContext context,
     ChatManager chatManager,
     ProxyManager? proxy,
@@ -65,75 +102,308 @@ class _ChatsScreenState extends State<ChatsScreen> {
       body: Row(
         children: [
           SizedBox(
-            width: 360,
+            width: _chatListWidth,
             child: Column(
               children: [
                 Material(
                   elevation: 1,
                   child: SafeArea(
                     bottom: false,
-                    child: _buildToolbar(context, proxy),
+                    child: _buildChatListHeader(context, chatManager, proxy),
                   ),
                 ),
                 Expanded(
-                  child: _ChatsList(
-                    chats: chatManager.chats,
-                    selectedChatId: _selectedChatId,
-                    onChatTap: (chatId) {
-                      setState(() => _selectedChatId = chatId);
-                      chatManager.openChat(chatId);
-                    },
+                  child: _buildChatListPanel(
+                    context,
+                    chatManager,
+                    showFolderTabs: true,
                   ),
                 ),
               ],
             ),
           ),
           const VerticalDivider(width: 1),
-          Expanded(
-            child: _selectedChatId == null
-                ? const Center(
-                    child: Text('Выберите чат'),
-                  )
-                : ChatScreen(
-                    key: ValueKey(_selectedChatId),
-                    chatId: _selectedChatId!,
-                    closeOnDispose: false,
+          Expanded(child: _buildConversationPane(chatManager)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThreeColumnLayout(
+    BuildContext context,
+    ChatManager chatManager,
+    ProxyManager? proxy,
+  ) {
+    return Scaffold(
+      body: Row(
+        children: [
+          ChatFolderSidebar(
+            activeList: chatManager.activeChatList,
+            folders: chatManager.chatFolders,
+            onSelected: chatManager.switchChatList,
+            onSettings: () => _openSettings(context),
+            hasSavedMessages: chatManager.savedMessagesChatId != null,
+            onSavedMessages: () {
+              final chatId = chatManager.savedMessagesChatId;
+              if (chatId != null) {
+                _openChat(context, chatManager, chatId);
+              }
+            },
+          ),
+          const VerticalDivider(width: 1),
+          SizedBox(
+            width: _chatListWidth,
+            child: Column(
+              children: [
+                Material(
+                  elevation: 1,
+                  child: SafeArea(
+                    bottom: false,
+                    child: _buildChatListHeader(context, chatManager, proxy),
                   ),
+                ),
+                Expanded(
+                  child: _buildChatListPanel(
+                    context,
+                    chatManager,
+                    showFolderTabs: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(child: _buildConversationPane(chatManager)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatListHeader(
+    BuildContext context,
+    ChatManager chatManager,
+    ProxyManager? proxy,
+  ) {
+    return SizedBox(
+      height: kToolbarHeight,
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _chatListTitle(chatManager, chatManager.activeChatList),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (proxy != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: ProxyStatusIndicator(
+                status: proxy.status,
+                proxyName: proxy.activeProxyName,
+              ),
+            ),
+          IconButton(
+            tooltip: 'Новый чат (Ctrl+N)',
+            onPressed: () => _openNewChatDialog(context, chatManager),
+            icon: const Icon(Icons.edit_outlined),
+          ),
+          IconButton(
+            tooltip: 'Настройки',
+            onPressed: () => _openSettings(context),
+            icon: const Icon(Icons.settings_outlined),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildChatListPanel(
+    BuildContext context,
+    ChatManager chatManager, {
+    required bool showFolderTabs,
+  }) {
+    return Column(
+      children: [
+        ChatSearchBar(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          onChanged: chatManager.setSearchQuery,
+          onClear: chatManager.clearSearch,
+        ),
+        if (!chatManager.isSearchActive && showFolderTabs) ...[
+          ChatListTabs(
+            activeList: chatManager.activeChatList,
+            folders: chatManager.chatFolders,
+            onSelected: chatManager.switchChatList,
+          ),
+          const Divider(height: 1),
+        ],
+        Expanded(
+          child: chatManager.isSearchActive
+              ? ChatSearchResults(
+                  chatManager: chatManager,
+                  onChatTap: (chatId) => _openChat(context, chatManager, chatId),
+                  onMessageTap: (chatId, messageId) {
+                    chatManager.openChatAtMessage(chatId, messageId);
+                    _openChat(context, chatManager, chatId);
+                  },
+                )
+              : _ChatsList(
+                  chatManager: chatManager,
+                  selectedChatId: _selectedChatId,
+                  showSavedMessagesShortcut:
+                      showFolderTabs &&
+                          chatManager.activeChatList is ChatListMain &&
+                          chatManager.savedMessagesChatId != null,
+                  onSavedMessagesTap: () {
+                    final chatId = chatManager.savedMessagesChatId;
+                    if (chatId != null) {
+                      _openChat(context, chatManager, chatId);
+                    }
+                  },
+                  onChatTap: (chatId) => _openChat(context, chatManager, chatId),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConversationPane(ChatManager chatManager) {
+    if (_selectedChatId == null) {
+      return const Center(
+        child: Text('Выберите чат'),
+      );
+    }
+
+    return ChatScreen(
+      key: ValueKey(_selectedChatId),
+      chatId: _selectedChatId!,
+      closeOnDispose: false,
+    );
+  }
+
+  String _chatListTitle(ChatManager chatManager, ChatListKey list) {
+    return switch (list) {
+      ChatListArchive() => 'Архив',
+      ChatListFolder(:final folderId) => _folderName(chatManager, folderId),
+      _ => 'Чаты',
+    };
+  }
+
+  String _folderName(ChatManager chatManager, int folderId) {
+    for (final folder in chatManager.chatFolders) {
+      if (folder.id == folderId) {
+        return folder.name;
+      }
+    }
+    return 'Папка';
+  }
+
+  void _focusSearch() {
+    _searchFocusNode.requestFocus();
+    _searchController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _searchController.text.length,
+    );
+  }
+
+  Future<void> _openNewChatDialog(
+    BuildContext context,
+    ChatManager chatManager,
+  ) async {
+    final chatId = await NewChatDialog.show(context);
+    if (chatId != null && context.mounted) {
+      _openChat(context, chatManager, chatId);
+    }
+  }
+
+  void _selectAdjacentChat(
+    BuildContext context,
+    ChatManager chatManager,
+    int delta,
+  ) {
+    if (chatManager.isSearchActive) {
+      return;
+    }
+
+    final chats = chatManager.navigableChats;
+    if (chats.isEmpty) {
+      return;
+    }
+
+    var index = chats.indexWhere((chat) => chat.id == _selectedChatId);
+    if (index < 0) {
+      index = delta > 0 ? 0 : chats.length - 1;
+    } else {
+      index = (index + delta).clamp(0, chats.length - 1);
+    }
+
+    _openChat(context, chatManager, chats[index].id);
+  }
+
+  void _openChat(BuildContext context, ChatManager chatManager, int chatId) {
+    final isWide =
+        MediaQuery.sizeOf(context).width >= _wideBreakpoint;
+    if (isWide) {
+      setState(() => _selectedChatId = chatId);
+      chatManager.openChat(chatId);
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatScreen(chatId: chatId),
+      ),
+    );
+  }
+
+  void _openSettings(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const SettingsScreen(),
       ),
     );
   }
 
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
+    ChatManager chatManager,
     ProxyManager? proxy, {
     required bool showBack,
   }) {
     return AppBar(
       title: const Text('Чаты'),
       automaticallyImplyLeading: showBack,
-      actions: _buildAppBarActions(context, proxy),
+      actions: [
+        IconButton(
+          tooltip: 'Новый чат',
+          onPressed: () => _openNewChatDialog(context, chatManager),
+          icon: const Icon(Icons.edit_outlined),
+        ),
+        ..._buildSharedActions(context, chatManager, proxy),
+      ],
     );
   }
 
-  Widget _buildToolbar(BuildContext context, ProxyManager? proxy) {
-    return SizedBox(
-      height: kToolbarHeight,
-      child: Row(
-        children: [
-          const SizedBox(width: 16),
-          const Expanded(
-            child: Text('Чаты', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
-          ),
-          ..._buildAppBarActions(context, proxy),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildAppBarActions(BuildContext context, ProxyManager? proxy) {
+  List<Widget> _buildSharedActions(
+    BuildContext context,
+    ChatManager chatManager,
+    ProxyManager? proxy,
+  ) {
     return [
+      if (chatManager.savedMessagesChatId != null)
+        IconButton(
+          tooltip: 'Избранное',
+          onPressed: () {
+            final chatId = chatManager.savedMessagesChatId;
+            if (chatId != null) {
+              _openChat(context, chatManager, chatId);
+            }
+          },
+          icon: const Icon(Icons.bookmark_outline),
+        ),
       if (proxy != null)
         Padding(
           padding: const EdgeInsets.only(right: 4),
@@ -146,13 +416,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         ),
       IconButton(
         tooltip: 'Настройки',
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const SettingsScreen(),
-            ),
-          );
-        },
+        onPressed: () => _openSettings(context),
         icon: const Icon(Icons.settings),
       ),
     ];
@@ -161,76 +425,103 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
 class _ChatsList extends StatelessWidget {
   const _ChatsList({
-    required this.chats,
+    required this.chatManager,
     required this.selectedChatId,
     required this.onChatTap,
+    required this.showSavedMessagesShortcut,
+    required this.onSavedMessagesTap,
   });
 
-  final List<ChatSummary> chats;
+  final ChatManager chatManager;
   final int? selectedChatId;
   final ValueChanged<int> onChatTap;
+  final bool showSavedMessagesShortcut;
+  final VoidCallback onSavedMessagesTap;
 
   @override
   Widget build(BuildContext context) {
-    if (chats.isEmpty) {
-      return const Center(child: Text('Загрузка чатов...'));
+    final chats = chatManager.chats
+        .where((chat) => chat.kind != ChatKind.savedMessages)
+        .toList();
+    final activeList = chatManager.activeChatList;
+
+    if (chats.isEmpty && !showSavedMessagesShortcut) {
+      final emptyLabel = switch (activeList) {
+        ChatListArchive() => 'Архив пуст',
+        ChatListFolder() => 'В папке нет чатов',
+        _ => 'Загрузка чатов...',
+      };
+      return Center(child: Text(emptyLabel));
     }
 
-    return ListView.separated(
-      itemCount: chats.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final chat = chats[index];
-        final selected = chat.id == selectedChatId;
-        final subtitle = chat.lastMessage;
-        final time = chat.lastMessageDate != null
-            ? DateFormat('dd.MM HH:mm').format(chat.lastMessageDate!)
-            : null;
+    final itemCount = chats.length + (showSavedMessagesShortcut ? 1 : 0);
 
-        return ListTile(
-          selected: selected,
-          leading: ChatAvatar(
-            title: chat.title,
-            localPath: chat.avatarLocalPath,
+    return ListView.separated(
+      itemCount: itemCount,
+      separatorBuilder: (context, index) {
+        if (showSavedMessagesShortcut && index == 0) {
+          return const Divider(height: 1);
+        }
+        return const Divider(height: 1, indent: 72);
+      },
+      itemBuilder: (context, index) {
+        if (showSavedMessagesShortcut && index == 0) {
+          return SavedMessagesShortcut(onTap: onSavedMessagesTap);
+        }
+
+        final chatIndex = showSavedMessagesShortcut ? index - 1 : index;
+        final chat = chats[chatIndex];
+        final selected = chat.id == selectedChatId;
+
+        return ChatListDismissible(
+          chat: chat,
+          activeList: activeList,
+          onArchiveToggle: () => _toggleArchive(chatManager, chat.id),
+          child: ChatListTile(
+            chat: chat,
+            selected: selected,
+            activeList: activeList,
+            onTap: () => onChatTap(chat.id),
+            onPinToggle: () => _togglePin(chatManager, chat, activeList),
+            onArchiveToggle: () => _toggleArchive(chatManager, chat.id),
+            onToggleUnread: () => _toggleUnread(chatManager, chat),
+            onClearHistory: chat.canBeDeletedOnlyForSelf
+                ? () => chatManager.clearChatHistory(chat.id)
+                : null,
+            onDeleteChat: () => chatManager.deleteChat(chat.id),
+            onDeleteForAll: chat.canBeDeletedForAllUsers
+                ? () => chatManager.deleteChatForAll(chat.id)
+                : null,
           ),
-          title: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  chat.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (time != null) ...[
-                const SizedBox(width: 8),
-                Text(time, style: Theme.of(context).textTheme.labelSmall),
-              ],
-            ],
-          ),
-          subtitle: subtitle != null
-              ? Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          trailing: chat.unreadCount > 0
-              ? CircleAvatar(
-                  radius: 10,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: Text(
-                    '${chat.unreadCount}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                    ),
-                  ),
-                )
-              : null,
-          onTap: () => onChatTap(chat.id),
         );
       },
+    );
+  }
+
+  void _togglePin(
+    ChatManager chatManager,
+    ChatSummary chat,
+    ChatListKey activeList,
+  ) {
+    if (chat.isPinnedIn(activeList)) {
+      chatManager.unpinChat(chat.id);
+    } else {
+      chatManager.pinChat(chat.id);
+    }
+  }
+
+  void _toggleArchive(ChatManager chatManager, int chatId) {
+    if (chatManager.isArchiveList) {
+      chatManager.unarchiveChat(chatId);
+    } else {
+      chatManager.archiveChat(chatId);
+    }
+  }
+
+  void _toggleUnread(ChatManager chatManager, ChatSummary chat) {
+    chatManager.toggleMarkedAsUnread(
+      chat.id,
+      isMarkedAsUnread: !chat.isMarkedAsUnread,
     );
   }
 }

@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** Паритет функционала с Telegram (§6), классический дизайн до Liquid Glass (§9).
+**Последнее обновление:** §6.2 «Список чатов и организация» закрыт; документация — `docs/CHATS.md`.
 
 ---
 
@@ -222,23 +222,23 @@
 
 #### Отображение и сортировка
 - [x] Основной список (`getChats`, `chatListMain`)
-- [ ] Закреплённые чаты (`updateChatPosition`, `pinChat` / `unpinChat`)
-- [ ] Архив (`chatListArchive`, свайп «В архив» / «Из архива»)
-- [ ] Папки чатов (`chatListFolder`, `updateChatFolders`, переключение вкладок)
-- [ ] Счётчик непрочитанных, mute (`notificationSettings`), иконка mute в списке
-- [ ] Черновик сообщения в preview (`draftMessage`)
-- [ ] Иконки типа чата: личный, группа, канал, бот, секретный
+- [x] Закреплённые чаты (`updateChatPosition`, `pinChat` / `unpinChat`)
+- [x] Архив (`chatListArchive`, свайп «В архив» / «Из архива»)
+- [x] Папки чатов (`chatListFolder`, `updateChatFolders`, переключение вкладок)
+- [x] Счётчик непрочитанных, mute (`notificationSettings`), иконка mute в списке
+- [x] Черновик сообщения в preview (`draftMessage`)
+- [x] Иконки типа чата: личный, группа, канал, бот, секретный
 
 #### Действия со списком
-- [ ] Поиск по чатам (`searchChats`, `searchMessages` глобально)
-- [ ] Удаление / очистка истории (`deleteChatHistory`, `leaveChat`)
-- [ ] Отметить как прочитанное (`toggleChatIsMarkedAsUnread`)
-- [ ] «Избранное» / Saved Messages (`chatTypeSecret` / специальный чат «Избранное»)
+- [x] Поиск по чатам (`searchChats`, `searchMessages` глобально)
+- [x] Удаление / очистка истории (`deleteChatHistory`, `leaveChat`)
+- [x] Отметить как прочитанное (`toggleChatIsMarkedAsUnread`)
+- [x] «Избранное» / Saved Messages (`chatTypeSecret` / специальный чат «Избранное»)
 
 #### Десктопная навигация
 - [x] Master-detail ≥720px (базово)
-- [ ] Трёхколоночный layout как Telegram Desktop: папки | чаты | переписка
-- [ ] Горячие клавиши: поиск, новый чат, навигация по чатам
+- [x] Трёхколоночный layout как Telegram Desktop: папки | чаты | переписка
+- [x] Горячие клавиши: поиск, новый чат, навигация по чатам
 
 ---
 

@@ -5,12 +5,39 @@ globs: ["lib/**/*.dart"]
 
 # Flutter – стиль и структура
 
-- **Архитектура**: Использовать паттерн `Provider` (или `Riverpod`) для управления состоянием.
+- **Архитектура**: `Provider` для стейта — `AuthManager`, `ChatManager`, `ProxyManager`, `ThemeManager`.
 - **Папки**:
-  - `core/` – утилиты, синглтоны (TdlibClient, ProxyManager).
-  - `screens/` – каждый экран в отдельной папке с `screen.dart`, `view_model.dart`, `widgets/`.
-  - `widgets/` – переиспользуемые виджеты.
-  - `models/` – модели данных (например, Chat, Message).
-- **Именование**: Использовать `snake_case` для файлов, `PascalCase` для классов, `camelCase` для методов/переменных.
-- **Темы**: Все цвета и стили должны быть вынесены в `ThemeData` и поддерживать светлую/тёмную тему.
-- **Адаптивность**: Использовать `LayoutBuilder` и `MediaQuery` для поддержки мобильных и десктопных размеров.
+  - `core/` – TDLib, auth, proxy, chat, theme, notifications
+  - `screens/` – auth, chats, chat, settings
+  - `widgets/` – переиспользуемые UI-компоненты
+  - `models/` – `chat_models.dart`, `auth_models.dart`, `proxy_models.dart`
+- **Именование**: `snake_case` для файлов, `PascalCase` для классов, `camelCase` для методов.
+- **Темы**: цвета в `ThemeManager` / `ThemeData`, светлая и тёмная тема.
+- **Логирование**: `import logging`, `logger = logging.getLogger(__name__)` — **не** `print()`.
+
+## ChatManager и TDLib
+
+- Списки чатов: `loadChats`, порядок через `updateChatPosition` (не сортировка по дате вручную).
+- Pin/archive: `toggleChatIsPinned`, `addChatToList`.
+- Поиск: `searchChats`, `searchMessages`; новый чат: `searchChatsOnServer`.
+- Удаление: `deleteChatHistory`, `leaveChat`; unread: `toggleChatIsMarkedAsUnread`.
+- Парсинг TDLib JSON — в `TdlibChatParser`, модели — в `chat_models.dart`.
+
+## Адаптивность (ChatsScreen)
+
+| Breakpoint | Layout |
+|------------|--------|
+| `< 720px` | Mobile, push в ChatScreen |
+| `720–839px` | Master-detail, `ChatListTabs` |
+| `≥ 840px` | 3 колонки: `ChatFolderSidebar` \| список \| переписка |
+
+Desktop hotkeys — `ChatDesktopShortcuts` (Ctrl+F/K, Ctrl+N, Ctrl+↑/↓).
+
+## Виджеты списка чатов
+
+- `ChatListTile` — строка, badge, long-press меню
+- `ChatListDismissible` — свайп «В архив»
+- `ChatSearchBar` / `ChatSearchResults` — глобальный поиск
+- `NewChatDialog` — диалог нового чата
+
+Подробнее: `docs/CHATS.md`.

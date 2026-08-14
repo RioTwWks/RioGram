@@ -13,3 +13,4 @@ globs: ["*"]
 - **Безопасность**: Никогда не выводите в консоль или логи `api_id`, `api_hash`, токены. Не коммитить их в репозиторий.
 - **CI**: Перед merge в `main` должны проходить jobs из `.github/workflows/ci.yml`. Локально: `./scripts/ci-flutter.sh`. Не ломать сборку TDLib (`scripts/build-tdlib.sh`).
 - **Релизы**: Пакеты для всех платформ собираются workflow `release.yml` при публикации GitHub Release. Не коммитить `libtdjson` в `jniLibs/`, `ios/Frameworks/`.
+- **Документация**: при изменении UI чатов (§6.2) обновлять `docs/CHATS.md`, `.cursor/context`, `TODO.md`.
