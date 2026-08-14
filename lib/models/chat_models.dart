@@ -392,6 +392,9 @@ class ChatSummary {
 }
 
 class ChatMessage {
+  /// Окно редактирования как в Telegram (48 часов).
+  static const editWindow = Duration(hours: 48);
+
   const ChatMessage({
     required this.id,
     required this.chatId,
@@ -404,6 +407,11 @@ class ChatMessage {
     this.replyTo,
     this.forwardInfo,
     this.schedulingInfo,
+    this.canBeEdited = false,
+    this.canBeDeletedOnlyForSelf = true,
+    this.canBeDeletedForAllUsers = false,
+    this.editDate,
+    this.isDeleted = false,
   });
 
   final int id;
@@ -417,6 +425,36 @@ class ChatMessage {
   final MessageReplyInfo? replyTo;
   final MessageForwardInfo? forwardInfo;
   final MessageSchedulingInfo? schedulingInfo;
+  final bool canBeEdited;
+  final bool canBeDeletedOnlyForSelf;
+  final bool canBeDeletedForAllUsers;
+  final DateTime? editDate;
+  final bool isDeleted;
+
+  bool get isEdited => editDate != null;
+
+  bool get canEditWithinWindow {
+    if (!canBeEdited || isDeleted) {
+      return false;
+    }
+    return DateTime.now().difference(date) <= editWindow;
+  }
+
+  bool get canEditText =>
+      canEditWithinWindow && content.kind == MessageKind.text;
+
+  bool get canEditCaption =>
+      canEditWithinWindow &&
+      (content.kind == MessageKind.photo ||
+          content.kind == MessageKind.video ||
+          content.kind == MessageKind.document);
+
+  String? get editableComposerText {
+    if (content.kind == MessageKind.text) {
+      return content.formattedText?.text ?? content.preview;
+    }
+    return content.formattedCaption?.text ?? content.caption;
+  }
 
   ChatMessage copyWith({
     MessageContent? content,
@@ -425,6 +463,11 @@ class ChatMessage {
     MessageReplyInfo? replyTo,
     MessageForwardInfo? forwardInfo,
     MessageSchedulingInfo? schedulingInfo,
+    bool? canBeEdited,
+    bool? canBeDeletedOnlyForSelf,
+    bool? canBeDeletedForAllUsers,
+    DateTime? editDate,
+    bool? isDeleted,
   }) {
     return ChatMessage(
       id: id,
@@ -438,6 +481,13 @@ class ChatMessage {
       replyTo: replyTo ?? this.replyTo,
       forwardInfo: forwardInfo ?? this.forwardInfo,
       schedulingInfo: schedulingInfo ?? this.schedulingInfo,
+      canBeEdited: canBeEdited ?? this.canBeEdited,
+      canBeDeletedOnlyForSelf:
+          canBeDeletedOnlyForSelf ?? this.canBeDeletedOnlyForSelf,
+      canBeDeletedForAllUsers:
+          canBeDeletedForAllUsers ?? this.canBeDeletedForAllUsers,
+      editDate: editDate ?? this.editDate,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 
@@ -463,6 +513,11 @@ class ChatMessage {
       schedulingInfo = MessageSchedulingInfo.fromTdlib(schedulingRaw);
     }
 
+    final editDateSeconds = json['edit_date'] as int? ?? 0;
+    final editDate = editDateSeconds > 0
+        ? DateTime.fromMillisecondsSinceEpoch(editDateSeconds * 1000)
+        : null;
+
     return ChatMessage(
       id: json['id'] as int? ?? 0,
       chatId: json['chat_id'] as int? ?? 0,
@@ -473,6 +528,12 @@ class ChatMessage {
       replyTo: replyTo,
       forwardInfo: forwardInfo,
       schedulingInfo: schedulingInfo,
+      canBeEdited: json['can_be_edited'] as bool? ?? false,
+      canBeDeletedOnlyForSelf:
+          json['can_be_deleted_only_for_self'] as bool? ?? true,
+      canBeDeletedForAllUsers:
+          json['can_be_deleted_for_all_users'] as bool? ?? false,
+      editDate: editDate,
     );
   }
 }

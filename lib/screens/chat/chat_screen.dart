@@ -11,7 +11,7 @@ import '../../widgets/forward_messages_dialog.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 
-/// Экран переписки: форматирование, ответ, пересылка, отложенная отправка.
+/// Экран переписки: форматирование, ответ, пересылка, редактирование, удаление.
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
     super.key,
@@ -59,7 +59,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void _onTextChanged() {
     _typingTimer?.cancel();
     _typingTimer = Timer(const Duration(milliseconds: 400), () {
-      if (_controller.text.trim().isNotEmpty) {
+      if (_controller.text.trim().isNotEmpty &&
+          context.read<ChatManager>().editingMessage == null) {
         context.read<ChatManager>().sendTypingAction();
       }
     });
@@ -73,6 +74,16 @@ class _ChatScreenState extends State<ChatScreen> {
     context.read<ChatManager>().sendText(text);
     _controller.clear();
     _scrollToBottom();
+  }
+
+  void _clearComposer({bool clearText = true}) {
+    if (clearText) {
+      _controller.clear();
+    }
+    final manager = context.read<ChatManager>();
+    manager.cancelEditing();
+    manager.clearReply();
+    manager.clearScheduledSendAt();
   }
 
   Future<void> _pickFile() async {
@@ -115,6 +126,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _showMessageMenu(ChatMessage message) async {
     final manager = context.read<ChatManager>();
+    final canEdit = message.canEditText || message.canEditCaption;
+
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -126,6 +139,16 @@ class _ChatScreenState extends State<ChatScreen> {
               title: const Text('Ответить'),
               onTap: () => Navigator.pop(context, 'reply'),
             ),
+            if (canEdit)
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: Text(
+                  message.canEditCaption && !message.canEditText
+                      ? 'Редактировать подпись'
+                      : 'Редактировать',
+                ),
+                onTap: () => Navigator.pop(context, 'edit'),
+              ),
             ListTile(
               leading: const Icon(Icons.forward),
               title: const Text('Переслать'),
@@ -136,6 +159,18 @@ class _ChatScreenState extends State<ChatScreen> {
               title: const Text('Выбрать'),
               onTap: () => Navigator.pop(context, 'select'),
             ),
+            if (message.canBeDeletedOnlyForSelf)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Удалить у себя'),
+                onTap: () => Navigator.pop(context, 'delete_self'),
+              ),
+            if (message.canBeDeletedForAllUsers)
+              ListTile(
+                leading: const Icon(Icons.delete_forever_outlined),
+                title: const Text('Удалить для всех'),
+                onTap: () => Navigator.pop(context, 'delete_all'),
+              ),
             if (message.schedulingInfo != null)
               ListTile(
                 leading: const Icon(Icons.schedule),
@@ -153,14 +188,109 @@ class _ChatScreenState extends State<ChatScreen> {
 
     switch (action) {
       case 'reply':
+        _clearComposer();
         manager.setReplyToMessage(message);
+      case 'edit':
+        _clearComposer(clearText: false);
+        _controller.text = message.editableComposerText ?? '';
+        _controller.selection = TextSelection.collapsed(
+          offset: _controller.text.length,
+        );
+        manager.startEditingMessage(message);
       case 'forward':
         manager.enterSelectionMode(initialMessageId: message.id);
         await _forwardSelected();
       case 'select':
         manager.enterSelectionMode(initialMessageId: message.id);
+      case 'delete_self':
+        manager.deleteMessage(message.id, revoke: false);
+      case 'delete_all':
+        final confirmed = await _confirmDeleteForAll(1);
+        if (confirmed && mounted) {
+          manager.deleteMessage(message.id, revoke: true);
+        }
       case 'reschedule':
         await _rescheduleMessage(message);
+    }
+  }
+
+  Future<bool> _confirmDeleteForAll(int count) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить для всех?'),
+        content: Text(
+          count == 1
+              ? 'Сообщение будет удалено у всех участников чата.'
+              : 'Выбранные сообщения ($count) будут удалены у всех участников.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _deleteSelected() async {
+    final manager = context.read<ChatManager>();
+    if (manager.selectedMessageCount == 0) {
+      return;
+    }
+
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (manager.canDeleteSelectedForSelf)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Удалить у себя'),
+                onTap: () => Navigator.pop(context, 'self'),
+              ),
+            if (manager.canDeleteSelectedForAll)
+              ListTile(
+                leading: const Icon(Icons.delete_forever_outlined),
+                title: const Text('Удалить для всех'),
+                onTap: () => Navigator.pop(context, 'all'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Отмена'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || action == null) {
+      return;
+    }
+
+    if (action == 'all') {
+      final confirmed = await _confirmDeleteForAll(manager.selectedMessageCount);
+      if (!confirmed || !mounted) {
+        return;
+      }
+      manager.deleteSelectedMessages(revoke: true);
+    } else if (action == 'self') {
+      manager.deleteSelectedMessages(revoke: false);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Сообщения удалены')),
+      );
     }
   }
 
@@ -253,6 +383,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final messages = chatManager.messages;
     final typing = chatManager.typingStatus;
     final selectionMode = chatManager.isSelectionMode;
+    final editing = chatManager.editingMessage;
 
     if (messages.isNotEmpty) {
       _scrollToBottom();
@@ -272,7 +403,16 @@ class _ChatScreenState extends State<ChatScreen> {
               )
             : null,
         actions: [
-          if (selectionMode)
+          if (selectionMode) ...[
+            IconButton(
+              tooltip: 'Удалить',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: chatManager.selectedMessageCount > 0 &&
+                      (chatManager.canDeleteSelectedForSelf ||
+                          chatManager.canDeleteSelectedForAll)
+                  ? _deleteSelected
+                  : null,
+            ),
             IconButton(
               tooltip: 'Переслать',
               icon: const Icon(Icons.forward),
@@ -280,8 +420,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   ? _forwardSelected
                   : null,
             ),
+          ],
         ],
-        bottom: typing != null && !selectionMode
+        bottom: typing != null && !selectionMode && editing == null
             ? PreferredSize(
                 preferredSize: const Size.fromHeight(24),
                 child: Align(
@@ -347,6 +488,11 @@ class _ChatScreenState extends State<ChatScreen> {
               onSchedule: _pickSchedule,
               replyDraft: chatManager.pendingReply,
               onClearReply: chatManager.clearReply,
+              editDraft: editing,
+              onClearEdit: () {
+                chatManager.cancelEditing();
+                _controller.clear();
+              },
               scheduledAt: chatManager.scheduledSendAt,
               onClearSchedule: chatManager.clearScheduledSendAt,
               onFormatBold: () =>

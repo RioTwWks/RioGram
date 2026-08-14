@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** §6.3 «Отправка и форматирование» закрыт; список чатов — `docs/CHATS.md`.
+**Последнее обновление:** §6.3 «Отправка, форматирование, редактирование и удаление» закрыт.
 
 ---
 
@@ -254,11 +254,11 @@
 - [x] «Печатает…» / запись голосового / выбор стикера (`sendChatAction`) — typing есть в MVP
 
 #### Редактирование и удаление
-- [ ] `editMessageText` / `editMessageCaption` (проверка `can_be_edited`, окно 48 ч)
-- [ ] `deleteMessages` с `revoke: true` (для всех) и `revoke: false` (только у себя)
-- [ ] Пакетный выбор сообщений (long-press → режим выделения)
-- [ ] Обработка `updateMessageEdited`, `updateDeleteMessages`, `updateMessageContent`
-- [ ] Метки «изменено» / «удалено» в модели `ChatMessage`
+- [x] `editMessageText` / `editMessageCaption` (проверка `can_be_edited`, окно 48 ч)
+- [x] `deleteMessages` с `revoke: true` (для всех) и `revoke: false` (только у себя)
+- [x] Пакетный выбор сообщений (long-press → режим выделения)
+- [x] Обработка `updateMessageEdited`, `updateDeleteMessages`, `updateMessageContent`
+- [x] Метки «изменено» / «удалено» в модели `ChatMessage`
 
 #### Статусы доставки
 - [ ] Галочки отправлено / доставлено / прочитано (`messageSendingState`, `updateMessageSendSucceeded`)
