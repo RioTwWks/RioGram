@@ -261,13 +261,13 @@
 - [x] Метки «изменено» / «удалено» в модели `ChatMessage`
 
 #### Статусы доставки
-- [ ] Галочки отправлено / доставлено / прочитано (`messageSendingState`, `updateMessageSendSucceeded`)
-- [ ] Счётчик просмотров в каналах (`messageInteractionInfo`)
+- [x] Галочки отправлено / доставлено / прочитано (`messageSendingState`, `updateMessageSendSucceeded`)
+- [x] Счётчик просмотров в каналах (`messageInteractionInfo`)
 
 #### Реакции и опросы
-- [ ] Просмотр и добавление реакций (`addMessageReaction`, `removeMessageReaction`)
-- [ ] Опросы: создание (`sendPoll`), голосование (`setPollAnswer`), викторины
-- [ ] Кнопки под сообщениями (`replyMarkup`, inline keyboard)
+- [x] Просмотр и добавление реакций (`addMessageReaction`, `removeMessageReaction`)
+- [x] Опросы: создание (`sendPoll`), голосование (`setPollAnswer`), викторины
+- [x] Кнопки под сообщениями (`replyMarkup`, inline keyboard)
 
 ---
 

@@ -115,11 +115,17 @@ class TdlibChatParser {
     return ChatAvatarData(fileId: fileId, localPath: localPath);
   }
 
-  static ChatMessage? parseMessage(Map<String, dynamic> json) {
+  static ChatMessage? parseMessage(
+    Map<String, dynamic> json, {
+    int lastReadOutboxMessageId = 0,
+  }) {
     if (json['@type'] != 'message') {
       return null;
     }
-    return ChatMessage.fromTdlib(json);
+    return ChatMessage.fromTdlib(
+      json,
+      lastReadOutboxMessageId: lastReadOutboxMessageId,
+    );
   }
 
   static String? parseTypingAction(Map<String, dynamic> update) {

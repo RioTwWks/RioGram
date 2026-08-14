@@ -22,11 +22,13 @@ class MessageInputBar extends StatelessWidget {
     this.onFormatLink,
     this.onVoiceAction,
     this.onStickerAction,
+    this.onPoll,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
   final VoidCallback onAttach;
+  final VoidCallback? onPoll;
   final VoidCallback onSchedule;
   final MessageReplyDraft? replyDraft;
   final VoidCallback? onClearReply;
@@ -117,10 +119,13 @@ class MessageInputBar extends StatelessWidget {
                         onVoiceAction?.call();
                       case 'sticker':
                         onStickerAction?.call();
+                      case 'poll':
+                        onPoll?.call();
                     }
                   },
                   itemBuilder: (context) => const [
                     PopupMenuItem(value: 'file', child: Text('Файл')),
+                    PopupMenuItem(value: 'poll', child: Text('Опрос')),
                     PopupMenuItem(value: 'voice', child: Text('Голосовое')),
                     PopupMenuItem(value: 'sticker', child: Text('Стикер')),
                   ],
