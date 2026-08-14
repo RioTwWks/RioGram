@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/audio_models.dart';
 import '../../models/chat_models.dart';
+import '../../models/chat_info_models.dart';
 import '../../models/group_models.dart';
 import '../../models/message_enrichment.dart';
 import '../media/media_cache_manager.dart';
@@ -11,6 +12,7 @@ import '../notifications/notification_service.dart';
 import '../../models/sticker_models.dart';
 import '../tdlib/tdlib_client.dart';
 import 'formatted_text_builder.dart';
+import 'tdlib_chat_info_parser.dart';
 import 'tdlib_chat_parser.dart';
 
 /// Управление списком чатов и активной перепиской.
@@ -29,6 +31,10 @@ class ChatManager extends ChangeNotifier {
 
   final Map<int, ChatSummary> _chatsById = {};
   final Map<int, bool> _botUsers = {};
+  final Map<int, String> _userDisplayNames = {};
+  final Map<int, ChatDetailInfo> _chatInfoById = {};
+  final Map<int, List<ChatMemberInfo>> _chatMembersById = {};
+  final Map<int, int> _chatMembersTotalCount = {};
   final List<ChatMessage> _messages = [];
   final List<ChatFolderTab> _chatFolders = [];
 
@@ -61,6 +67,10 @@ class ChatManager extends ChangeNotifier {
   int _chatActionRequestId = 0;
   final Map<String, Completer<int>> _chatActionCompleters = {};
   String? _chatActionError;
+  bool _isLoadingChatInfo = false;
+  String? _chatInfoError;
+  int? _loadingChatInfoForChatId;
+  int _chatInfoPendingRequests = 0;
 
   MessageReplyDraft? _pendingReply;
   DateTime? _scheduledSendAt;
@@ -75,6 +85,7 @@ class ChatManager extends ChangeNotifier {
   ChatListKey get activeChatList => _activeChatList;
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   int? get activeChatId => _activeChatId;
+  int? get myUserId => _myUserId;
   String? get typingStatus => _typingStatus;
   bool get isLoadingMessages => _isLoadingMessages;
   String? get messagesError => _messagesError;
@@ -110,6 +121,9 @@ class ChatManager extends ChangeNotifier {
 
   bool get isNewChatSearchLoading => _isNewChatSearchLoading;
   String? get chatActionError => _chatActionError;
+  bool get isLoadingChatInfo => _isLoadingChatInfo;
+  String? get chatInfoError => _chatInfoError;
+  int? get loadingChatInfoForChatId => _loadingChatInfoForChatId;
 
   MessageReplyDraft? get pendingReply => _pendingReply;
   MessageEditDraft? get editingMessage => _editingMessage;
@@ -155,6 +169,28 @@ class ChatManager extends ChangeNotifier {
   }
 
   ChatSummary? chatById(int chatId) => _chatsById[chatId];
+
+  ChatDetailInfo? chatInfoFor(int chatId) => _chatInfoById[chatId];
+
+  List<ChatMemberInfo> chatMembersFor(int chatId) {
+    return List.unmodifiable(_chatMembersById[chatId] ?? const []);
+  }
+
+  int chatMembersTotalCountFor(int chatId) {
+    return _chatMembersTotalCount[chatId] ??
+        _chatMembersById[chatId]?.length ??
+        0;
+  }
+
+  String? userDisplayName(int userId) => _userDisplayNames[userId];
+
+  bool canPinMessagesInChat(int chatId) {
+    final info = _chatInfoById[chatId];
+    if (info != null) {
+      return info.permissions.canPinMessages;
+    }
+    return false;
+  }
 
   ChatMessage? messageById(int messageId) {
     for (final message in _messages) {
@@ -449,6 +485,116 @@ class ChatManager extends ChangeNotifier {
       },
       extraPrefix: 'createPrivateChat',
     );
+  }
+
+  void clearChatInfo(int chatId) {
+    _chatInfoById.remove(chatId);
+    _chatMembersById.remove(chatId);
+    _chatMembersTotalCount.remove(chatId);
+    if (_loadingChatInfoForChatId == chatId) {
+      _loadingChatInfoForChatId = null;
+      _isLoadingChatInfo = false;
+      _chatInfoPendingRequests = 0;
+    }
+    notifyListeners();
+  }
+
+  void loadChatInfo(int chatId) {
+    _loadingChatInfoForChatId = chatId;
+    _chatInfoError = null;
+    _isLoadingChatInfo = true;
+    _chatInfoPendingRequests = 0;
+    _chatMembersById.remove(chatId);
+    _chatMembersTotalCount.remove(chatId);
+    _chatInfoById[chatId] = ChatDetailInfo(chatId: chatId);
+    _client.send({
+      '@type': 'getChat',
+      'chat_id': chatId,
+      '@extra': 'chatInfo_chat_$chatId',
+    });
+    notifyListeners();
+  }
+
+  Future<void> leaveChat(int chatId) async {
+    _client.send({'@type': 'leaveChat', 'chat_id': chatId});
+  }
+
+  void pinChatMessage(int chatId, int messageId) {
+    _client.send({
+      '@type': 'pinChatMessage',
+      'chat_id': chatId,
+      'message_id': messageId,
+      'disable_notification': false,
+      'only_for_self': false,
+    });
+  }
+
+  void unpinChatMessage(int chatId, int messageId) {
+    _client.send({
+      '@type': 'unpinChatMessage',
+      'chat_id': chatId,
+      'message_id': messageId,
+    });
+  }
+
+  void setChatPermissions(int chatId, ChatPermissionsInfo permissions) {
+    _client.send({
+      '@type': 'setChatPermissions',
+      'chat_id': chatId,
+      'permissions': permissions.toTdlib(),
+    });
+    _mergeChatInfo(
+      chatId,
+      (_chatInfoById[chatId] ?? ChatDetailInfo(chatId: chatId))
+          .copyWithPermissions(permissions),
+    );
+    notifyListeners();
+  }
+
+  void banChatMember(int chatId, int userId) {
+    _client.send({
+      '@type': 'banChatMember',
+      'chat_id': chatId,
+      'member_id': {
+        '@type': 'messageSenderUser',
+        'user_id': userId,
+      },
+      'banned_until_date': 0,
+      'revoke_messages': false,
+    });
+  }
+
+  void unbanChatMember(int chatId, int userId) {
+    _client.send({
+      '@type': 'setChatMemberStatus',
+      'chat_id': chatId,
+      'member_id': {
+        '@type': 'messageSenderUser',
+        'user_id': userId,
+      },
+      'status': {'@type': 'chatMemberStatusLeft'},
+    });
+  }
+
+  void setChatMemberTag(int chatId, int userId, String tag) {
+    _client.send({
+      '@type': 'setChatMemberTag',
+      'chat_id': chatId,
+      'user_id': userId,
+      'tag': tag.trim(),
+    });
+  }
+
+  void createPrimaryInviteLink(int chatId) {
+    _client.send({
+      '@type': 'createChatInviteLink',
+      'chat_id': chatId,
+      'name': '',
+      'expiration_date': 0,
+      'member_limit': 0,
+      'creates_join_request': false,
+      '@extra': 'chatInfo_createInvite_$chatId',
+    });
   }
 
   Future<int> _sendChatAction({
@@ -1432,6 +1578,18 @@ class ChatManager extends ChangeNotifier {
         );
       case 'chat':
         _handleChatResponse(update);
+      case 'supergroup':
+        _handleSupergroupResponse(update);
+      case 'supergroupFullInfo':
+        _handleSupergroupFullInfoResponse(update);
+      case 'basicGroup':
+        _handleBasicGroupResponse(update);
+      case 'basicGroupFullInfo':
+        _handleBasicGroupFullInfoResponse(update);
+      case 'chatMembers':
+        _handleChatMembersResponse(update);
+      case 'chatInviteLink':
+        _handleChatInviteLinkResponse(update);
       case 'createdBasicGroupChat':
         _handleCreatedBasicGroupChat(update);
       case 'chatJoinResultSuccess':
@@ -1495,6 +1653,22 @@ class ChatManager extends ChangeNotifier {
     final userId = user['id'] as int?;
     if (userId == null) {
       return;
+    }
+
+    final extra = user['@extra'] as String?;
+    if (extra != null && extra.startsWith('chatInfo_user_')) {
+      final chatId = int.tryParse(extra.substring('chatInfo_user_'.length));
+      if (chatId != null) {
+        _completeChatInfoRequest();
+      }
+    }
+
+    final firstName = user['first_name'] as String? ?? '';
+    final lastName = user['last_name'] as String? ?? '';
+    final displayName = '$firstName $lastName'.trim();
+    if (displayName.isNotEmpty) {
+      _userDisplayNames[userId] = displayName;
+      _refreshMemberDisplayNames(userId);
     }
 
     if (user['@type'] == 'user' && (user['is_self'] as bool? ?? false)) {
@@ -1613,6 +1787,13 @@ class ChatManager extends ChangeNotifier {
         _completeNewChatSearchRequest();
         notifyListeners();
       }
+      return;
+    }
+
+    if (extra.startsWith('chatInfo_')) {
+      _chatInfoError = update['message'] as String? ?? 'Ошибка загрузки информации';
+      _completeChatInfoRequest();
+      notifyListeners();
       return;
     }
 
@@ -1955,6 +2136,22 @@ class ChatManager extends ChangeNotifier {
             int.tryParse(extra.substring('newChatPublic_'.length));
         if (requestId == _newChatSearchRequestId) {
           _completeNewChatSearchRequest();
+        }
+      } else if (extra == 'chatInfo_chat_$chatId') {
+        _mergeChatInfo(
+          chatId,
+          TdlibChatInfoParser.parseChatForInfo(update, chatId: chatId),
+        );
+        final chat = _chatsById[chatId] ??
+            TdlibChatParser.parseChat(
+              update,
+              myUserId: _myUserId,
+              botUsers: _botUsers,
+            );
+        if (chat != null) {
+          _continueChatInfoLoad(chatId, chat);
+        } else {
+          _finishChatInfoLoad();
         }
       } else if (_chatActionCompleters.containsKey(extra)) {
         _completeChatAction(extra, chatId);
@@ -2533,6 +2730,238 @@ class ChatManager extends ChangeNotifier {
     for (final message in _messages) {
       _requestDownloadForMessage(message);
     }
+  }
+
+  void _mergeChatInfo(int chatId, ChatDetailInfo patch) {
+    final existing = _chatInfoById[chatId] ?? ChatDetailInfo(chatId: chatId);
+    _chatInfoById[chatId] = existing.merge(patch);
+  }
+
+  void _continueChatInfoLoad(int chatId, ChatSummary chat) {
+    if (_loadingChatInfoForChatId != chatId) {
+      return;
+    }
+
+    var pending = 0;
+
+    if (chat.basicGroupId != null) {
+      pending = 2;
+      _client.send({
+        '@type': 'getBasicGroupFullInfo',
+        'basic_group_id': chat.basicGroupId,
+        '@extra': 'chatInfo_basicFull_$chatId',
+      });
+      _client.send({
+        '@type': 'getBasicGroup',
+        'basic_group_id': chat.basicGroupId,
+        '@extra': 'chatInfo_basic_$chatId',
+      });
+    } else if (chat.supergroupId != null) {
+      pending = 3;
+      _client.send({
+        '@type': 'getSupergroup',
+        'supergroup_id': chat.supergroupId,
+        '@extra': 'chatInfo_super_$chatId',
+      });
+      _client.send({
+        '@type': 'getSupergroupFullInfo',
+        'supergroup_id': chat.supergroupId,
+        '@extra': 'chatInfo_superFull_$chatId',
+      });
+      _client.send({
+        '@type': 'getSupergroupMembers',
+        'supergroup_id': chat.supergroupId,
+        'filter': {'@type': 'supergroupMembersFilterRecent'},
+        'offset': 0,
+        'limit': 50,
+        '@extra': 'chatInfo_members_$chatId',
+      });
+    } else if (chat.privateUserId != null) {
+      pending = 1;
+      _client.send({
+        '@type': 'getUser',
+        'user_id': chat.privateUserId,
+        '@extra': 'chatInfo_user_$chatId',
+      });
+    }
+
+    if (pending == 0) {
+      _finishChatInfoLoad();
+      return;
+    }
+
+    _chatInfoPendingRequests = pending;
+  }
+
+  void _completeChatInfoRequest() {
+    if (_chatInfoPendingRequests <= 0) {
+      return;
+    }
+    _chatInfoPendingRequests -= 1;
+    if (_chatInfoPendingRequests == 0) {
+      _finishChatInfoLoad();
+    }
+  }
+
+  void _finishChatInfoLoad() {
+    _isLoadingChatInfo = false;
+    notifyListeners();
+  }
+
+  int? _chatIdFromChatInfoExtra(String? extra, String prefix) {
+    if (extra == null || !extra.startsWith(prefix)) {
+      return null;
+    }
+    return int.tryParse(extra.substring(prefix.length));
+  }
+
+  void _handleSupergroupResponse(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    final chatId = _chatIdFromChatInfoExtra(extra, 'chatInfo_super_');
+    if (chatId == null) {
+      return;
+    }
+    _mergeChatInfo(
+      chatId,
+      TdlibChatInfoParser.parseSupergroup(update, chatId: chatId),
+    );
+    _completeChatInfoRequest();
+    notifyListeners();
+  }
+
+  void _handleSupergroupFullInfoResponse(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    final chatId = _chatIdFromChatInfoExtra(extra, 'chatInfo_superFull_');
+    if (chatId == null) {
+      return;
+    }
+    _mergeChatInfo(
+      chatId,
+      TdlibChatInfoParser.parseSupergroupFullInfo(update, chatId: chatId),
+    );
+    _completeChatInfoRequest();
+    notifyListeners();
+  }
+
+  void _handleBasicGroupResponse(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    final chatId = _chatIdFromChatInfoExtra(extra, 'chatInfo_basic_');
+    if (chatId == null) {
+      return;
+    }
+    _mergeChatInfo(
+      chatId,
+      TdlibChatInfoParser.parseBasicGroupMeta(update, chatId: chatId),
+    );
+    _completeChatInfoRequest();
+    notifyListeners();
+  }
+
+  void _handleBasicGroupFullInfoResponse(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    final chatId = _chatIdFromChatInfoExtra(extra, 'chatInfo_basicFull_');
+    if (chatId == null) {
+      return;
+    }
+    final parsed = TdlibChatInfoParser.parseBasicGroupFullInfo(
+      update,
+      chatId: chatId,
+    );
+    _mergeChatInfo(chatId, parsed);
+    final members = TdlibChatInfoParser.parseChatMembers({
+      '@type': 'chatMembers',
+      'total_count': (update['members'] as List<dynamic>? ?? []).length,
+      'members': update['members'],
+    });
+    _storeChatMembers(chatId, members, members.length);
+    for (final member in members) {
+      _requestUserIfNeeded(member.userId);
+    }
+    _completeChatInfoRequest();
+    notifyListeners();
+  }
+
+  void _handleChatMembersResponse(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    final chatId = _chatIdFromChatInfoExtra(extra, 'chatInfo_members_');
+    if (chatId == null) {
+      return;
+    }
+    final members = TdlibChatInfoParser.parseChatMembers(update);
+    final total = TdlibChatInfoParser.parseChatMembersTotalCount(update) ??
+        members.length;
+    _storeChatMembers(chatId, members, total);
+    for (final member in members) {
+      _requestUserIfNeeded(member.userId);
+    }
+    _completeChatInfoRequest();
+    notifyListeners();
+  }
+
+  void _handleChatInviteLinkResponse(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    final chatId = _chatIdFromChatInfoExtra(extra, 'chatInfo_createInvite_');
+    if (chatId == null) {
+      return;
+    }
+    final link = TdlibChatInfoParser.parseInviteLink(update);
+    if (link != null) {
+      _mergeChatInfo(
+        chatId,
+        ChatDetailInfo(chatId: chatId).copyWithInviteLink(link),
+      );
+      notifyListeners();
+    }
+  }
+
+  void _storeChatMembers(
+    int chatId,
+    List<ChatMemberInfo> members,
+    int totalCount,
+  ) {
+    _chatMembersById[chatId] = members
+        .map(
+          (member) => member.copyWithDisplayName(
+            _userDisplayNames[member.userId],
+          ),
+        )
+        .toList();
+    _chatMembersTotalCount[chatId] = totalCount;
+  }
+
+  void _refreshMemberDisplayNames(int userId) {
+    final name = _userDisplayNames[userId];
+    if (name == null) {
+      return;
+    }
+    var changed = false;
+    for (final entry in _chatMembersById.entries) {
+      final members = entry.value;
+      final updated = members
+          .map(
+            (member) => member.userId == userId
+                ? member.copyWithDisplayName(name)
+                : member,
+          )
+          .toList();
+      if (updated != members) {
+        _chatMembersById[entry.key] = updated;
+        changed = true;
+      }
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
+  void _requestUserIfNeeded(int userId) {
+    if (_userDisplayNames.containsKey(userId)) {
+      return;
+    }
+    _client.send({
+      '@type': 'getUser',
+      'user_id': userId,
+    });
   }
 
   @override

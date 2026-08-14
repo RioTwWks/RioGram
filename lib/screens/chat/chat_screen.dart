@@ -17,6 +17,7 @@ import '../../widgets/poll_message_body.dart';
 import '../../widgets/sticker_panel_sheet.dart';
 import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
+import 'chat_info_screen.dart';
 
 /// Экран переписки: форматирование, ответ, пересылка, редактирование, удаление.
 class ChatScreen extends StatefulWidget {
@@ -312,6 +313,17 @@ class _ChatScreenState extends State<ChatScreen> {
                 title: const Text('Удалить из кэша'),
                 onTap: () => Navigator.pop(context, 'delete_cache'),
               ),
+            if (message.canBePinned)
+              ListTile(
+                leading: Icon(
+                  message.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                ),
+                title: Text(message.isPinned ? 'Открепить' : 'Закрепить'),
+                onTap: () => Navigator.pop(
+                  context,
+                  message.isPinned ? 'unpin' : 'pin',
+                ),
+              ),
             if (message.canBeDeletedOnlyForSelf)
               ListTile(
                 leading: const Icon(Icons.delete_outline),
@@ -361,6 +373,10 @@ class _ChatScreenState extends State<ChatScreen> {
         manager.downloadMessageMedia(message);
       case 'delete_cache':
         manager.deleteMessageFromCache(message);
+      case 'pin':
+        manager.pinChatMessage(widget.chatId, message.id);
+      case 'unpin':
+        manager.unpinChatMessage(widget.chatId, message.id);
       case 'delete_self':
         manager.deleteMessage(message.id, revoke: false);
       case 'delete_all':
@@ -552,18 +568,38 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          selectionMode
-              ? 'Выбрано: ${chatManager.selectedMessageCount}'
-              : (chat?.title ?? 'Чат'),
-        ),
+        title: selectionMode
+            ? Text('Выбрано: ${chatManager.selectedMessageCount}')
+            : InkWell(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChatInfoScreen(chatId: widget.chatId),
+                    ),
+                  );
+                },
+                child: Text(chat?.title ?? 'Чат'),
+              ),
         leading: selectionMode
             ? IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: chatManager.exitSelectionMode,
               )
             : null,
+        automaticallyImplyLeading: !selectionMode,
         actions: [
+          if (!selectionMode)
+            IconButton(
+              tooltip: 'Информация',
+              icon: const Icon(Icons.info_outline),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ChatInfoScreen(chatId: widget.chatId),
+                  ),
+                );
+              },
+            ),
           if (selectionMode) ...[
             IconButton(
               tooltip: 'Удалить',
