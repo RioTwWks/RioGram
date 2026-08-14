@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** §6.2 «Список чатов и организация» закрыт; документация — `docs/CHATS.md`.
+**Последнее обновление:** §6.3 «Отправка и форматирование» закрыт; список чатов — `docs/CHATS.md`.
 
 ---
 
@@ -246,12 +246,12 @@
 
 #### Отправка и форматирование
 - [x] Текстовые сообщения
-- [ ] Форматирование: жирный, курсив, код, ссылка (`textEntity*`, `inputMessageText.entities`)
-- [ ] Ответ (reply): `inputMessageReplyToMessage`, отображение цитаты
-- [ ] Пересылка: `forwardMessages`, выбор нескольких, «переслать без автора»
-- [ ] Упоминания `@username` и `#hashtag` (парсинг и подсветка entities)
-- [ ] Отложенная отправка (`messageSchedulingState`, `editMessageSchedulingState`)
-- [ ] «Печатает…» / запись голосового / выбор стикера (`sendChatAction`) — typing есть в MVP
+- [x] Форматирование: жирный, курсив, код, ссылка (`textEntity*`, `inputMessageText.entities`)
+- [x] Ответ (reply): `inputMessageReplyToMessage`, отображение цитаты
+- [x] Пересылка: `forwardMessages`, выбор нескольких, «переслать без автора»
+- [x] Упоминания `@username` и `#hashtag` (парсинг и подсветка entities)
+- [x] Отложенная отправка (`messageSchedulingState`, `editMessageSchedulingState`)
+- [x] «Печатает…» / запись голосового / выбор стикера (`sendChatAction`) — typing есть в MVP
 
 #### Редактирование и удаление
 - [ ] `editMessageText` / `editMessageCaption` (проверка `can_be_edited`, окно 48 ч)

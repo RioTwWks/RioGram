@@ -127,10 +127,14 @@ class TdlibChatParser {
       return null;
     }
     final action = update['action'] as Map<String, dynamic>?;
-    if (action?['@type'] == 'chatActionTyping') {
-      return 'печатает…';
-    }
-    return null;
+    return switch (action?['@type']) {
+      'chatActionTyping' => 'печатает…',
+      'chatActionRecordingVoiceNote' => 'записывает голосовое…',
+      'chatActionChoosingSticker' => 'выбирает стикер…',
+      'chatActionRecordingVideoNote' => 'записывает видеосообщение…',
+      'chatActionStartPlaying' => 'слушает голосовое…',
+      _ => null,
+    };
   }
 
   static int? parseFileId(Map<String, dynamic> content) {
