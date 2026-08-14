@@ -32,6 +32,15 @@ class ChatManager extends ChangeNotifier {
   Timer? _messagesLoadTimeout;
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
+  String _searchQuery = '';
+  List<int> _searchChatIds = [];
+  List<SearchMessageHit> _searchMessages = [];
+  bool _isSearchLoading = false;
+  String? _searchError;
+  Timer? _searchDebounce;
+  int _searchRequestId = 0;
+  int _pendingSearchRequests = 0;
+
   List<ChatSummary> get chats => List.unmodifiable(_visibleChats);
   List<ChatFolderTab> get chatFolders => List.unmodifiable(_chatFolders);
   ChatListKey get activeChatList => _activeChatList;
@@ -41,6 +50,28 @@ class ChatManager extends ChangeNotifier {
   bool get isLoadingMessages => _isLoadingMessages;
   String? get messagesError => _messagesError;
   bool get isArchiveList => _activeChatList is ChatListArchive;
+  String get searchQuery => _searchQuery;
+  bool get isSearchActive => _searchQuery.isNotEmpty;
+  bool get isSearchLoading => _isSearchLoading;
+  String? get searchError => _searchError;
+  List<SearchMessageHit> get searchMessageResults =>
+      List.unmodifiable(_searchMessages);
+
+  List<ChatSummary> get searchChatResults {
+    return _searchChatIds
+        .map((id) => _chatsById[id])
+        .whereType<ChatSummary>()
+        .toList();
+  }
+
+  int? get savedMessagesChatId {
+    for (final chat in _chatsById.values) {
+      if (chat.kind == ChatKind.savedMessages) {
+        return chat.id;
+      }
+    }
+    return null;
+  }
 
   List<ChatSummary> get _visibleChats {
     final visible = _chatsById.values
@@ -113,6 +144,121 @@ class ChatManager extends ChangeNotifier {
       '@type': 'addChatToList',
       'chat_id': chatId,
       'chat_list': const ChatListMain().toTdlib(),
+    });
+  }
+
+  void setSearchQuery(String query) {
+    _searchQuery = query.trim();
+    _searchDebounce?.cancel();
+
+    if (_searchQuery.isEmpty) {
+      _clearSearchResults();
+      notifyListeners();
+      return;
+    }
+
+    _isSearchLoading = true;
+    _searchError = null;
+    notifyListeners();
+
+    _searchDebounce = Timer(const Duration(milliseconds: 350), _performSearch);
+  }
+
+  void clearSearch() {
+    _searchDebounce?.cancel();
+    _searchQuery = '';
+    _clearSearchResults();
+    notifyListeners();
+  }
+
+  void _clearSearchResults() {
+    _searchChatIds = [];
+    _searchMessages = [];
+    _isSearchLoading = false;
+    _searchError = null;
+    _pendingSearchRequests = 0;
+  }
+
+  void _performSearch() {
+    final requestId = ++_searchRequestId;
+    final query = _searchQuery;
+    _pendingSearchRequests = 2;
+    _isSearchLoading = true;
+    _searchError = null;
+
+    _client.send({
+      '@type': 'searchChats',
+      'query': query,
+      'limit': 20,
+      '@extra': 'searchChats_$requestId',
+    });
+    _client.send({
+      '@type': 'searchMessages',
+      'query': query,
+      'offset': '',
+      'limit': 20,
+      'min_date': 0,
+      'max_date': 0,
+      '@extra': 'searchMessages_$requestId',
+    });
+  }
+
+  void toggleMarkedAsUnread(int chatId, {required bool isMarkedAsUnread}) {
+    _client.send({
+      '@type': 'toggleChatIsMarkedAsUnread',
+      'chat_id': chatId,
+      'is_marked_as_unread': isMarkedAsUnread,
+    });
+  }
+
+  void clearChatHistory(int chatId) {
+    _client.send({
+      '@type': 'deleteChatHistory',
+      'chat_id': chatId,
+      'remove_from_chat_list': false,
+      'revoke': false,
+    });
+  }
+
+  void deleteChat(int chatId) {
+    final chat = _chatsById[chatId];
+    if (chat?.canLeave ?? false) {
+      _client.send({'@type': 'leaveChat', 'chat_id': chatId});
+      return;
+    }
+
+    _client.send({
+      '@type': 'deleteChatHistory',
+      'chat_id': chatId,
+      'remove_from_chat_list': true,
+      'revoke': false,
+    });
+  }
+
+  void deleteChatForAll(int chatId) {
+    _client.send({
+      '@type': 'deleteChatHistory',
+      'chat_id': chatId,
+      'remove_from_chat_list': true,
+      'revoke': true,
+    });
+  }
+
+  void openSavedMessages() {
+    final chatId = savedMessagesChatId;
+    if (chatId != null) {
+      openChat(chatId);
+    }
+  }
+
+  void openChatAtMessage(int chatId, int messageId) {
+    openChat(chatId);
+    _client.send({
+      '@type': 'viewMessages',
+      'chat_id': chatId,
+      'message_ids': [messageId],
+      'source': {'@type': 'messageSourceSearch'},
+      'force_read': false,
     });
   }
 
@@ -233,6 +379,12 @@ class ChatManager extends ChangeNotifier {
         _handleUpdateChatNotificationSettings(update);
       case 'updateChatReadInbox':
         _handleUpdateChatReadInbox(update);
+      case 'updateChatIsMarkedAsUnread':
+        _handleUpdateChatIsMarkedAsUnread(update);
+      case 'chats':
+        _handleChats(update);
+      case 'foundMessages':
+        _handleFoundMessages(update);
       case 'messages':
         _handleMessages(update);
       case 'message':
@@ -344,6 +496,16 @@ class ChatManager extends ChangeNotifier {
       _isLoadingMessages = false;
       _messagesError = update['message'] as String? ?? 'Не удалось открыть чат';
       notifyListeners();
+      return;
+    }
+
+    if (extra.startsWith('searchChats_') || extra.startsWith('searchMessages_')) {
+      final requestId = int.tryParse(extra.split('_').last);
+      if (requestId == _searchRequestId) {
+        _searchError = update['message'] as String? ?? 'Ошибка поиска';
+        _completeSearchRequest();
+        notifyListeners();
+      }
     }
   }
 
@@ -420,6 +582,9 @@ class ChatManager extends ChangeNotifier {
         isMuted: summary.isMuted,
         draftPreview: summary.draftPreview ?? existing.draftPreview,
         privateUserId: summary.privateUserId ?? existing.privateUserId,
+        isMarkedAsUnread: summary.isMarkedAsUnread,
+        canBeDeletedOnlyForSelf: summary.canBeDeletedOnlyForSelf,
+        canBeDeletedForAllUsers: summary.canBeDeletedForAllUsers,
       );
     } else {
       _chatsById[summary.id] = summary;
@@ -547,6 +712,82 @@ class ChatManager extends ChangeNotifier {
       unreadCount: update['unread_count'] as int? ?? chat.unreadCount,
     );
     notifyListeners();
+  }
+
+  void _handleUpdateChatIsMarkedAsUnread(Map<String, dynamic> update) {
+    final chatId = update['chat_id'] as int?;
+    if (chatId == null) {
+      return;
+    }
+
+    final chat = _chatsById[chatId];
+    if (chat == null) {
+      return;
+    }
+
+    _chatsById[chatId] = chat.copyWith(
+      isMarkedAsUnread: update['is_marked_as_unread'] as bool? ?? false,
+    );
+    notifyListeners();
+  }
+
+  void _handleChats(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra?.startsWith('searchChats_') ?? false) {
+      _handleSearchChats(update, extra!);
+      return;
+    }
+
+    final chatIds = (update['chat_ids'] as List<dynamic>? ?? []).cast<int>();
+    for (final chatId in chatIds) {
+      _client.send({'@type': 'getChat', 'chat_id': chatId});
+    }
+  }
+
+  void _handleSearchChats(Map<String, dynamic> update, String extra) {
+    final requestId = int.tryParse(extra.substring('searchChats_'.length));
+    if (requestId != _searchRequestId) {
+      return;
+    }
+
+    final chatIds = (update['chat_ids'] as List<dynamic>? ?? []).cast<int>();
+    _searchChatIds = chatIds;
+    for (final chatId in chatIds) {
+      if (!_chatsById.containsKey(chatId)) {
+        _client.send({'@type': 'getChat', 'chat_id': chatId});
+      }
+    }
+    _completeSearchRequest();
+  }
+
+  void _handleFoundMessages(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra?.startsWith('searchMessages_') != true) {
+      return;
+    }
+
+    final requestId = int.tryParse(extra!.substring('searchMessages_'.length));
+    if (requestId != _searchRequestId) {
+      return;
+    }
+
+    final hits = TdlibChatParser.parseFoundMessages(update);
+    _searchMessages = hits.map((hit) {
+      final title = _chatsById[hit.chatId]?.title;
+      if (title == null) {
+        _client.send({'@type': 'getChat', 'chat_id': hit.chatId});
+      }
+      return hit.copyWith(chatTitle: title);
+    }).toList();
+    _completeSearchRequest();
+  }
+
+  void _completeSearchRequest() {
+    _pendingSearchRequests = (_pendingSearchRequests - 1).clamp(0, 2);
+    if (_pendingSearchRequests == 0) {
+      _isSearchLoading = false;
+      notifyListeners();
+    }
   }
 
   List<ChatPositionInfo> _mergePosition(
@@ -805,6 +1046,7 @@ class ChatManager extends ChangeNotifier {
   @override
   void dispose() {
     _messagesLoadTimeout?.cancel();
+    _searchDebounce?.cancel();
     _subscription?.cancel();
     super.dispose();
   }

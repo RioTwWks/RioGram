@@ -72,6 +72,22 @@ void main() {
     expect(chat.previewText, 'Черновик: Не отправлено');
   });
 
+  test('ChatSummary.showsUnreadIndicator учитывает метку непрочитанного', () {
+    const marked = ChatSummary(id: 1, title: 'A', isMarkedAsUnread: true);
+    const withCount = ChatSummary(id: 2, title: 'B', unreadCount: 3);
+    const read = ChatSummary(id: 3, title: 'C');
+
+    expect(marked.showsUnreadIndicator, isTrue);
+    expect(withCount.showsUnreadIndicator, isTrue);
+    expect(read.showsUnreadIndicator, isFalse);
+  });
+
+  test('ChatSummary.canLeave только для групп и каналов', () {
+    expect(const ChatSummary(id: 1, title: 'G', kind: ChatKind.group).canLeave, isTrue);
+    expect(const ChatSummary(id: 2, title: 'C', kind: ChatKind.channel).canLeave, isTrue);
+    expect(const ChatSummary(id: 3, title: 'P', kind: ChatKind.privateChat).canLeave, isFalse);
+  });
+
   test('ChatSummary.compareInList сортирует закреплённые и по order', () {
     const pinned = ChatSummary(
       id: 1,
@@ -212,6 +228,27 @@ void main() {
       expect(folders, hasLength(1));
       expect(folders.first.name, 'Работа');
       expect(folders.first.listKey.storageId, 'folder_2');
+    });
+
+    test('parseFoundMessages возвращает глобальные результаты', () {
+      final hits = TdlibChatParser.parseFoundMessages({
+        'messages': [
+          {
+            'id': 100,
+            'chat_id': 42,
+            'date': 1_700_000_000,
+            'content': {
+              '@type': 'messageText',
+              'text': {'@type': 'formattedText', 'text': 'найдено'},
+            },
+          },
+        ],
+      });
+
+      expect(hits, hasLength(1));
+      expect(hits.first.chatId, 42);
+      expect(hits.first.messageId, 100);
+      expect(hits.first.preview, 'найдено');
     });
   });
 }

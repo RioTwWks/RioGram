@@ -215,6 +215,33 @@ class MessageContent {
   }
 }
 
+/// Результат глобального поиска сообщений.
+class SearchMessageHit {
+  const SearchMessageHit({
+    required this.chatId,
+    required this.messageId,
+    required this.preview,
+    required this.date,
+    this.chatTitle,
+  });
+
+  final int chatId;
+  final int messageId;
+  final String preview;
+  final DateTime date;
+  final String? chatTitle;
+
+  SearchMessageHit copyWith({String? chatTitle}) {
+    return SearchMessageHit(
+      chatId: chatId,
+      messageId: messageId,
+      preview: preview,
+      date: date,
+      chatTitle: chatTitle ?? this.chatTitle,
+    );
+  }
+}
+
 class ChatSummary {
   const ChatSummary({
     required this.id,
@@ -229,6 +256,9 @@ class ChatSummary {
     this.isMuted = false,
     this.draftPreview,
     this.privateUserId,
+    this.isMarkedAsUnread = false,
+    this.canBeDeletedOnlyForSelf = true,
+    this.canBeDeletedForAllUsers = false,
   });
 
   final int id;
@@ -243,6 +273,15 @@ class ChatSummary {
   final bool isMuted;
   final String? draftPreview;
   final int? privateUserId;
+  final bool isMarkedAsUnread;
+  final bool canBeDeletedOnlyForSelf;
+  final bool canBeDeletedForAllUsers;
+
+  /// Показывать индикатор непрочитанного (счётчик или метка).
+  bool get showsUnreadIndicator => unreadCount > 0 || isMarkedAsUnread;
+
+  /// Можно покинуть чат (группа / канал).
+  bool get canLeave => kind == ChatKind.group || kind == ChatKind.channel;
 
   /// Текст превью: черновик имеет приоритет над последним сообщением.
   String? get previewText {
@@ -284,6 +323,9 @@ class ChatSummary {
     String? draftPreview,
     bool clearDraftPreview = false,
     int? privateUserId,
+    bool? isMarkedAsUnread,
+    bool? canBeDeletedOnlyForSelf,
+    bool? canBeDeletedForAllUsers,
   }) {
     return ChatSummary(
       id: id,
@@ -298,6 +340,11 @@ class ChatSummary {
       isMuted: isMuted ?? this.isMuted,
       draftPreview: clearDraftPreview ? null : (draftPreview ?? this.draftPreview),
       privateUserId: privateUserId ?? this.privateUserId,
+      isMarkedAsUnread: isMarkedAsUnread ?? this.isMarkedAsUnread,
+      canBeDeletedOnlyForSelf:
+          canBeDeletedOnlyForSelf ?? this.canBeDeletedOnlyForSelf,
+      canBeDeletedForAllUsers:
+          canBeDeletedForAllUsers ?? this.canBeDeletedForAllUsers,
     );
   }
 
