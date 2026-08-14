@@ -12,6 +12,8 @@ class MessageInputBar extends StatelessWidget {
     required this.onSchedule,
     this.replyDraft,
     this.onClearReply,
+    this.editDraft,
+    this.onClearEdit,
     this.scheduledAt,
     this.onClearSchedule,
     this.onFormatBold,
@@ -28,6 +30,8 @@ class MessageInputBar extends StatelessWidget {
   final VoidCallback onSchedule;
   final MessageReplyDraft? replyDraft;
   final VoidCallback? onClearReply;
+  final MessageEditDraft? editDraft;
+  final VoidCallback? onClearEdit;
   final DateTime? scheduledAt;
   final VoidCallback? onClearSchedule;
   final VoidCallback? onFormatBold;
@@ -49,6 +53,11 @@ class MessageInputBar extends StatelessWidget {
             _ReplyBar(
               draft: replyDraft!,
               onClose: onClearReply,
+            ),
+          if (editDraft != null)
+            _EditBar(
+              draft: editDraft!,
+              onClose: onClearEdit,
             ),
           if (scheduledAt != null)
             _ScheduleBar(
@@ -147,9 +156,15 @@ class MessageInputBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  tooltip: scheduledAt != null ? 'Запланировать' : 'Отправить',
+                  tooltip: editDraft != null
+                      ? 'Сохранить'
+                      : (scheduledAt != null ? 'Запланировать' : 'Отправить'),
                   onPressed: onSend,
-                  icon: Icon(scheduledAt != null ? Icons.schedule_send : Icons.send),
+                  icon: Icon(
+                    editDraft != null
+                        ? Icons.check
+                        : (scheduledAt != null ? Icons.schedule_send : Icons.send),
+                  ),
                 ),
               ],
             ),
@@ -183,6 +198,41 @@ class _ReplyBar extends StatelessWidget {
         ),
         subtitle: Text(
           draft.preview,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: onClose,
+        ),
+      ),
+    );
+  }
+}
+
+class _EditBar extends StatelessWidget {
+  const _EditBar({
+    required this.draft,
+    this.onClose,
+  });
+
+  final MessageEditDraft draft;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.tertiaryContainer,
+      child: ListTile(
+        dense: true,
+        leading: const Icon(Icons.edit),
+        title: Text(
+          draft.isCaption ? 'Редактирование подписи' : 'Редактирование',
+          style: theme.textTheme.labelLarge,
+        ),
+        subtitle: Text(
+          draft.initialText,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),

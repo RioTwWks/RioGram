@@ -51,6 +51,7 @@ class ChatManager extends ChangeNotifier {
 
   MessageReplyDraft? _pendingReply;
   DateTime? _scheduledSendAt;
+  MessageEditDraft? _editingMessage;
   bool _selectionMode = false;
   final Set<int> _selectedMessageIds = {};
   Timer? _typingStatusClearTimer;
@@ -80,6 +81,7 @@ class ChatManager extends ChangeNotifier {
 
   bool get isNewChatSearchLoading => _isNewChatSearchLoading;
   MessageReplyDraft? get pendingReply => _pendingReply;
+  MessageEditDraft? get editingMessage => _editingMessage;
   DateTime? get scheduledSendAt => _scheduledSendAt;
   bool get isSelectionMode => _selectionMode;
   Set<int> get selectedMessageIds => Set.unmodifiable(_selectedMessageIds);
@@ -138,6 +140,32 @@ class ChatManager extends ChangeNotifier {
       return '';
     }
     return messageById(reply.messageId)?.content.preview ?? reply.preview;
+  }
+
+  bool get canDeleteSelectedForAll {
+    if (_selectedMessageIds.isEmpty) {
+      return false;
+    }
+    for (final id in _selectedMessageIds) {
+      final message = messageById(id);
+      if (message == null || !message.canBeDeletedForAllUsers) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool get canDeleteSelectedForSelf {
+    if (_selectedMessageIds.isEmpty) {
+      return false;
+    }
+    for (final id in _selectedMessageIds) {
+      final message = messageById(id);
+      if (message == null || !message.canBeDeletedOnlyForSelf) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void startListening() {
@@ -361,6 +389,7 @@ class ChatManager extends ChangeNotifier {
     _messagesError = null;
     _pendingReply = null;
     _scheduledSendAt = null;
+    _editingMessage = null;
     _exitSelectionMode();
     _isLoadingMessages = true;
     _startMessagesLoadTimeout(chatId);
@@ -384,6 +413,7 @@ class ChatManager extends ChangeNotifier {
     _typingStatus = null;
     _pendingReply = null;
     _scheduledSendAt = null;
+    _editingMessage = null;
     _exitSelectionMode();
     notifyListeners();
   }
@@ -402,6 +432,92 @@ class ChatManager extends ChangeNotifier {
       return;
     }
     _pendingReply = null;
+    notifyListeners();
+  }
+
+  void startEditingMessage(ChatMessage message) {
+    if (!message.canEditText && !message.canEditCaption) {
+      return;
+    }
+    final text = message.editableComposerText ?? '';
+    _editingMessage = MessageEditDraft(
+      messageId: message.id,
+      initialText: text,
+      isCaption: message.canEditCaption && !message.canEditText,
+    );
+    _pendingReply = null;
+    _scheduledSendAt = null;
+    notifyListeners();
+  }
+
+  void cancelEditing() {
+    if (_editingMessage == null) {
+      return;
+    }
+    _editingMessage = null;
+    notifyListeners();
+  }
+
+  void saveEdit(String raw) {
+    final chatId = _activeChatId;
+    final draft = _editingMessage;
+    if (chatId == null || draft == null) {
+      return;
+    }
+
+    final formatted = FormattedTextBuilder.buildFromComposer(raw);
+    if (formatted.text.trim().isEmpty) {
+      return;
+    }
+
+    if (draft.isCaption) {
+      _client.send({
+        '@type': 'editMessageCaption',
+        'chat_id': chatId,
+        'message_id': draft.messageId,
+        'caption': formatted.toTdlib(),
+      });
+    } else {
+      _client.send({
+        '@type': 'editMessageText',
+        'chat_id': chatId,
+        'message_id': draft.messageId,
+        'input_message_content': {
+          '@type': 'inputMessageText',
+          'text': formatted.toTdlib(),
+        },
+      });
+    }
+
+    _editingMessage = null;
+    notifyListeners();
+  }
+
+  void deleteMessages(List<int> messageIds, {required bool revoke}) {
+    final chatId = _activeChatId;
+    if (chatId == null || messageIds.isEmpty) {
+      return;
+    }
+
+    _client.send({
+      '@type': 'deleteMessages',
+      'chat_id': chatId,
+      'message_ids': messageIds,
+      'revoke': revoke,
+    });
+  }
+
+  void deleteMessage(int messageId, {required bool revoke}) {
+    deleteMessages([messageId], revoke: revoke);
+  }
+
+  void deleteSelectedMessages({required bool revoke}) {
+    if (_selectedMessageIds.isEmpty) {
+      return;
+    }
+    final ids = _selectedMessageIds.toList();
+    deleteMessages(ids, revoke: revoke);
+    _exitSelectionMode();
     notifyListeners();
   }
 
@@ -455,6 +571,11 @@ class ChatManager extends ChangeNotifier {
   }
 
   void sendText(String raw) {
+    if (_editingMessage != null) {
+      saveEdit(raw);
+      return;
+    }
+
     final chatId = _activeChatId;
     final formatted = FormattedTextBuilder.buildFromComposer(raw);
     if (chatId == null || formatted.text.trim().isEmpty) {
@@ -621,6 +742,12 @@ class ChatManager extends ChangeNotifier {
         _handleNewMessage(update);
       case 'updateMessageSendSucceeded':
         _handleSendSucceeded(update);
+      case 'updateMessageEdited':
+        _handleMessageEdited(update);
+      case 'updateDeleteMessages':
+        _handleDeleteMessages(update);
+      case 'updateMessageContent':
+        _handleMessageContent(update);
       case 'updateUserChatAction':
         _handleTyping(update);
       case 'updateFile':
@@ -1178,6 +1305,82 @@ class ChatManager extends ChangeNotifier {
       return;
     }
     _replaceMessage(message);
+  }
+
+  void _handleMessageEdited(Map<String, dynamic> update) {
+    final chatId = update['chat_id'] as int?;
+    final messageId = update['message_id'] as int?;
+    if (chatId != _activeChatId || messageId == null) {
+      return;
+    }
+
+    final editDateSeconds = update['edit_date'] as int? ?? 0;
+    final editDate = editDateSeconds > 0
+        ? DateTime.fromMillisecondsSinceEpoch(editDateSeconds * 1000)
+        : null;
+
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index >= 0) {
+      _messages[index] = _messages[index].copyWith(editDate: editDate);
+      notifyListeners();
+    }
+  }
+
+  void _handleMessageContent(Map<String, dynamic> update) {
+    final chatId = update['chat_id'] as int?;
+    final messageId = update['message_id'] as int?;
+    final newContent = update['new_content'] as Map<String, dynamic>?;
+    if (chatId != _activeChatId || messageId == null || newContent == null) {
+      return;
+    }
+
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index < 0) {
+      return;
+    }
+
+    final current = _messages[index];
+    _messages[index] = current.copyWith(
+      content: MessageContent.fromTdlib(newContent),
+      mediaFileId:
+          MessageContent.parseMediaFileId(newContent) ?? current.mediaFileId,
+    );
+    _requestDownloadForMessage(_messages[index]);
+    notifyListeners();
+  }
+
+  void _handleDeleteMessages(Map<String, dynamic> update) {
+    final chatId = update['chat_id'] as int?;
+    if (chatId != _activeChatId) {
+      return;
+    }
+
+    final ids = (update['message_ids'] as List<dynamic>? ?? []).cast<int>();
+    if (ids.isEmpty) {
+      return;
+    }
+
+    final isPermanent = update['is_permanent'] as bool? ?? true;
+    if (isPermanent) {
+      _messages.removeWhere((message) => ids.contains(message.id));
+      _selectedMessageIds.removeWhere((id) => ids.contains(id));
+      if (_selectedMessageIds.isEmpty) {
+        _selectionMode = false;
+      }
+    } else {
+      for (var i = 0; i < _messages.length; i++) {
+        if (ids.contains(_messages[i].id)) {
+          _messages[i] = _messages[i].copyWith(
+            isDeleted: true,
+            content: const MessageContent(
+              kind: MessageKind.text,
+              preview: 'Сообщение удалено',
+            ),
+          );
+        }
+      }
+    }
+    notifyListeners();
   }
 
   void _handleTyping(Map<String, dynamic> update) {

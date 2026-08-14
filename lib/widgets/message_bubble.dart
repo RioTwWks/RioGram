@@ -86,6 +86,16 @@ class MessageBubble extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                       ],
+                      if (message.isEdited) ...[
+                        Text(
+                          'изменено',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontStyle: FontStyle.italic,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
                       Text(
                         time,
                         style: theme.textTheme.labelSmall,
@@ -175,6 +185,16 @@ class _MessageBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final content = message.content;
     final localPath = message.localFilePath ?? content.localPath;
+
+    if (message.isDeleted) {
+      return Text(
+        content.preview,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontStyle: FontStyle.italic,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+      );
+    }
 
     if (content.kind == MessageKind.text) {
       final formatted = content.formattedText;

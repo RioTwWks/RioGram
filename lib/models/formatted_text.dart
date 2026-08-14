@@ -231,6 +231,19 @@ class MessageReplyDraft {
   final String? authorName;
 }
 
+/// Черновик редактирования сообщения.
+class MessageEditDraft {
+  const MessageEditDraft({
+    required this.messageId,
+    required this.initialText,
+    required this.isCaption,
+  });
+
+  final int messageId;
+  final String initialText;
+  final bool isCaption;
+}
+
 /// Тип исходящего chat action.
 enum OutgoingChatAction {
   typing,
