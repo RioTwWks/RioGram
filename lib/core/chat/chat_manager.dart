@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/audio_models.dart';
 import '../../models/chat_models.dart';
+import '../../models/channel_models.dart';
 import '../../models/chat_info_models.dart';
 import '../../models/group_models.dart';
 import '../../models/message_enrichment.dart';
@@ -72,6 +73,12 @@ class ChatManager extends ChangeNotifier {
   int? _loadingChatInfoForChatId;
   int _chatInfoPendingRequests = 0;
 
+  MessageThreadContext? _messageThreadContext;
+  List<ChatMessage> _messageThreadMessages = [];
+  bool _isLoadingMessageThread = false;
+  String? _messageThreadError;
+  String? _pendingThreadPreview;
+
   MessageReplyDraft? _pendingReply;
   DateTime? _scheduledSendAt;
   MessageEditDraft? _editingMessage;
@@ -124,6 +131,11 @@ class ChatManager extends ChangeNotifier {
   bool get isLoadingChatInfo => _isLoadingChatInfo;
   String? get chatInfoError => _chatInfoError;
   int? get loadingChatInfoForChatId => _loadingChatInfoForChatId;
+  MessageThreadContext? get messageThreadContext => _messageThreadContext;
+  List<ChatMessage> get messageThreadMessages =>
+      List.unmodifiable(_messageThreadMessages);
+  bool get isLoadingMessageThread => _isLoadingMessageThread;
+  String? get messageThreadError => _messageThreadError;
 
   MessageReplyDraft? get pendingReply => _pendingReply;
   MessageEditDraft? get editingMessage => _editingMessage;
@@ -191,6 +203,43 @@ class ChatManager extends ChangeNotifier {
     }
     return false;
   }
+
+  bool get canSendInActiveChat {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return false;
+    }
+    final chat = _chatsById[chatId];
+    if (chat == null) {
+      return false;
+    }
+    if (chat.kind != ChatKind.channel) {
+      return true;
+    }
+    return _canPostInChannel(chatId);
+  }
+
+  ChannelMembershipKind channelMembershipFor(int chatId) {
+    final info = _chatInfoById[chatId];
+    if (info == null) {
+      return ChannelMembershipKind.unknown;
+    }
+    if (info.myStatus == ChatMemberStatusKind.left ||
+        info.myStatus == ChatMemberStatusKind.banned) {
+      return ChannelMembershipKind.notSubscribed;
+    }
+    if (info.myStatus == ChatMemberStatusKind.unknown) {
+      return ChannelMembershipKind.unknown;
+    }
+    return ChannelMembershipKind.subscribed;
+  }
+
+  bool channelHasComments(int chatId) {
+    final info = _chatInfoById[chatId];
+    return info?.hasLinkedChat == true || info?.linkedChatId != null;
+  }
+
+  Future<int> subscribeToChannel(int chatId) => joinChat(chatId);
 
   ChatMessage? messageById(int messageId) {
     for (final message in _messages) {
@@ -597,6 +646,57 @@ class ChatManager extends ChangeNotifier {
     });
   }
 
+  void fetchMessageThread(
+    int channelChatId,
+    int channelMessageId, {
+    String? postPreview,
+  }) {
+    _messageThreadContext = null;
+    _messageThreadMessages = [];
+    _isLoadingMessageThread = true;
+    _messageThreadError = null;
+    _pendingThreadPreview = postPreview;
+    _client.send({
+      '@type': 'getMessageThread',
+      'chat_id': channelChatId,
+      'message_id': channelMessageId,
+      '@extra': 'messageThread_${channelChatId}_$channelMessageId',
+    });
+    notifyListeners();
+  }
+
+  void clearMessageThread() {
+    _messageThreadContext = null;
+    _messageThreadMessages = [];
+    _isLoadingMessageThread = false;
+    _messageThreadError = null;
+    _pendingThreadPreview = null;
+    notifyListeners();
+  }
+
+  void sendThreadMessage(String raw) {
+    final context = _messageThreadContext;
+    if (context == null) {
+      return;
+    }
+    final formatted = FormattedTextBuilder.buildFromComposer(raw);
+    if (formatted.text.trim().isEmpty) {
+      return;
+    }
+    _client.send({
+      '@type': 'sendMessage',
+      'chat_id': context.discussionChatId,
+      'topic_id': {
+        '@type': 'messageTopicThread',
+        'message_thread_id': context.messageThreadId,
+      },
+      'input_message_content': {
+        '@type': 'inputMessageText',
+        'text': formatted.toTdlib(),
+      },
+    });
+  }
+
   Future<int> _sendChatAction({
     required Map<String, dynamic> request,
     required String extraPrefix,
@@ -768,6 +868,11 @@ class ChatManager extends ChangeNotifier {
     });
     _requestChatHistory(chatId, onlyLocal: true);
     _requestChatHistory(chatId, onlyLocal: false);
+
+    final chat = _chatsById[chatId];
+    if (chat?.kind == ChatKind.channel) {
+      loadChatInfo(chatId);
+    }
   }
 
   void closeChat() {
@@ -942,6 +1047,10 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    if (!canSendInActiveChat) {
+      return;
+    }
+
     final chatId = _activeChatId;
     final formatted = FormattedTextBuilder.buildFromComposer(raw);
     if (chatId == null || formatted.text.trim().isEmpty) {
@@ -985,7 +1094,7 @@ class ChatManager extends ChangeNotifier {
 
   Future<void> sendDocument(String path, {FormattedText? caption}) async {
     final chatId = _activeChatId;
-    if (chatId == null) {
+    if (chatId == null || !canSendInActiveChat) {
       return;
     }
 
@@ -1590,6 +1699,8 @@ class ChatManager extends ChangeNotifier {
         _handleChatMembersResponse(update);
       case 'chatInviteLink':
         _handleChatInviteLinkResponse(update);
+      case 'messageThreadInfo':
+        _handleMessageThreadInfo(update);
       case 'createdBasicGroupChat':
         _handleCreatedBasicGroupChat(update);
       case 'chatJoinResultSuccess':
@@ -1797,6 +1908,14 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    if (extra.startsWith('messageThread_')) {
+      _isLoadingMessageThread = false;
+      _messageThreadError =
+          update['message'] as String? ?? 'Не удалось загрузить комментарии';
+      notifyListeners();
+      return;
+    }
+
     if (_isChatActionExtra(extra)) {
       _failChatAction(
         extra,
@@ -1893,6 +2012,7 @@ class ChatManager extends ChangeNotifier {
         basicGroupId: summary.basicGroupId ?? existing.basicGroupId,
         supergroupId: summary.supergroupId ?? existing.supergroupId,
         isForum: summary.isForum || existing.isForum,
+        canSendMessages: summary.canSendMessages,
       );
     } else {
       _chatsById[summary.id] = summary;
@@ -2263,6 +2383,11 @@ class ChatManager extends ChangeNotifier {
 
   void _handleMessages(Map<String, dynamic> update) {
     final extra = update['@extra'] as String?;
+    if (extra != null && extra.startsWith('messageThreadHistory_')) {
+      _handleMessageThreadHistory(update);
+      return;
+    }
+
     final isLocal = extra?.startsWith('getChatHistoryLocal_') ?? false;
     final chatId = update['chat_id'] as int? ??
         _chatIdFromExtra(extra, 'getChatHistoryLocal_') ??
@@ -2343,6 +2468,7 @@ class ChatManager extends ChangeNotifier {
     }
 
     _insertMessage(message);
+    _appendThreadMessage(message);
     _updateChatPreview(message);
 
     if (message.chatId != _activeChatId) {
@@ -2734,7 +2860,30 @@ class ChatManager extends ChangeNotifier {
 
   void _mergeChatInfo(int chatId, ChatDetailInfo patch) {
     final existing = _chatInfoById[chatId] ?? ChatDetailInfo(chatId: chatId);
-    _chatInfoById[chatId] = existing.merge(patch);
+    final merged = existing.merge(patch);
+    _chatInfoById[chatId] = merged;
+    _syncChannelSummary(chatId, merged);
+  }
+
+  void _syncChannelSummary(int chatId, ChatDetailInfo info) {
+    final chat = _chatsById[chatId];
+    if (chat?.kind != ChatKind.channel) {
+      return;
+    }
+    _chatsById[chatId] = chat!.copyWith(
+      canSendMessages: info.canSendInChannel,
+    );
+  }
+
+  bool _canPostInChannel(int chatId) {
+    final info = _chatInfoById[chatId];
+    if (info != null) {
+      if (!info.isSubscribed) {
+        return false;
+      }
+      return info.canSendInChannel;
+    }
+    return _chatsById[chatId]?.canSendMessages ?? false;
   }
 
   void _continueChatInfoLoad(int chatId, ChatSummary chat) {
@@ -2912,6 +3061,90 @@ class ChatManager extends ChangeNotifier {
       );
       notifyListeners();
     }
+  }
+
+  void _handleMessageThreadInfo(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null || !extra.startsWith('messageThread_')) {
+      return;
+    }
+    final suffix = extra.substring('messageThread_'.length);
+    final separator = suffix.lastIndexOf('_');
+    if (separator <= 0) {
+      return;
+    }
+    final channelChatId = int.tryParse(suffix.substring(0, separator));
+    final channelMessageId = int.tryParse(suffix.substring(separator + 1));
+    if (channelChatId == null || channelMessageId == null) {
+      return;
+    }
+
+    final context = TdlibChatInfoParser.parseMessageThreadInfo(
+      update,
+      channelChatId: channelChatId,
+      channelMessageId: channelMessageId,
+      postPreview: _pendingThreadPreview,
+    );
+    if (context == null) {
+      _isLoadingMessageThread = false;
+      _messageThreadError = 'Комментарии недоступны';
+      notifyListeners();
+      return;
+    }
+
+    _messageThreadContext = context;
+    final initialMessages = update['messages'] as List<dynamic>? ?? [];
+    _messageThreadMessages = initialMessages
+        .whereType<Map<String, dynamic>>()
+        .map(_parseMessage)
+        .whereType<ChatMessage>()
+        .toList();
+    _isLoadingMessageThread = false;
+    _client.send({
+      '@type': 'getMessageThreadHistory',
+      'chat_id': channelChatId,
+      'message_id': channelMessageId,
+      'from_message_id': 0,
+      'offset': 0,
+      'limit': 50,
+      '@extra': 'messageThreadHistory_${channelChatId}_$channelMessageId',
+    });
+    notifyListeners();
+  }
+
+  void _handleMessageThreadHistory(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null || !extra.startsWith('messageThreadHistory_')) {
+      return;
+    }
+    final messages = (update['messages'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(_parseMessage)
+        .whereType<ChatMessage>()
+        .toList();
+    if (messages.isEmpty) {
+      return;
+    }
+    final existingIds = _messageThreadMessages.map((m) => m.id).toSet();
+    final merged = [
+      ...messages.where((message) => !existingIds.contains(message.id)),
+      ..._messageThreadMessages,
+    ]..sort((a, b) => a.date.compareTo(b.date));
+    _messageThreadMessages = merged;
+    notifyListeners();
+  }
+
+  void _appendThreadMessage(ChatMessage message) {
+    final context = _messageThreadContext;
+    if (context == null || message.chatId != context.discussionChatId) {
+      return;
+    }
+    if (_messageThreadMessages.any((item) => item.id == message.id)) {
+      return;
+    }
+    _messageThreadMessages = [..._messageThreadMessages, message]
+      ..sort((a, b) => a.date.compareTo(b.date));
+    notifyListeners();
   }
 
   void _storeChatMembers(

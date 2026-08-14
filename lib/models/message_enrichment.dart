@@ -11,18 +11,22 @@ class MessageInteractionInfo {
   const MessageInteractionInfo({
     this.viewCount = 0,
     this.forwardCount = 0,
+    this.replyCount = 0,
   });
 
   final int viewCount;
   final int forwardCount;
+  final int replyCount;
 
   factory MessageInteractionInfo.fromTdlib(Map<String, dynamic>? json) {
     if (json == null || json['@type'] != 'messageInteractionInfo') {
       return const MessageInteractionInfo();
     }
+    final replyInfo = json['reply_info'] as Map<String, dynamic>?;
     return MessageInteractionInfo(
       viewCount: json['view_count'] as int? ?? 0,
       forwardCount: json['forward_count'] as int? ?? 0,
+      replyCount: replyInfo?['reply_count'] as int? ?? 0,
     );
   }
 }

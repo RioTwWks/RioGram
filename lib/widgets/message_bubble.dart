@@ -39,6 +39,8 @@ class MessageBubble extends StatelessWidget {
     this.albumMessages,
     this.onMediaTap,
     this.onCancelTransfer,
+    this.onCommentsTap,
+    this.showComments = false,
   });
 
   final ChatMessage message;
@@ -55,6 +57,8 @@ class MessageBubble extends StatelessWidget {
   final List<ChatMessage>? albumMessages;
   final void Function(ChatMessage message)? onMediaTap;
   final VoidCallback? onCancelTransfer;
+  final VoidCallback? onCommentsTap;
+  final bool showComments;
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +125,23 @@ class MessageBubble extends StatelessWidget {
                       reactions: message.reactions,
                       onReactionTap: onReactionTap,
                       onAddReaction: onAddReaction,
+                    ),
+                  ],
+                  if (showComments && onCommentsTap != null) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: message.isOutgoing
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: onCommentsTap,
+                        icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                        label: Text(
+                          message.replyCount > 0
+                              ? '${message.replyCount} коммент.'
+                              : 'Комментарии',
+                        ),
+                      ),
                     ),
                   ],
                   if (message.inlineKeyboard.isNotEmpty) ...[
