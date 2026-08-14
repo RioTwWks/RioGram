@@ -1,3 +1,5 @@
+import 'formatted_text.dart';
+
 /// Тип содержимого сообщения.
 enum MessageKind {
   text,
@@ -116,14 +118,18 @@ class MessageContent {
   const MessageContent({
     required this.kind,
     required this.preview,
+    this.formattedText,
     this.caption,
+    this.formattedCaption,
     this.localPath,
     this.fileName,
   });
 
   final MessageKind kind;
   final String preview;
+  final FormattedText? formattedText;
   final String? caption;
+  final FormattedText? formattedCaption;
   final String? localPath;
   final String? fileName;
 
@@ -131,26 +137,44 @@ class MessageContent {
     final type = content['@type'] as String? ?? '';
 
     return switch (type) {
-      'messageText' => MessageContent(
-          kind: MessageKind.text,
-          preview: _formattedText(content['text']),
-        ),
-      'messagePhoto' => MessageContent(
-          kind: MessageKind.photo,
-          preview: '📷 Фото',
-          caption: _optionalCaption(content['caption']),
-        ),
-      'messageVideo' => MessageContent(
-          kind: MessageKind.video,
-          preview: '🎬 Видео',
-          caption: _optionalCaption(content['caption']),
-        ),
-      'messageDocument' => MessageContent(
-          kind: MessageKind.document,
-          preview: '📎 ${_documentName(content)}',
-          fileName: _documentName(content),
-          caption: _optionalCaption(content['caption']),
-        ),
+      'messageText' => () {
+          final formatted = FormattedText.fromTdlib(
+            content['text'] as Map<String, dynamic>?,
+          );
+          return MessageContent(
+            kind: MessageKind.text,
+            preview: formatted.preview,
+            formattedText: formatted,
+          );
+        }(),
+      'messagePhoto' => () {
+          final captionFormatted = _optionalFormattedCaption(content['caption']);
+          return MessageContent(
+            kind: MessageKind.photo,
+            preview: '📷 Фото',
+            caption: captionFormatted?.preview,
+            formattedCaption: captionFormatted,
+          );
+        }(),
+      'messageVideo' => () {
+          final captionFormatted = _optionalFormattedCaption(content['caption']);
+          return MessageContent(
+            kind: MessageKind.video,
+            preview: '🎬 Видео',
+            caption: captionFormatted?.preview,
+            formattedCaption: captionFormatted,
+          );
+        }(),
+      'messageDocument' => () {
+          final captionFormatted = _optionalFormattedCaption(content['caption']);
+          return MessageContent(
+            kind: MessageKind.document,
+            preview: '📎 ${_documentName(content)}',
+            fileName: _documentName(content),
+            caption: captionFormatted?.preview,
+            formattedCaption: captionFormatted,
+          );
+        }(),
       _ => MessageContent(
           kind: MessageKind.unsupported,
           preview: 'Сообщение ($type)',
@@ -158,18 +182,11 @@ class MessageContent {
     };
   }
 
-  static String _formattedText(dynamic value) {
+  static FormattedText? _optionalFormattedCaption(dynamic value) {
     if (value is Map<String, dynamic>) {
-      return value['text'] as String? ?? '';
-    }
-    return '';
-  }
-
-  static String? _optionalCaption(dynamic value) {
-    if (value is Map<String, dynamic>) {
-      final text = value['text'] as String?;
-      if (text != null && text.isNotEmpty) {
-        return text;
+      final formatted = FormattedText.fromTdlib(value);
+      if (formatted.text.isNotEmpty) {
+        return formatted;
       }
     }
     return null;
@@ -384,6 +401,9 @@ class ChatMessage {
     this.senderName,
     this.localFilePath,
     this.mediaFileId,
+    this.replyTo,
+    this.forwardInfo,
+    this.schedulingInfo,
   });
 
   final int id;
@@ -394,11 +414,17 @@ class ChatMessage {
   final String? senderName;
   final String? localFilePath;
   final int? mediaFileId;
+  final MessageReplyInfo? replyTo;
+  final MessageForwardInfo? forwardInfo;
+  final MessageSchedulingInfo? schedulingInfo;
 
   ChatMessage copyWith({
     MessageContent? content,
     String? localFilePath,
     int? mediaFileId,
+    MessageReplyInfo? replyTo,
+    MessageForwardInfo? forwardInfo,
+    MessageSchedulingInfo? schedulingInfo,
   }) {
     return ChatMessage(
       id: id,
@@ -409,12 +435,34 @@ class ChatMessage {
       senderName: senderName,
       localFilePath: localFilePath ?? this.localFilePath,
       mediaFileId: mediaFileId ?? this.mediaFileId,
+      replyTo: replyTo ?? this.replyTo,
+      forwardInfo: forwardInfo ?? this.forwardInfo,
+      schedulingInfo: schedulingInfo ?? this.schedulingInfo,
     );
   }
 
   factory ChatMessage.fromTdlib(Map<String, dynamic> json) {
     final dateSeconds = json['date'] as int? ?? 0;
     final contentMap = json['content'] as Map<String, dynamic>? ?? {};
+
+    MessageReplyInfo? replyTo;
+    final replyRaw = json['reply_to'] as Map<String, dynamic>?;
+    if (replyRaw?['@type'] == 'messageReplyToMessage') {
+      replyTo = MessageReplyInfo.fromTdlib(replyRaw);
+    }
+
+    MessageForwardInfo? forwardInfo;
+    final forwardRaw = json['forward_info'] as Map<String, dynamic>?;
+    if (forwardRaw != null) {
+      forwardInfo = MessageForwardInfo.fromTdlib(forwardRaw);
+    }
+
+    MessageSchedulingInfo? schedulingInfo;
+    final schedulingRaw = json['scheduling_state'] as Map<String, dynamic>?;
+    if (schedulingRaw != null) {
+      schedulingInfo = MessageSchedulingInfo.fromTdlib(schedulingRaw);
+    }
+
     return ChatMessage(
       id: json['id'] as int? ?? 0,
       chatId: json['chat_id'] as int? ?? 0,
@@ -422,6 +470,9 @@ class ChatMessage {
       date: DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000),
       isOutgoing: json['is_outgoing'] as bool? ?? false,
       mediaFileId: MessageContent.parseMediaFileId(contentMap),
+      replyTo: replyTo,
+      forwardInfo: forwardInfo,
+      schedulingInfo: schedulingInfo,
     );
   }
 }

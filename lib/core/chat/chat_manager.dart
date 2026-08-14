@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../models/chat_models.dart';
+import '../../models/formatted_text.dart';
 import '../notifications/notification_service.dart';
 import '../tdlib/tdlib_client.dart';
+import 'formatted_text_builder.dart';
 import 'tdlib_chat_parser.dart';
 
 /// Управление списком чатов и активной перепиской.
@@ -47,6 +49,12 @@ class ChatManager extends ChangeNotifier {
   int _newChatSearchRequestId = 0;
   int _pendingNewChatSearchRequests = 0;
 
+  MessageReplyDraft? _pendingReply;
+  DateTime? _scheduledSendAt;
+  bool _selectionMode = false;
+  final Set<int> _selectedMessageIds = {};
+  Timer? _typingStatusClearTimer;
+
   List<ChatSummary> get chats => List.unmodifiable(_visibleChats);
   List<ChatFolderTab> get chatFolders => List.unmodifiable(_chatFolders);
   ChatListKey get activeChatList => _activeChatList;
@@ -71,6 +79,11 @@ class ChatManager extends ChangeNotifier {
   }
 
   bool get isNewChatSearchLoading => _isNewChatSearchLoading;
+  MessageReplyDraft? get pendingReply => _pendingReply;
+  DateTime? get scheduledSendAt => _scheduledSendAt;
+  bool get isSelectionMode => _selectionMode;
+  Set<int> get selectedMessageIds => Set.unmodifiable(_selectedMessageIds);
+  int get selectedMessageCount => _selectedMessageIds.length;
 
   /// Чаты текущего списка для клавиатурной навигации (без Saved Messages).
   List<ChatSummary> get navigableChats {
@@ -109,6 +122,23 @@ class ChatManager extends ChangeNotifier {
   }
 
   ChatSummary? chatById(int chatId) => _chatsById[chatId];
+
+  ChatMessage? messageById(int messageId) {
+    for (final message in _messages) {
+      if (message.id == messageId) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  String replyPreviewFor(ChatMessage message) {
+    final reply = message.replyTo;
+    if (reply == null) {
+      return '';
+    }
+    return messageById(reply.messageId)?.content.preview ?? reply.preview;
+  }
 
   void startListening() {
     _subscription ??= _client.updates.listen(_handleUpdate);
@@ -329,6 +359,9 @@ class ChatManager extends ChangeNotifier {
     _messages.clear();
     _typingStatus = null;
     _messagesError = null;
+    _pendingReply = null;
+    _scheduledSendAt = null;
+    _exitSelectionMode();
     _isLoadingMessages = true;
     _startMessagesLoadTimeout(chatId);
     notifyListeners();
@@ -349,28 +382,114 @@ class ChatManager extends ChangeNotifier {
     _activeChatId = null;
     _messages.clear();
     _typingStatus = null;
+    _pendingReply = null;
+    _scheduledSendAt = null;
+    _exitSelectionMode();
     notifyListeners();
   }
 
-  void sendText(String text) {
-    final chatId = _activeChatId;
-    final trimmed = text.trim();
-    if (chatId == null || trimmed.isEmpty) {
+  void setReplyToMessage(ChatMessage message) {
+    _pendingReply = MessageReplyDraft(
+      messageId: message.id,
+      preview: message.content.preview,
+      authorName: message.senderName ?? (message.isOutgoing ? 'Вы' : activeChat?.title),
+    );
+    notifyListeners();
+  }
+
+  void clearReply() {
+    if (_pendingReply == null) {
+      return;
+    }
+    _pendingReply = null;
+    notifyListeners();
+  }
+
+  void setScheduledSendAt(DateTime? value) {
+    _scheduledSendAt = value;
+    notifyListeners();
+  }
+
+  void clearScheduledSendAt() {
+    if (_scheduledSendAt == null) {
+      return;
+    }
+    _scheduledSendAt = null;
+    notifyListeners();
+  }
+
+  void enterSelectionMode({int? initialMessageId}) {
+    _selectionMode = true;
+    _selectedMessageIds.clear();
+    if (initialMessageId != null) {
+      _selectedMessageIds.add(initialMessageId);
+    }
+    notifyListeners();
+  }
+
+  void exitSelectionMode() {
+    _exitSelectionMode();
+    notifyListeners();
+  }
+
+  void _exitSelectionMode() {
+    _selectionMode = false;
+    _selectedMessageIds.clear();
+  }
+
+  void toggleMessageSelection(int messageId) {
+    if (!_selectionMode) {
+      enterSelectionMode(initialMessageId: messageId);
       return;
     }
 
-    _client.send({
+    if (_selectedMessageIds.contains(messageId)) {
+      _selectedMessageIds.remove(messageId);
+      if (_selectedMessageIds.isEmpty) {
+        _selectionMode = false;
+      }
+    } else {
+      _selectedMessageIds.add(messageId);
+    }
+    notifyListeners();
+  }
+
+  void sendText(String raw) {
+    final chatId = _activeChatId;
+    final formatted = FormattedTextBuilder.buildFromComposer(raw);
+    if (chatId == null || formatted.text.trim().isEmpty) {
+      return;
+    }
+
+    final payload = <String, dynamic>{
       '@type': 'sendMessage',
       'chat_id': chatId,
       'input_message_content': {
         '@type': 'inputMessageText',
-        'text': {
-          '@type': 'formattedText',
-          'text': trimmed,
-          'entities': [],
-        },
+        'text': formatted.toTdlib(),
       },
-    });
+    };
+
+    final reply = _pendingReply;
+    if (reply != null) {
+      payload['reply_to'] = {
+        '@type': 'inputMessageReplyToMessage',
+        'message_id': reply.messageId,
+      };
+    }
+
+    if (_scheduledSendAt != null) {
+      payload['options'] = {
+        '@type': 'messageSendOptions',
+        'scheduling_state': MessageSchedulingAtDate(sendAt: _scheduledSendAt!).toTdlib(),
+      };
+    }
+
+    _client.send(payload);
+    _pendingReply = null;
+    _scheduledSendAt = null;
+    sendChatAction(OutgoingChatAction.cancel);
+    notifyListeners();
   }
 
   Future<void> sendFile(String path) async {
@@ -393,15 +512,62 @@ class ChatManager extends ChangeNotifier {
   }
 
   void sendTypingAction() {
+    sendChatAction(OutgoingChatAction.typing);
+  }
+
+  void sendChatAction(OutgoingChatAction action) {
     final chatId = _activeChatId;
     if (chatId == null) {
       return;
     }
 
+    final actionType = switch (action) {
+      OutgoingChatAction.typing => 'chatActionTyping',
+      OutgoingChatAction.recordingVoice => 'chatActionRecordingVoiceNote',
+      OutgoingChatAction.choosingSticker => 'chatActionChoosingSticker',
+      OutgoingChatAction.cancel => 'chatActionCancel',
+    };
+
     _client.send({
       '@type': 'sendChatAction',
       'chat_id': chatId,
-      'action': {'@type': 'chatActionTyping'},
+      'action': {'@type': actionType},
+    });
+  }
+
+  void forwardSelectedMessages({
+    required int toChatId,
+    bool withoutAuthor = false,
+    bool removeCaption = false,
+  }) {
+    final fromChatId = _activeChatId;
+    if (fromChatId == null || _selectedMessageIds.isEmpty) {
+      return;
+    }
+
+    final messageIds = _selectedMessageIds.toList()..sort();
+    _client.send({
+      '@type': 'forwardMessages',
+      'chat_id': toChatId,
+      'from_chat_id': fromChatId,
+      'message_ids': messageIds,
+      'options': {
+        '@type': 'messageSendOptions',
+        'send_copy': withoutAuthor,
+      },
+      'remove_caption': removeCaption,
+    });
+
+    _exitSelectionMode();
+    notifyListeners();
+  }
+
+  void rescheduleMessage(int chatId, int messageId, DateTime sendAt) {
+    _client.send({
+      '@type': 'editMessageSchedulingState',
+      'chat_id': chatId,
+      'message_id': messageId,
+      'scheduling_state': MessageSchedulingAtDate(sendAt: sendAt).toTdlib(),
     });
   }
 
@@ -1020,7 +1186,14 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    _typingStatusClearTimer?.cancel();
     _typingStatus = TdlibChatParser.parseTypingAction(update);
+    if (_typingStatus != null) {
+      _typingStatusClearTimer = Timer(const Duration(seconds: 6), () {
+        _typingStatus = null;
+        notifyListeners();
+      });
+    }
     notifyListeners();
   }
 
@@ -1047,7 +1220,9 @@ class ChatManager extends ChangeNotifier {
           content: MessageContent(
             kind: message.content.kind,
             preview: message.content.preview,
+            formattedText: message.content.formattedText,
             caption: message.content.caption,
+            formattedCaption: message.content.formattedCaption,
             localPath: localPath,
             fileName: message.content.fileName,
           ),
@@ -1164,6 +1339,7 @@ class ChatManager extends ChangeNotifier {
     _messagesLoadTimeout?.cancel();
     _searchDebounce?.cancel();
     _newChatSearchDebounce?.cancel();
+    _typingStatusClearTimer?.cancel();
     _subscription?.cancel();
     super.dispose();
   }
