@@ -1,3 +1,4 @@
+import 'audio_models.dart';
 import 'formatted_text.dart';
 import 'media_models.dart';
 import 'message_enrichment.dart';
@@ -8,6 +9,8 @@ enum MessageKind {
   photo,
   video,
   videoNote,
+  voice,
+  audio,
   document,
   poll,
   unsupported,
@@ -129,6 +132,9 @@ class MessageContent {
     this.fileName,
     this.poll,
     this.videoInfo,
+    this.voiceInfo,
+    this.audioInfo,
+    this.documentInfo,
   });
 
   final MessageKind kind;
@@ -140,6 +146,9 @@ class MessageContent {
   final String? fileName;
   final PollContent? poll;
   final MediaVideoInfo? videoInfo;
+  final VoiceNoteInfo? voiceInfo;
+  final AudioTrackInfo? audioInfo;
+  final DocumentFileInfo? documentInfo;
 
   factory MessageContent.fromTdlib(Map<String, dynamic> content) {
     final type = content['@type'] as String? ?? '';
@@ -191,6 +200,29 @@ class MessageContent {
             fileName: _documentName(content),
             caption: captionFormatted?.preview,
             formattedCaption: captionFormatted,
+            documentInfo: DocumentFileInfo.fromTdlib(content),
+          );
+        }(),
+      'messageVoiceNote' => () {
+          final captionFormatted = _optionalFormattedCaption(content['caption']);
+          final voiceNote = content['voice_note'] as Map<String, dynamic>? ?? {};
+          return MessageContent(
+            kind: MessageKind.voice,
+            preview: '🎤 Голосовое',
+            caption: captionFormatted?.preview,
+            formattedCaption: captionFormatted,
+            voiceInfo: VoiceNoteInfo.fromTdlib(voiceNote),
+          );
+        }(),
+      'messageAudio' => () {
+          final captionFormatted = _optionalFormattedCaption(content['caption']);
+          final audioRaw = content['audio'] as Map<String, dynamic>? ?? {};
+          return MessageContent(
+            kind: MessageKind.audio,
+            preview: '🎵 ${audioRaw['title'] as String? ?? audioRaw['file_name'] as String? ?? 'Аудио'}',
+            caption: captionFormatted?.preview,
+            formattedCaption: captionFormatted,
+            audioInfo: AudioTrackInfo.fromTdlib(audioRaw),
           );
         }(),
       'messagePoll' => () {
@@ -230,6 +262,8 @@ class MessageContent {
       'messagePhoto' => _photoFileId(content),
       'messageVideo' => _videoFileId(content),
       'messageVideoNote' => _videoNoteFileId(content),
+      'messageVoiceNote' => _voiceNoteFileId(content),
+      'messageAudio' => _audioFileId(content),
       'messageDocument' => _documentFileId(content),
       _ => null,
     };
@@ -259,6 +293,16 @@ class MessageContent {
     );
   }
 
+  static int? parseCoverFileId(Map<String, dynamic> content) {
+    if (content['@type'] != 'messageAudio') {
+      return null;
+    }
+    final audio = content['audio'] as Map<String, dynamic>? ?? {};
+    final cover = audio['album_cover_thumbnail'] as Map<String, dynamic>?;
+    final file = cover?['file'] as Map<String, dynamic>?;
+    return file?['id'] as int?;
+  }
+
   static int? _photoFileId(Map<String, dynamic> content) {
     final photo = content['photo'] as Map<String, dynamic>?;
     final sizes = photo?['sizes'] as List<dynamic>?;
@@ -279,6 +323,18 @@ class MessageContent {
   static int? _videoNoteFileId(Map<String, dynamic> content) {
     final note = content['video_note'] as Map<String, dynamic>?;
     final file = note?['video'] as Map<String, dynamic>?;
+    return file?['id'] as int?;
+  }
+
+  static int? _voiceNoteFileId(Map<String, dynamic> content) {
+    final note = content['voice_note'] as Map<String, dynamic>?;
+    final file = note?['voice'] as Map<String, dynamic>?;
+    return file?['id'] as int?;
+  }
+
+  static int? _audioFileId(Map<String, dynamic> content) {
+    final audio = content['audio'] as Map<String, dynamic>?;
+    final file = audio?['audio'] as Map<String, dynamic>?;
     return file?['id'] as int?;
   }
 
@@ -474,6 +530,9 @@ class ChatMessage {
     this.reactions = const [],
     this.inlineKeyboard = const [],
     this.groupedId,
+    this.fileTransfer,
+    this.coverFileId,
+    this.coverLocalPath,
   });
 
   final int id;
@@ -497,6 +556,9 @@ class ChatMessage {
   final List<MessageReactionSummary> reactions;
   final List<List<InlineKeyboardButtonModel>> inlineKeyboard;
   final int? groupedId;
+  final FileTransferState? fileTransfer;
+  final int? coverFileId;
+  final String? coverLocalPath;
 
   bool get isEdited => editDate != null;
 
@@ -514,7 +576,8 @@ class ChatMessage {
       canEditWithinWindow &&
       (content.kind == MessageKind.photo ||
           content.kind == MessageKind.video ||
-          content.kind == MessageKind.document);
+          content.kind == MessageKind.document ||
+          content.kind == MessageKind.voice);
 
   String? get editableComposerText {
     if (content.kind == MessageKind.text) {
@@ -540,6 +603,11 @@ class ChatMessage {
     List<MessageReactionSummary>? reactions,
     List<List<InlineKeyboardButtonModel>>? inlineKeyboard,
     int? groupedId,
+    FileTransferState? fileTransfer,
+    int? coverFileId,
+    String? coverLocalPath,
+    bool clearFileTransfer = false,
+    bool clearCoverLocalPath = false,
   }) {
     return ChatMessage(
       id: id,
@@ -565,6 +633,11 @@ class ChatMessage {
       reactions: reactions ?? this.reactions,
       inlineKeyboard: inlineKeyboard ?? this.inlineKeyboard,
       groupedId: groupedId ?? this.groupedId,
+      fileTransfer:
+          clearFileTransfer ? null : (fileTransfer ?? this.fileTransfer),
+      coverFileId: coverFileId ?? this.coverFileId,
+      coverLocalPath:
+          clearCoverLocalPath ? null : (coverLocalPath ?? this.coverLocalPath),
     );
   }
 
@@ -605,6 +678,7 @@ class ChatMessage {
       date: DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000),
       isOutgoing: json['is_outgoing'] as bool? ?? false,
       mediaFileId: MessageContent.parseMediaFileId(contentMap),
+      coverFileId: MessageContent.parseCoverFileId(contentMap),
       replyTo: replyTo,
       forwardInfo: forwardInfo,
       schedulingInfo: schedulingInfo,

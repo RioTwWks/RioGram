@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../models/audio_models.dart';
 import '../../models/chat_models.dart';
 import '../../models/formatted_text.dart';
 import '../../models/message_enrichment.dart';
@@ -48,6 +49,8 @@ class ChatManager extends ChangeNotifier {
   bool _isNewChatSearchLoading = false;
   Timer? _newChatSearchDebounce;
   int _newChatSearchRequestId = 0;
+
+  final Map<int, FileTransferState> _fileTransfers = {};
   int _pendingNewChatSearchRequests = 0;
 
   MessageReplyDraft? _pendingReply;
@@ -739,6 +742,94 @@ class ChatManager extends ChangeNotifier {
       },
     ));
     _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendVoiceNote({
+    required String path,
+    required int durationSeconds,
+    List<int> waveform = const [],
+  }) async {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: {
+        '@type': 'inputMessageVoiceNote',
+        'voice_note': {
+          '@type': 'inputFileLocal',
+          'path': path,
+        },
+        'duration': durationSeconds,
+        'waveform': waveform,
+      },
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendAudio(String path, {FormattedText? caption}) async {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: {
+        '@type': 'inputMessageAudio',
+        'audio': {
+          '@type': 'inputFileLocal',
+          'path': path,
+        },
+        if (caption != null && caption.text.isNotEmpty)
+          'caption': caption.toTdlib(),
+      },
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  void uploadFile(int fileId) {
+    _client.send({
+      '@type': 'uploadFile',
+      'file_id': fileId,
+      'priority': 32,
+    });
+  }
+
+  void cancelUploadFile(int fileId) {
+    _client.send({
+      '@type': 'cancelUploadFile',
+      'file_id': fileId,
+    });
+    _fileTransfers.remove(fileId);
+    _clearFileTransferOnMessages(fileId);
+    notifyListeners();
+  }
+
+  void cancelDownloadFile(int fileId) {
+    _client.send({
+      '@type': 'cancelDownloadFile',
+      'file_id': fileId,
+      'only_if_pending': false,
+    });
+    _fileTransfers.remove(fileId);
+    _clearFileTransferOnMessages(fileId);
+    notifyListeners();
+  }
+
+  void cancelMessageTransfer(ChatMessage message) {
+    final fileId = message.mediaFileId ?? message.coverFileId;
+    if (fileId == null) {
+      return;
+    }
+    final transfer = message.fileTransfer ?? _fileTransfers[fileId];
+    if (transfer?.isUpload ?? message.isOutgoing) {
+      cancelUploadFile(fileId);
+    } else {
+      cancelDownloadFile(fileId);
+    }
   }
 
   Future<void> sendMediaAlbum(List<String> paths) async {
@@ -1723,6 +1814,8 @@ class ChatManager extends ChangeNotifier {
       content: MessageContent.fromTdlib(newContent),
       mediaFileId:
           MessageContent.parseMediaFileId(newContent) ?? current.mediaFileId,
+      coverFileId:
+          MessageContent.parseCoverFileId(newContent) ?? current.coverFileId,
     );
     _requestDownloadForMessage(_messages[index]);
     notifyListeners();
@@ -1827,46 +1920,93 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
-    final local = file['local'] as Map<String, dynamic>?;
-    final localPath = local?['path'] as String?;
-    final isDownloadingCompleted = local?['is_downloading_completed'] as bool? ?? false;
     final fileId = file['id'] as int?;
-    if (localPath == null || fileId == null || !isDownloadingCompleted) {
+    if (fileId == null) {
       return;
     }
+
+    final transfer = FileTransferState.fromTdlibFile(file);
+    if (transfer.isActive) {
+      _fileTransfers[fileId] = transfer;
+    } else if (transfer.isCompleted) {
+      _fileTransfers.remove(fileId);
+    } else {
+      _fileTransfers.remove(fileId);
+    }
+
+    final local = file['local'] as Map<String, dynamic>?;
+    final localPath = local?['path'] as String?;
+    final isDownloadingCompleted =
+        local?['is_downloading_completed'] as bool? ?? false;
+    final hasLocalPath =
+        localPath != null && localPath.isNotEmpty && isDownloadingCompleted;
 
     var messagesChanged = false;
     for (var i = 0; i < _messages.length; i++) {
       final message = _messages[i];
+      ChatMessage? updated;
+
       if (message.mediaFileId == fileId) {
-        _messages[i] = message.copyWith(
-          localFilePath: localPath,
-          content: MessageContent(
-            kind: message.content.kind,
-            preview: message.content.preview,
-            formattedText: message.content.formattedText,
-            caption: message.content.caption,
-            formattedCaption: message.content.formattedCaption,
-            localPath: localPath,
-            fileName: message.content.fileName,
-            poll: message.content.poll,
-            videoInfo: message.content.videoInfo,
-          ),
+        updated = message.copyWith(
+          fileTransfer: transfer.isActive ? transfer : null,
+          clearFileTransfer: !transfer.isActive,
+          localFilePath: hasLocalPath ? localPath : message.localFilePath,
+          content: hasLocalPath
+              ? MessageContent(
+                  kind: message.content.kind,
+                  preview: message.content.preview,
+                  formattedText: message.content.formattedText,
+                  caption: message.content.caption,
+                  formattedCaption: message.content.formattedCaption,
+                  localPath: localPath,
+                  fileName: message.content.fileName,
+                  poll: message.content.poll,
+                  videoInfo: message.content.videoInfo,
+                  voiceInfo: message.content.voiceInfo,
+                  audioInfo: message.content.audioInfo,
+                  documentInfo: message.content.documentInfo,
+                )
+              : message.content,
         );
+      } else if (message.coverFileId == fileId) {
+        if (hasLocalPath) {
+          updated = message.copyWith(coverLocalPath: localPath);
+        } else if (transfer.isActive) {
+          updated = message.copyWith(fileTransfer: transfer);
+        } else if (message.fileTransfer != null) {
+          updated = message.copyWith(clearFileTransfer: true);
+        }
+      }
+
+      if (updated != null) {
+        _messages[i] = updated;
         messagesChanged = true;
       }
     }
 
     var chatsChanged = false;
-    for (final entry in _chatsById.entries) {
-      if (entry.value.avatarFileId == fileId) {
-        _chatsById[entry.key] = entry.value.copyWith(avatarLocalPath: localPath);
-        chatsChanged = true;
+    if (hasLocalPath) {
+      for (final entry in _chatsById.entries) {
+        if (entry.value.avatarFileId == fileId) {
+          _chatsById[entry.key] =
+              entry.value.copyWith(avatarLocalPath: localPath);
+          chatsChanged = true;
+        }
       }
     }
 
-    if (messagesChanged || chatsChanged) {
+    if (messagesChanged || chatsChanged || transfer.isActive) {
       notifyListeners();
+    }
+  }
+
+  void _clearFileTransferOnMessages(int fileId) {
+    for (var i = 0; i < _messages.length; i++) {
+      final message = _messages[i];
+      if ((message.mediaFileId == fileId || message.coverFileId == fileId) &&
+          message.fileTransfer != null) {
+        _messages[i] = message.copyWith(clearFileTransfer: true);
+      }
     }
   }
 
@@ -1891,8 +2031,13 @@ class ChatManager extends ChangeNotifier {
   void _requestDownloadForMessage(ChatMessage message) {
     if (message.content.kind == MessageKind.text ||
         message.content.kind == MessageKind.poll ||
-        message.localFilePath != null ||
         message.mediaFileId == null) {
+      _requestCoverDownload(message);
+      return;
+    }
+
+    if (message.localFilePath != null) {
+      _requestCoverDownload(message);
       return;
     }
 
@@ -1900,6 +2045,22 @@ class ChatManager extends ChangeNotifier {
       '@type': 'downloadFile',
       'file_id': message.mediaFileId,
       'priority': 16,
+      'offset': 0,
+      'limit': 0,
+      'synchronous': false,
+    });
+    _requestCoverDownload(message);
+  }
+
+  void _requestCoverDownload(ChatMessage message) {
+    final coverId = message.coverFileId;
+    if (coverId == null || message.coverLocalPath != null) {
+      return;
+    }
+    _client.send({
+      '@type': 'downloadFile',
+      'file_id': coverId,
+      'priority': 8,
       'offset': 0,
       'limit': 0,
       'synchronous': false,

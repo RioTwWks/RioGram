@@ -3,9 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../models/audio_models.dart';
 import '../models/chat_models.dart';
 import '../models/formatted_text.dart';
 import '../models/message_enrichment.dart';
+import 'audio_message_player.dart';
+import 'file_transfer_progress_bar.dart';
 import 'formatted_text_widget.dart';
 import 'inline_keyboard_widget.dart';
 import 'inline_video_player.dart';
@@ -14,6 +17,7 @@ import 'message_delivery_icon.dart';
 import 'message_reactions_row.dart';
 import 'poll_message_body.dart';
 import 'video_note_player.dart';
+import 'voice_message_player.dart';
 
 /// Пузырь сообщения в переписке.
 class MessageBubble extends StatelessWidget {
@@ -32,6 +36,7 @@ class MessageBubble extends StatelessWidget {
     this.onInlineButtonTap,
     this.albumMessages,
     this.onMediaTap,
+    this.onCancelTransfer,
   });
 
   final ChatMessage message;
@@ -47,6 +52,7 @@ class MessageBubble extends StatelessWidget {
   final void Function(InlineKeyboardButtonModel button)? onInlineButtonTap;
   final List<ChatMessage>? albumMessages;
   final void Function(ChatMessage message)? onMediaTap;
+  final VoidCallback? onCancelTransfer;
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +107,12 @@ class MessageBubble extends StatelessWidget {
                     onPollVote: onPollVote,
                     onMediaTap: onMediaTap,
                   ),
+                  if (message.fileTransfer != null &&
+                      message.fileTransfer!.isActive)
+                    FileTransferProgressBar(
+                      transfer: message.fileTransfer!,
+                      onCancel: onCancelTransfer,
+                    ),
                   if (message.reactions.isNotEmpty || onAddReaction != null) ...[
                     const SizedBox(height: 8),
                     MessageReactionsRow(
@@ -363,14 +375,91 @@ class _MessageBody extends StatelessWidget {
       );
     }
 
-    if (content.kind == MessageKind.document) {
-      return Row(
+    if (content.kind == MessageKind.voice) {
+      final voiceInfo = content.voiceInfo ?? const VoiceNoteInfo(durationSeconds: 0);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.attach_file),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(content.fileName ?? content.preview),
+          if (localPath != null)
+            VoiceMessagePlayer(
+              filePath: localPath,
+              voiceInfo: voiceInfo,
+              isOutgoing: message.isOutgoing,
+            )
+          else
+            Row(
+              children: [
+                const Icon(Icons.mic_none),
+                const SizedBox(width: 8),
+                Text('${content.preview} · ${voiceInfo.durationLabel}'),
+              ],
+            ),
+          ..._captionWidgets(content),
+        ],
+      );
+    }
+
+    if (content.kind == MessageKind.audio) {
+      final audioInfo = content.audioInfo ?? const AudioTrackInfo(durationSeconds: 0);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (localPath != null)
+            AudioMessagePlayer(
+              filePath: localPath,
+              audioInfo: audioInfo,
+              coverPath: message.coverLocalPath,
+            )
+          else
+            Row(
+              children: [
+                const Icon(Icons.music_note_outlined),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(audioInfo.displayTitle),
+                      if (audioInfo.displayArtist != null)
+                        Text(
+                          audioInfo.displayArtist!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ..._captionWidgets(content),
+        ],
+      );
+    }
+
+    if (content.kind == MessageKind.document) {
+      final docInfo = content.documentInfo;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.attach_file),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(content.fileName ?? content.preview),
+                    if (docInfo != null && docInfo.fileSize > 0)
+                      Text(
+                        docInfo.sizeLabel,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
+          ..._captionWidgets(content),
         ],
       );
     }
