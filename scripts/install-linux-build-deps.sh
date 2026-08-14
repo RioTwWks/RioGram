@@ -13,6 +13,8 @@ sudo apt-get install -y \
   clang \
   pkg-config \
   libgtk-3-dev \
+  libgstreamer1.0-dev \
+  libgstreamer-plugins-base1.0-dev \
   libblkid-dev \
   liblzma-dev \
   zip \
