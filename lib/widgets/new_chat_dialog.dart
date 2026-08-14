@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/chat/chat_manager.dart';
-import '../models/chat_models.dart';
 import 'chat_avatar.dart';
 
 /// Диалог поиска чата / контакта для начала переписки.
