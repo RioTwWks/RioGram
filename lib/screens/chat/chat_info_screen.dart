@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../models/chat_info_models.dart';
 import '../../models/channel_models.dart';
-import '../../models/chat_info_models.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/chat_list_tile.dart';
