@@ -1,4 +1,5 @@
 import '../../models/chat_models.dart';
+import '../../models/group_models.dart';
 
 /// Данные аватара чата из TDLib chatPhotoInfo.
 class ChatAvatarData {
@@ -65,6 +66,10 @@ class TdlibChatParser {
           chat['can_be_deleted_only_for_self'] as bool? ?? true,
       canBeDeletedForAllUsers:
           chat['can_be_deleted_for_all_users'] as bool? ?? false,
+      basicGroupId: typeInfo.basicGroupId,
+      supergroupId: typeInfo.supergroupId,
+      isForum: typeInfo.isForum ||
+          (chat['view_as_topics'] as bool? ?? false),
     );
   }
 
@@ -195,30 +200,39 @@ class TdlibChatParser {
     return null;
   }
 
-  static ({ChatKind kind, int? privateUserId}) parseChatType(
+  static ChatTypeInfo parseChatType(
     Map<String, dynamic>? type, {
     int? myUserId,
     Map<int, bool>? botUsers,
   }) {
     if (type == null) {
-      return (kind: ChatKind.privateChat, privateUserId: null);
+      return const ChatTypeInfo(kind: ChatKind.privateChat);
     }
 
     return switch (type['@type']) {
-      'chatTypeBasicGroup' => (kind: ChatKind.group, privateUserId: null),
-      'chatTypeSupergroup' => (
+      'chatTypeBasicGroup' => ChatTypeInfo(
+          kind: ChatKind.group,
+          basicGroupId: type['basic_group_id'] as int?,
+        ),
+      'chatTypeSupergroup' => ChatTypeInfo(
           kind: (type['is_channel'] as bool? ?? false)
               ? ChatKind.channel
               : ChatKind.group,
-          privateUserId: null,
+          supergroupId: type['supergroup_id'] as int?,
         ),
-      'chatTypeSecret' => (kind: ChatKind.secret, privateUserId: null),
-      'chatTypePrivate' => _parsePrivateChatType(
-          type['user_id'] as int?,
-          myUserId: myUserId,
-          botUsers: botUsers,
-        ),
-      _ => (kind: ChatKind.privateChat, privateUserId: null),
+      'chatTypeSecret' => const ChatTypeInfo(kind: ChatKind.secret),
+      'chatTypePrivate' => () {
+          final private = _parsePrivateChatType(
+            type['user_id'] as int?,
+            myUserId: myUserId,
+            botUsers: botUsers,
+          );
+          return ChatTypeInfo(
+            kind: private.kind,
+            privateUserId: private.privateUserId,
+          );
+        }(),
+      _ => const ChatTypeInfo(kind: ChatKind.privateChat),
     };
   }
 

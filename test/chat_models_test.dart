@@ -179,6 +179,7 @@ void main() {
 
       expect(chat, isNotNull);
       expect(chat!.kind, ChatKind.channel);
+      expect(chat.supergroupId, 1);
       expect(chat.isMuted, isTrue);
       expect(chat.draftPreview, 'Черновик текста');
       expect(chat.isInList(const ChatListMain()), isTrue);

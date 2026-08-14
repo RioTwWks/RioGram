@@ -463,6 +463,9 @@ class ChatSummary {
     this.isMarkedAsUnread = false,
     this.canBeDeletedOnlyForSelf = true,
     this.canBeDeletedForAllUsers = false,
+    this.basicGroupId,
+    this.supergroupId,
+    this.isForum = false,
   });
 
   final int id;
@@ -480,6 +483,18 @@ class ChatSummary {
   final bool isMarkedAsUnread;
   final bool canBeDeletedOnlyForSelf;
   final bool canBeDeletedForAllUsers;
+  final int? basicGroupId;
+  final int? supergroupId;
+  final bool isForum;
+
+  /// Базовая группа (legacy), которую можно апгрейдить до supergroup.
+  bool get isBasicGroup => basicGroupId != null;
+
+  /// Супергруппа (не канал).
+  bool get isSupergroup => supergroupId != null && kind == ChatKind.group;
+
+  /// Форум-топики включены.
+  bool get isForumChat => isForum;
 
   /// Показывать индикатор непрочитанного (счётчик или метка).
   bool get showsUnreadIndicator => unreadCount > 0 || isMarkedAsUnread;
@@ -530,6 +545,9 @@ class ChatSummary {
     bool? isMarkedAsUnread,
     bool? canBeDeletedOnlyForSelf,
     bool? canBeDeletedForAllUsers,
+    int? basicGroupId,
+    int? supergroupId,
+    bool? isForum,
   }) {
     return ChatSummary(
       id: id,
@@ -549,6 +567,9 @@ class ChatSummary {
           canBeDeletedOnlyForSelf ?? this.canBeDeletedOnlyForSelf,
       canBeDeletedForAllUsers:
           canBeDeletedForAllUsers ?? this.canBeDeletedForAllUsers,
+      basicGroupId: basicGroupId ?? this.basicGroupId,
+      supergroupId: supergroupId ?? this.supergroupId,
+      isForum: isForum ?? this.isForum,
     );
   }
 
