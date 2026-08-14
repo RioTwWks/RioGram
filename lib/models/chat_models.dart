@@ -7,6 +7,110 @@ enum MessageKind {
   unsupported,
 }
 
+/// Тип чата для иконок в списке.
+enum ChatKind {
+  privateChat,
+  group,
+  channel,
+  bot,
+  secret,
+  savedMessages,
+}
+
+/// Ссылка на список чатов TDLib.
+sealed class ChatListKey {
+  const ChatListKey();
+
+  String get storageId;
+
+  Map<String, dynamic> toTdlib();
+
+  static ChatListKey fromTdlib(Map<String, dynamic> json) {
+    return switch (json['@type']) {
+      'chatListArchive' => const ChatListArchive(),
+      'chatListFolder' => ChatListFolder(
+          folderId: json['chat_folder_id'] as int? ?? 0,
+        ),
+      _ => const ChatListMain(),
+    };
+  }
+}
+
+/// Основной список чатов.
+final class ChatListMain extends ChatListKey {
+  const ChatListMain();
+
+  @override
+  String get storageId => 'main';
+
+  @override
+  Map<String, dynamic> toTdlib() => {'@type': 'chatListMain'};
+}
+
+/// Архив чатов.
+final class ChatListArchive extends ChatListKey {
+  const ChatListArchive();
+
+  @override
+  String get storageId => 'archive';
+
+  @override
+  Map<String, dynamic> toTdlib() => {'@type': 'chatListArchive'};
+}
+
+/// Папка чатов.
+final class ChatListFolder extends ChatListKey {
+  const ChatListFolder({required this.folderId});
+
+  final int folderId;
+
+  @override
+  String get storageId => 'folder_$folderId';
+
+  @override
+  Map<String, dynamic> toTdlib() => {
+        '@type': 'chatListFolder',
+        'chat_folder_id': folderId,
+      };
+}
+
+/// Позиция чата в конкретном списке.
+class ChatPositionInfo {
+  const ChatPositionInfo({
+    required this.list,
+    required this.order,
+    required this.isPinned,
+  });
+
+  final ChatListKey list;
+  final int order;
+  final bool isPinned;
+
+  factory ChatPositionInfo.fromTdlib(Map<String, dynamic> json) {
+    final listRaw = json['list'] as Map<String, dynamic>? ?? {};
+    return ChatPositionInfo(
+      list: ChatListKey.fromTdlib(listRaw),
+      order: json['order'] as int? ?? 0,
+      isPinned: json['is_pinned'] as bool? ?? false,
+    );
+  }
+}
+
+/// Вкладка папки чатов из updateChatFolders.
+class ChatFolderTab {
+  const ChatFolderTab({
+    required this.id,
+    required this.name,
+    this.iconName,
+  });
+
+  final int id;
+  final String name;
+  final String? iconName;
+
+  ChatListKey get listKey => ChatListFolder(folderId: id);
+}
+
 /// Содержимое сообщения для отображения в UI.
 class MessageContent {
   const MessageContent({
@@ -120,6 +224,11 @@ class ChatSummary {
     this.unreadCount = 0,
     this.avatarFileId,
     this.avatarLocalPath,
+    this.kind = ChatKind.privateChat,
+    this.positions = const [],
+    this.isMuted = false,
+    this.draftPreview,
+    this.privateUserId,
   });
 
   final int id;
@@ -129,6 +238,38 @@ class ChatSummary {
   final int unreadCount;
   final int? avatarFileId;
   final String? avatarLocalPath;
+  final ChatKind kind;
+  final List<ChatPositionInfo> positions;
+  final bool isMuted;
+  final String? draftPreview;
+  final int? privateUserId;
+
+  /// Текст превью: черновик имеет приоритет над последним сообщением.
+  String? get previewText {
+    final draft = draftPreview;
+    if (draft != null && draft.isNotEmpty) {
+      return 'Черновик: $draft';
+    }
+    return lastMessage;
+  }
+
+  ChatPositionInfo? positionIn(ChatListKey list) {
+    for (final position in positions) {
+      if (position.list.storageId == list.storageId) {
+        return position;
+      }
+    }
+    return null;
+  }
+
+  bool isInList(ChatListKey list) {
+    final position = positionIn(list);
+    return position != null && position.order != 0;
+  }
+
+  bool isPinnedIn(ChatListKey list) {
+    return positionIn(list)?.isPinned ?? false;
+  }
 
   ChatSummary copyWith({
     String? title,
@@ -137,6 +278,12 @@ class ChatSummary {
     int? unreadCount,
     int? avatarFileId,
     String? avatarLocalPath,
+    ChatKind? kind,
+    List<ChatPositionInfo>? positions,
+    bool? isMuted,
+    String? draftPreview,
+    bool clearDraftPreview = false,
+    int? privateUserId,
   }) {
     return ChatSummary(
       id: id,
@@ -146,7 +293,37 @@ class ChatSummary {
       unreadCount: unreadCount ?? this.unreadCount,
       avatarFileId: avatarFileId ?? this.avatarFileId,
       avatarLocalPath: avatarLocalPath ?? this.avatarLocalPath,
+      kind: kind ?? this.kind,
+      positions: positions ?? this.positions,
+      isMuted: isMuted ?? this.isMuted,
+      draftPreview: clearDraftPreview ? null : (draftPreview ?? this.draftPreview),
+      privateUserId: privateUserId ?? this.privateUserId,
     );
+  }
+
+  /// Сортировка чатов в списке: закреплённые сверху, затем по order.
+  static int compareInList(ChatSummary a, ChatSummary b, ChatListKey list) {
+    final posA = a.positionIn(list);
+    final posB = b.positionIn(list);
+    if (posA == null && posB == null) {
+      return a.id.compareTo(b.id);
+    }
+    if (posA == null) {
+      return 1;
+    }
+    if (posB == null) {
+      return -1;
+    }
+
+    if (posA.isPinned != posB.isPinned) {
+      return posA.isPinned ? -1 : 1;
+    }
+
+    final orderCompare = posB.order.compareTo(posA.order);
+    if (orderCompare != 0) {
+      return orderCompare;
+    }
+    return a.id.compareTo(b.id);
   }
 }
 

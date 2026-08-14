@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:riogram/core/chat/tdlib_chat_parser.dart';
 import 'package:riogram/models/chat_models.dart';
 
 void main() {
@@ -58,5 +59,159 @@ void main() {
 
     expect(message.isOutgoing, isTrue);
     expect(message.content.preview, 'test');
+  });
+
+  test('ChatSummary.previewText показывает черновик', () {
+    const chat = ChatSummary(
+      id: 1,
+      title: 'Test',
+      lastMessage: 'Последнее',
+      draftPreview: 'Не отправлено',
+    );
+
+    expect(chat.previewText, 'Черновик: Не отправлено');
+  });
+
+  test('ChatSummary.compareInList сортирует закреплённые и по order', () {
+    const pinned = ChatSummary(
+      id: 1,
+      title: 'Pinned',
+      positions: [
+        ChatPositionInfo(
+          list: ChatListMain(),
+          order: 100,
+          isPinned: true,
+        ),
+      ],
+    );
+    const regular = ChatSummary(
+      id: 2,
+      title: 'Regular',
+      positions: [
+        ChatPositionInfo(
+          list: ChatListMain(),
+          order: 200,
+          isPinned: false,
+        ),
+      ],
+    );
+    const older = ChatSummary(
+      id: 3,
+      title: 'Older',
+      positions: [
+        ChatPositionInfo(
+          list: ChatListMain(),
+          order: 50,
+          isPinned: false,
+        ),
+      ],
+    );
+
+    const list = ChatListMain();
+    final sorted = [older, regular, pinned]
+      ..sort((a, b) => ChatSummary.compareInList(a, b, list));
+
+    expect(sorted.map((chat) => chat.id).toList(), [1, 2, 3]);
+  });
+
+  test('ChatListKey.fromTdlib распознаёт архив и папку', () {
+    expect(
+      ChatListKey.fromTdlib({'@type': 'chatListArchive'}).storageId,
+      'archive',
+    );
+    expect(
+      ChatListKey.fromTdlib({
+        '@type': 'chatListFolder',
+        'chat_folder_id': 7,
+      }).storageId,
+      'folder_7',
+    );
+  });
+
+  group('TdlibChatParser', () {
+    test('parseChat извлекает mute, draft и тип канала', () {
+      final chat = TdlibChatParser.parseChat({
+        'id': 10,
+        'title': 'News',
+        'unread_count': 3,
+        'type': {
+          '@type': 'chatTypeSupergroup',
+          'supergroup_id': 1,
+          'is_channel': true,
+        },
+        'notification_settings': {
+          'use_default_mute_for': false,
+          'mute_for': 3600,
+        },
+        'draft_message': {
+          'content': {
+            '@type': 'draftMessageContentText',
+            'text': {
+              '@type': 'formattedText',
+              'text': 'Черновик текста',
+            },
+          },
+        },
+        'positions': [
+          {
+            'list': {'@type': 'chatListMain'},
+            'order': 123,
+            'is_pinned': false,
+          },
+        ],
+      });
+
+      expect(chat, isNotNull);
+      expect(chat!.kind, ChatKind.channel);
+      expect(chat.isMuted, isTrue);
+      expect(chat.draftPreview, 'Черновик текста');
+      expect(chat.isInList(const ChatListMain()), isTrue);
+    });
+
+    test('parseChatType определяет бота и избранное', () {
+      final saved = TdlibChatParser.parseChatType(
+        {'@type': 'chatTypePrivate', 'user_id': 42},
+        myUserId: 42,
+      );
+      expect(saved.kind, ChatKind.savedMessages);
+
+      final bot = TdlibChatParser.parseChatType(
+        {'@type': 'chatTypePrivate', 'user_id': 99},
+        botUsers: {99: true},
+      );
+      expect(bot.kind, ChatKind.bot);
+    });
+
+    test('isChatMuted учитывает use_default_mute_for', () {
+      expect(
+        TdlibChatParser.isChatMuted({'use_default_mute_for': true, 'mute_for': 100}),
+        isFalse,
+      );
+      expect(
+        TdlibChatParser.isChatMuted({'use_default_mute_for': false, 'mute_for': 100}),
+        isTrue,
+      );
+    });
+
+    test('parseChatFolders возвращает вкладки папок', () {
+      final folders = TdlibChatParser.parseChatFolders({
+        'chat_folders': [
+          {
+            'id': 2,
+            'name': {
+              'text': {
+                '@type': 'formattedText',
+                'text': 'Работа',
+              },
+            },
+            'icon': {'name': 'Briefcase'},
+          },
+        ],
+      });
+
+      expect(folders, hasLength(1));
+      expect(folders.first.name, 'Работа');
+      expect(folders.first.listKey.storageId, 'folder_2');
+    });
   });
 }
