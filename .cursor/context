@@ -42,9 +42,16 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 
 ## Flutter-стек
 
-- `tdlib_library` или FFI-обёртка (Mithka, telega2 как примеры)
-- Provider/Riverpod для стейта
+- FFI-обёртка `TdlibClient` + `tdlib_bindings.dart`
+- **Provider** для стейта (`AuthManager`, `ChatManager`, `ProxyManager`, `ThemeManager`)
 - Структура: `lib/core/`, `lib/screens/`, `lib/widgets/`, `lib/models/`
+
+### Список чатов (§6.2 — готово)
+
+- `ChatManager`: `loadChats`, позиции, pin/archive, поиск, delete, mark unread
+- Адаптивный UI: mobile / master-detail (720px) / 3-column desktop (840px)
+- Виджеты: `ChatListTile`, `ChatFolderSidebar`, `ChatDesktopShortcuts`, `ChatSearchPanel`, `NewChatDialog`
+- Документация: `docs/CHATS.md`
 
 ## Сервера (не коммитить реальные IP)
 
@@ -76,6 +83,9 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 - **Этап 4** ✅ UI, чаты, темы, уведомления
 - **Этап 5** ✅ Сборка на всех платформах (BUILD/INSTALL, CI flutter-linux, Release)
 - **Signing** ✅ Android/iOS release-подпись (docs/SIGNING.md, CI secrets)
+- **§6.2 Список чатов** ✅ Отображение, действия, десктопная навигация (см. `docs/CHATS.md`)
+- **§6.3+** ⏳ Сообщения, медиа, группы — в работе по TODO.md
+- **§9** ⏳ Классический дизайн Telegram — не начат
 
 ## Лицензия
 
