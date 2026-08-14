@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/auth/auth_manager.dart';
 import 'core/chat/chat_manager.dart';
 import 'core/config/app_config.dart';
+import 'core/media/media_cache_manager.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/proxy/proxy_manager.dart';
 import 'core/theme/theme_manager.dart';
@@ -62,6 +63,7 @@ class _AppScopeState extends State<_AppScope> {
   late final NotificationService _notificationService;
   ProxyManager? _proxyManager;
   late final AuthManager _authManager;
+  late final MediaCacheManager _mediaCacheManager;
   late final ChatManager _chatManager;
 
   @override
@@ -73,9 +75,12 @@ class _AppScopeState extends State<_AppScope> {
 
     _proxyManager = ProxyManager(client: _client, config: widget.config);
 
+    _mediaCacheManager = MediaCacheManager(client: _client);
+
     _chatManager = ChatManager(
       client: _client,
       notificationService: _notificationService,
+      mediaCache: _mediaCacheManager,
     );
 
     _authManager = AuthManager(
@@ -83,6 +88,7 @@ class _AppScopeState extends State<_AppScope> {
       config: widget.config,
       proxyManager: _proxyManager,
       onAuthorized: () {
+        _mediaCacheManager.startListening();
         _chatManager.startListening();
         _chatManager.loadChats();
       },
@@ -93,6 +99,7 @@ class _AppScopeState extends State<_AppScope> {
   void dispose() {
     _authManager.dispose();
     _chatManager.dispose();
+    _mediaCacheManager.dispose();
     _proxyManager?.dispose();
     _client.dispose();
     super.dispose();
@@ -106,6 +113,9 @@ class _AppScopeState extends State<_AppScope> {
         ChangeNotifierProvider<ThemeManager>.value(value: _themeManager),
         ChangeNotifierProvider<AuthManager>.value(value: _authManager),
         ChangeNotifierProvider<ChatManager>.value(value: _chatManager),
+        ChangeNotifierProvider<MediaCacheManager>.value(
+          value: _mediaCacheManager,
+        ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),
       ],

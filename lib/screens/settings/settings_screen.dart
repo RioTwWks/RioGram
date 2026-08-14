@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/auth/auth_manager.dart';
+import '../../core/media/media_cache_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../core/theme/theme_manager.dart';
 import '../../core/theme/theme_preferences.dart';
 import '../../widgets/proxy_status_indicator.dart';
+import '../../widgets/storage_settings_section.dart';
 
 /// Настройки: внешний вид, прокси, выход из аккаунта.
 class SettingsScreen extends StatelessWidget {
@@ -15,6 +17,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final proxyManager = context.watch<ProxyManager?>();
     final themeManager = context.watch<ThemeManager>();
+    final mediaCache = context.watch<MediaCacheManager?>();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Настройки')),
@@ -29,6 +32,10 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _AccentColorPicker(themeManager: themeManager),
           const SizedBox(height: 24),
+          if (mediaCache != null) ...[
+            StorageSettingsSection(),
+            const SizedBox(height: 24),
+          ],
           Text('Прокси', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (proxyManager == null)

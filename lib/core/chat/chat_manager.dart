@@ -6,6 +6,7 @@ import '../../models/audio_models.dart';
 import '../../models/chat_models.dart';
 import '../../models/formatted_text.dart';
 import '../../models/message_enrichment.dart';
+import '../media/media_cache_manager.dart';
 import '../notifications/notification_service.dart';
 import '../tdlib/tdlib_client.dart';
 import 'formatted_text_builder.dart';
@@ -16,11 +17,14 @@ class ChatManager extends ChangeNotifier {
   ChatManager({
     required TdlibClient client,
     NotificationService? notificationService,
+    MediaCacheManager? mediaCache,
   })  : _client = client,
-        _notifications = notificationService ?? NotificationService();
+        _notifications = notificationService ?? NotificationService(),
+        _mediaCache = mediaCache;
 
   final TdlibClient _client;
   final NotificationService _notifications;
+  final MediaCacheManager? _mediaCache;
 
   final Map<int, ChatSummary> _chatsById = {};
   final Map<int, bool> _botUsers = {};
@@ -829,6 +833,55 @@ class ChatManager extends ChangeNotifier {
       cancelUploadFile(fileId);
     } else {
       cancelDownloadFile(fileId);
+    }
+  }
+
+  void downloadMessageMedia(ChatMessage message) {
+    final fileId = message.mediaFileId;
+    if (fileId == null) {
+      return;
+    }
+    if (_mediaCache != null) {
+      _mediaCache.requestDownload(fileId);
+      return;
+    }
+    _client.send({
+      '@type': 'downloadFile',
+      'file_id': fileId,
+      'priority': 32,
+      'offset': 0,
+      'limit': 0,
+      'synchronous': false,
+    });
+  }
+
+  void deleteMessageFromCache(ChatMessage message) {
+    final fileId = message.mediaFileId;
+    if (fileId == null) {
+      return;
+    }
+    _mediaCache?.deleteCachedFile(fileId);
+    final index = _messages.indexWhere((item) => item.id == message.id);
+    if (index >= 0) {
+      final current = _messages[index];
+      _messages[index] = current.copyWith(
+        localFilePath: null,
+        content: MessageContent(
+          kind: current.content.kind,
+          preview: current.content.preview,
+          formattedText: current.content.formattedText,
+          caption: current.content.caption,
+          formattedCaption: current.content.formattedCaption,
+          fileName: current.content.fileName,
+          poll: current.content.poll,
+          videoInfo: current.content.videoInfo,
+          voiceInfo: current.content.voiceInfo,
+          audioInfo: current.content.audioInfo,
+          documentInfo: current.content.documentInfo,
+          fileSizeBytes: current.content.fileSizeBytes,
+        ),
+      );
+      notifyListeners();
     }
   }
 
@@ -1965,6 +2018,7 @@ class ChatManager extends ChangeNotifier {
                   voiceInfo: message.content.voiceInfo,
                   audioInfo: message.content.audioInfo,
                   documentInfo: message.content.documentInfo,
+                  fileSizeBytes: message.content.fileSizeBytes,
                 )
               : message.content,
         );
@@ -2041,6 +2095,12 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    final cache = _mediaCache;
+    if (cache != null && !cache.shouldAutoDownload(message)) {
+      _requestCoverDownload(message);
+      return;
+    }
+
     _client.send({
       '@type': 'downloadFile',
       'file_id': message.mediaFileId,
@@ -2055,6 +2115,10 @@ class ChatManager extends ChangeNotifier {
   void _requestCoverDownload(ChatMessage message) {
     final coverId = message.coverFileId;
     if (coverId == null || message.coverLocalPath != null) {
+      return;
+    }
+    final cache = _mediaCache;
+    if (cache != null && !cache.shouldAutoDownloadCover(message)) {
       return;
     }
     _client.send({

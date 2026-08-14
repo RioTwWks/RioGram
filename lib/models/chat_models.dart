@@ -135,6 +135,7 @@ class MessageContent {
     this.voiceInfo,
     this.audioInfo,
     this.documentInfo,
+    this.fileSizeBytes,
   });
 
   final MessageKind kind;
@@ -149,6 +150,7 @@ class MessageContent {
   final VoiceNoteInfo? voiceInfo;
   final AudioTrackInfo? audioInfo;
   final DocumentFileInfo? documentInfo;
+  final int? fileSizeBytes;
 
   factory MessageContent.fromTdlib(Map<String, dynamic> content) {
     final type = content['@type'] as String? ?? '';
@@ -171,6 +173,7 @@ class MessageContent {
             preview: '📷 Фото',
             caption: captionFormatted?.preview,
             formattedCaption: captionFormatted,
+            fileSizeBytes: _photoSize(content),
           );
         }(),
       'messageVideo' => () {
@@ -182,6 +185,7 @@ class MessageContent {
             caption: captionFormatted?.preview,
             formattedCaption: captionFormatted,
             videoInfo: _parseVideoInfo(videoRaw),
+            fileSizeBytes: _fileSize(videoRaw['video']),
           );
         }(),
       'messageVideoNote' => () {
@@ -190,6 +194,7 @@ class MessageContent {
             kind: MessageKind.videoNote,
             preview: '⭕ Видеосообщение',
             videoInfo: _parseVideoNoteInfo(note),
+            fileSizeBytes: _fileSize(note['video']),
           );
         }(),
       'messageDocument' => () {
@@ -201,6 +206,7 @@ class MessageContent {
             caption: captionFormatted?.preview,
             formattedCaption: captionFormatted,
             documentInfo: DocumentFileInfo.fromTdlib(content),
+            fileSizeBytes: _documentSize(content),
           );
         }(),
       'messageVoiceNote' => () {
@@ -212,6 +218,7 @@ class MessageContent {
             caption: captionFormatted?.preview,
             formattedCaption: captionFormatted,
             voiceInfo: VoiceNoteInfo.fromTdlib(voiceNote),
+            fileSizeBytes: _fileSize(voiceNote['voice']),
           );
         }(),
       'messageAudio' => () {
@@ -223,6 +230,7 @@ class MessageContent {
             caption: captionFormatted?.preview,
             formattedCaption: captionFormatted,
             audioInfo: AudioTrackInfo.fromTdlib(audioRaw),
+            fileSizeBytes: _fileSize(audioRaw['audio']),
           );
         }(),
       'messagePoll' => () {
@@ -342,6 +350,29 @@ class MessageContent {
     final document = content['document'] as Map<String, dynamic>?;
     final file = document?['document'] as Map<String, dynamic>?;
     return file?['id'] as int?;
+  }
+
+  static int? _fileSize(dynamic fileJson) {
+    if (fileJson is! Map<String, dynamic>) {
+      return null;
+    }
+    return fileJson['expected_size'] as int? ?? fileJson['size'] as int?;
+  }
+
+  static int? _photoSize(Map<String, dynamic> content) {
+    final photo = content['photo'] as Map<String, dynamic>?;
+    final sizes = photo?['sizes'] as List<dynamic>?;
+    if (sizes == null || sizes.isEmpty) {
+      return null;
+    }
+    final largest = sizes.last as Map<String, dynamic>;
+    final photoSize = largest['photo'] as Map<String, dynamic>?;
+    return _fileSize(photoSize);
+  }
+
+  static int? _documentSize(Map<String, dynamic> content) {
+    final document = content['document'] as Map<String, dynamic>? ?? {};
+    return _fileSize(document['document']);
   }
 }
 
