@@ -28,10 +28,16 @@ class ChatScreen extends StatefulWidget {
     super.key,
     required this.chatId,
     this.closeOnDispose = true,
+    this.forumTopicId,
+    this.forumTopicName,
+    this.onBackToTopics,
   });
 
   final int chatId;
   final bool closeOnDispose;
+  final int? forumTopicId;
+  final String? forumTopicName;
+  final VoidCallback? onBackToTopics;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -48,6 +54,17 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final manager = context.read<ChatManager>();
+      if (widget.forumTopicId != null) {
+        if (manager.activeForumTopicId != widget.forumTopicId ||
+            manager.activeChatId != widget.chatId) {
+          manager.openForumTopic(
+            widget.chatId,
+            widget.forumTopicId!,
+            topicName: widget.forumTopicName,
+          );
+        }
+        return;
+      }
       if (manager.activeChatId != widget.chatId) {
         manager.openChat(widget.chatId);
       }
@@ -618,24 +635,52 @@ class _ChatScreenState extends State<ChatScreen> {
         title: selectionMode
             ? Text('Выбрано: ${chatManager.selectedMessageCount}')
             : InkWell(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ChatInfoScreen(chatId: widget.chatId),
+                onTap: widget.forumTopicId == null
+                    ? () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ChatInfoScreen(chatId: widget.chatId),
+                          ),
+                        );
+                      }
+                    : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.forumTopicName ??
+                          chat?.title ??
+                          'Чат',
                     ),
-                  );
-                },
-                child: Text(chat?.title ?? 'Чат'),
+                    if (widget.forumTopicId != null && chat != null)
+                      Text(
+                        chat.title,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                  ],
+                ),
               ),
         leading: selectionMode
             ? IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: chatManager.exitSelectionMode,
               )
-            : null,
-        automaticallyImplyLeading: !selectionMode,
+            : widget.forumTopicId != null
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () {
+                      if (widget.onBackToTopics != null) {
+                        widget.onBackToTopics!();
+                      } else {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  )
+                : null,
+        automaticallyImplyLeading:
+            !selectionMode && widget.forumTopicId == null,
         actions: [
-          if (!selectionMode)
+          if (!selectionMode && widget.forumTopicId == null)
             IconButton(
               tooltip: 'Информация',
               icon: const Icon(Icons.info_outline),
