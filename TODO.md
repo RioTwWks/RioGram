@@ -303,10 +303,10 @@
 ### 6.5. Группы, каналы и форумы
 
 #### Типы и создание
-- [ ] Парсинг `chatType`: private, basic group, supergroup, channel
-- [ ] `createNewSupergroupChat` — группа и канал (`is_channel`)
-- [ ] `createNewBasicGroupChat`, `upgradeBasicGroupChatToSupergroupChat`
-- [ ] Вступление: `joinChat`, `joinChatByInviteLink`, `searchPublicChat`
+- [x] Парсинг `chatType`: private, basic group, supergroup, channel
+- [x] `createNewSupergroupChat` — группа и канал (`is_channel`)
+- [x] `createNewBasicGroupChat`, `upgradeBasicGroupChatToSupergroupChat`
+- [x] Вступление: `joinChat`, `joinChatByInviteLink`, `searchPublicChat`
 
 #### Управление
 - [ ] Экран информации о чате: описание, ссылка-приглашение, участники

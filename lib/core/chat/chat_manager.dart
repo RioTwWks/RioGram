@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/audio_models.dart';
 import '../../models/chat_models.dart';
-import '../../models/formatted_text.dart';
+import '../../models/group_models.dart';
 import '../../models/message_enrichment.dart';
 import '../media/media_cache_manager.dart';
 import '../notifications/notification_service.dart';
@@ -57,6 +57,10 @@ class ChatManager extends ChangeNotifier {
 
   final Map<int, FileTransferState> _fileTransfers = {};
   int _pendingNewChatSearchRequests = 0;
+  final Set<int> _newChatSearchPublicIds = {};
+  int _chatActionRequestId = 0;
+  final Map<String, Completer<int>> _chatActionCompleters = {};
+  String? _chatActionError;
 
   MessageReplyDraft? _pendingReply;
   DateTime? _scheduledSendAt;
@@ -89,7 +93,24 @@ class ChatManager extends ChangeNotifier {
         .toList();
   }
 
+  bool newChatSearchNeedsJoin(int chatId) {
+    if (!_newChatSearchPublicIds.contains(chatId)) {
+      return false;
+    }
+    final chat = _chatsById[chatId];
+    if (chat == null) {
+      return true;
+    }
+    return !chat.isInList(const ChatListMain());
+  }
+
+  void clearChatActionError() {
+    _chatActionError = null;
+  }
+
   bool get isNewChatSearchLoading => _isNewChatSearchLoading;
+  String? get chatActionError => _chatActionError;
+
   MessageReplyDraft? get pendingReply => _pendingReply;
   MessageEditDraft? get editingMessage => _editingMessage;
   DateTime? get scheduledSendAt => _scheduledSendAt;
@@ -304,6 +325,7 @@ class ChatManager extends ChangeNotifier {
 
     if (trimmed.isEmpty) {
       _newChatSearchIds = [];
+      _newChatSearchPublicIds.clear();
       _isNewChatSearchLoading = false;
       _pendingNewChatSearchRequests = 0;
       notifyListeners();
@@ -315,7 +337,7 @@ class ChatManager extends ChangeNotifier {
 
     _newChatSearchDebounce = Timer(const Duration(milliseconds: 350), () {
       final requestId = ++_newChatSearchRequestId;
-      _pendingNewChatSearchRequests = 2;
+      var pending = 2;
 
       _client.send({
         '@type': 'searchChats',
@@ -329,15 +351,164 @@ class ChatManager extends ChangeNotifier {
         'limit': 20,
         '@extra': 'newChatSearch_$requestId',
       });
+
+      final username = PublicChatLinkParser.parseUsername(trimmed);
+      if (username != null) {
+        pending += 1;
+        _client.send({
+          '@type': 'searchPublicChat',
+          'username': username,
+          '@extra': 'newChatPublic_$requestId',
+        });
+      }
+
+      _pendingNewChatSearchRequests = pending;
     });
   }
 
   void clearNewChatSearch() {
     _newChatSearchDebounce?.cancel();
     _newChatSearchIds = [];
+    _newChatSearchPublicIds.clear();
     _isNewChatSearchLoading = false;
     _pendingNewChatSearchRequests = 0;
     notifyListeners();
+  }
+
+  Future<int> createSupergroupChat({
+    required String title,
+    bool isChannel = false,
+    String description = '',
+    bool isForum = false,
+  }) {
+    return _sendChatAction(
+      request: {
+        '@type': 'createNewSupergroupChat',
+        'title': title.trim(),
+        'is_forum': isForum,
+        'is_channel': isChannel,
+        'description': description.trim(),
+        'message_auto_delete_time': 0,
+        'for_import': false,
+      },
+      extraPrefix: 'createSupergroup',
+    );
+  }
+
+  Future<int> createBasicGroupChat({
+    required String title,
+    List<int> userIds = const [],
+  }) {
+    return _sendCreatedBasicGroupAction(
+      request: {
+        '@type': 'createNewBasicGroupChat',
+        'user_ids': userIds,
+        'title': title.trim(),
+        'message_auto_delete_time': 0,
+      },
+      extraPrefix: 'createBasicGroup',
+    );
+  }
+
+  Future<int> upgradeBasicGroupToSupergroup(int chatId) {
+    return _sendChatAction(
+      request: {
+        '@type': 'upgradeBasicGroupChatToSupergroupChat',
+        'chat_id': chatId,
+      },
+      extraPrefix: 'upgradeBasicGroup',
+    );
+  }
+
+  Future<int> joinChat(int chatId) {
+    return _sendJoinAction(
+      request: {
+        '@type': 'joinChat',
+        'chat_id': chatId,
+      },
+      extraPrefix: 'joinChat',
+    );
+  }
+
+  Future<int> joinChatByInviteLink(String inviteLink) {
+    return _sendJoinAction(
+      request: {
+        '@type': 'joinChatByInviteLink',
+        'invite_link': inviteLink.trim(),
+      },
+      extraPrefix: 'joinInvite',
+    );
+  }
+
+  Future<int> createPrivateChat(int userId) {
+    return _sendChatAction(
+      request: {
+        '@type': 'createPrivateChat',
+        'user_id': userId,
+        'force': false,
+      },
+      extraPrefix: 'createPrivateChat',
+    );
+  }
+
+  Future<int> _sendChatAction({
+    required Map<String, dynamic> request,
+    required String extraPrefix,
+  }) async {
+    _chatActionError = null;
+    final requestId = ++_chatActionRequestId;
+    final extra = '${extraPrefix}_$requestId';
+    final completer = Completer<int>();
+    _chatActionCompleters[extra] = completer;
+    _client.send({...request, '@extra': extra});
+    try {
+      return await completer.future.timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      _chatActionCompleters.remove(extra);
+      _chatActionError = 'Таймаут операции с чатом';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<int> _sendCreatedBasicGroupAction({
+    required Map<String, dynamic> request,
+    required String extraPrefix,
+  }) async {
+    _chatActionError = null;
+    final requestId = ++_chatActionRequestId;
+    final extra = '${extraPrefix}_$requestId';
+    final completer = Completer<int>();
+    _chatActionCompleters[extra] = completer;
+    _client.send({...request, '@extra': extra});
+    try {
+      return await completer.future.timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      _chatActionCompleters.remove(extra);
+      _chatActionError = 'Таймаут создания группы';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<int> _sendJoinAction({
+    required Map<String, dynamic> request,
+    required String extraPrefix,
+  }) async {
+    _chatActionError = null;
+    final requestId = ++_chatActionRequestId;
+    final extra = '${extraPrefix}_$requestId';
+    final completer = Completer<int>();
+    _chatActionCompleters[extra] = completer;
+    _client.send({...request, '@extra': extra});
+    try {
+      return await completer.future.timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      _chatActionCompleters.remove(extra);
+      _chatActionError = 'Таймаут вступления в чат';
+      notifyListeners();
+      rethrow;
+    }
   }
 
   void _clearSearchResults() {
@@ -1260,13 +1431,15 @@ class ChatManager extends ChangeNotifier {
           ),
         );
       case 'chat':
-        _upsertChat(
-          TdlibChatParser.parseChat(
-            update,
-            myUserId: _myUserId,
-            botUsers: _botUsers,
-          ),
-        );
+        _handleChatResponse(update);
+      case 'createdBasicGroupChat':
+        _handleCreatedBasicGroupChat(update);
+      case 'chatJoinResultSuccess':
+        _handleChatJoinSuccess(update);
+      case 'chatJoinResultRequestSent':
+        _handleChatJoinRequestSent(update);
+      case 'chatJoinResultDeclined':
+        _handleChatJoinDeclined(update);
       case 'updateChatLastMessage':
         _handleChatLastMessage(update);
       case 'updateChatPosition':
@@ -1431,7 +1604,33 @@ class ChatManager extends ChangeNotifier {
         _completeNewChatSearchRequest();
         notifyListeners();
       }
+      return;
     }
+
+    if (extra.startsWith('newChatPublic_')) {
+      final requestId = int.tryParse(extra.substring('newChatPublic_'.length));
+      if (requestId == _newChatSearchRequestId) {
+        _completeNewChatSearchRequest();
+        notifyListeners();
+      }
+      return;
+    }
+
+    if (_isChatActionExtra(extra)) {
+      _failChatAction(
+        extra,
+        update['message'] as String? ?? 'Ошибка операции с чатом',
+      );
+    }
+  }
+
+  bool _isChatActionExtra(String extra) {
+    return extra.startsWith('createSupergroup_') ||
+        extra.startsWith('createBasicGroup_') ||
+        extra.startsWith('upgradeBasicGroup_') ||
+        extra.startsWith('joinChat_') ||
+        extra.startsWith('joinInvite_') ||
+        extra.startsWith('createPrivateChat_');
   }
 
   int? _chatIdFromExtra(String? extra, String prefix) {
@@ -1510,6 +1709,9 @@ class ChatManager extends ChangeNotifier {
         isMarkedAsUnread: summary.isMarkedAsUnread,
         canBeDeletedOnlyForSelf: summary.canBeDeletedOnlyForSelf,
         canBeDeletedForAllUsers: summary.canBeDeletedForAllUsers,
+        basicGroupId: summary.basicGroupId ?? existing.basicGroupId,
+        supergroupId: summary.supergroupId ?? existing.supergroupId,
+        isForum: summary.isForum || existing.isForum,
       );
     } else {
       _chatsById[summary.id] = summary;
@@ -1731,12 +1933,93 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _completeNewChatSearchRequest() {
-    _pendingNewChatSearchRequests =
-        (_pendingNewChatSearchRequests - 1).clamp(0, 2);
+    if (_pendingNewChatSearchRequests <= 0) {
+      return;
+    }
+    _pendingNewChatSearchRequests -= 1;
     if (_pendingNewChatSearchRequests == 0) {
       _isNewChatSearchLoading = false;
       notifyListeners();
     }
+  }
+
+  void _handleChatResponse(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    final chatId = update['id'] as int?;
+
+    if (extra != null && chatId != null) {
+      if (extra.startsWith('newChatPublic_')) {
+        _newChatSearchIds = {..._newChatSearchIds, chatId}.toList();
+        _newChatSearchPublicIds.add(chatId);
+        final requestId =
+            int.tryParse(extra.substring('newChatPublic_'.length));
+        if (requestId == _newChatSearchRequestId) {
+          _completeNewChatSearchRequest();
+        }
+      } else if (_chatActionCompleters.containsKey(extra)) {
+        _completeChatAction(extra, chatId);
+      }
+    }
+
+    _upsertChat(
+      TdlibChatParser.parseChat(
+        update,
+        myUserId: _myUserId,
+        botUsers: _botUsers,
+      ),
+    );
+  }
+
+  void _handleCreatedBasicGroupChat(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    final chatId = update['chat_id'] as int?;
+    if (extra == null || chatId == null) {
+      return;
+    }
+    _completeChatAction(extra, chatId);
+    _client.send({'@type': 'getChat', 'chat_id': chatId});
+  }
+
+  void _handleChatJoinSuccess(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    final chatId = update['chat_id'] as int?;
+    if (extra == null || chatId == null) {
+      return;
+    }
+    _newChatSearchPublicIds.remove(chatId);
+    _completeChatAction(extra, chatId);
+    _client.send({'@type': 'getChat', 'chat_id': chatId});
+  }
+
+  void _handleChatJoinRequestSent(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null) {
+      return;
+    }
+    _failChatAction(extra, 'Заявка на вступление отправлена');
+  }
+
+  void _handleChatJoinDeclined(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null) {
+      return;
+    }
+    _failChatAction(extra, 'Не удалось вступить в чат');
+  }
+
+  void _completeChatAction(String extra, int chatId) {
+    final completer = _chatActionCompleters.remove(extra);
+    completer?.complete(chatId);
+  }
+
+  void _failChatAction(String extra, String message) {
+    final completer = _chatActionCompleters.remove(extra);
+    if (completer == null) {
+      return;
+    }
+    _chatActionError = message;
+    completer.completeError(StateError(message));
+    notifyListeners();
   }
 
   void _handleFoundMessages(Map<String, dynamic> update) {
