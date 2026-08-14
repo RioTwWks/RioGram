@@ -156,6 +156,18 @@ class FormattedTextBuilder {
     }
 
     final detected = <TextEntity>[];
+    for (final match
+        in RegExp(r'@(all|admins)\b', caseSensitive: false).allMatches(plain)) {
+      if (!isOccupied(match.start, match.end)) {
+        detected.add(
+          TextEntity(
+            offset: match.start,
+            length: match.end - match.start,
+            kind: TextEntityKind.mention,
+          ),
+        );
+      }
+    }
     for (final match in RegExp(r'@[\w\d_]{3,}').allMatches(plain)) {
       if (!isOccupied(match.start, match.end)) {
         detected.add(

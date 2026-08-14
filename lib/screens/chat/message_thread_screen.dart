@@ -146,6 +146,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                               final message = messages[index];
                               return MessageBubble(
                                 message: message,
+                                showSenderName: true,
                                 replyPreview:
                                     manager.replyPreviewFor(message),
                               );

@@ -6,6 +6,7 @@ enum TextEntityKind {
   url,
   textUrl,
   mention,
+  mentionName,
   hashtag,
 }
 
@@ -16,12 +17,14 @@ class TextEntity {
     required this.length,
     required this.kind,
     this.url,
+    this.userId,
   });
 
   final int offset;
   final int length;
   final TextEntityKind kind;
   final String? url;
+  final int? userId;
 
   factory TextEntity.fromTdlib(Map<String, dynamic> json) {
     final type = json['type'] as Map<String, dynamic>? ?? {};
@@ -32,6 +35,7 @@ class TextEntity {
       'textEntityTypeUrl' => TextEntityKind.url,
       'textEntityTypeTextUrl' => TextEntityKind.textUrl,
       'textEntityTypeMention' => TextEntityKind.mention,
+      'textEntityTypeMentionName' => TextEntityKind.mentionName,
       'textEntityTypeHashtag' => TextEntityKind.hashtag,
       _ => TextEntityKind.url,
     };
@@ -41,6 +45,7 @@ class TextEntity {
       length: json['length'] as int? ?? 0,
       kind: kind,
       url: type['url'] as String?,
+      userId: type['user_id'] as int?,
     );
   }
 
@@ -55,6 +60,10 @@ class TextEntity {
           'url': url ?? '',
         },
       TextEntityKind.mention => {'@type': 'textEntityTypeMention'},
+      TextEntityKind.mentionName => {
+          '@type': 'textEntityTypeMentionName',
+          'user_id': userId ?? 0,
+        },
       TextEntityKind.hashtag => {'@type': 'textEntityTypeHashtag'},
     };
 

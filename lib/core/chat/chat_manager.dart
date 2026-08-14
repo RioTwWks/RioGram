@@ -17,6 +17,7 @@ import 'formatted_text_builder.dart';
 import 'tdlib_forum_parser.dart';
 import 'tdlib_chat_info_parser.dart';
 import 'tdlib_chat_parser.dart';
+import 'tdlib_group_message_parser.dart';
 
 /// Управление списком чатов и активной перепиской.
 class ChatManager extends ChangeNotifier {
@@ -281,10 +282,124 @@ class ChatManager extends ChangeNotifier {
       _activeChatId == null ? 0 : (_lastReadOutboxMessageId[_activeChatId!] ?? 0);
 
   ChatMessage? _parseMessage(Map<String, dynamic> json) {
-    return TdlibChatParser.parseMessage(
+    final message = TdlibChatParser.parseMessage(
       json,
       lastReadOutboxMessageId: _lastReadOutboxForActiveChat(),
     );
+    if (message == null) {
+      return null;
+    }
+    return _enrichGroupMessage(json, message);
+  }
+
+  GroupMessageNameResolver get _groupNameResolver => GroupMessageNameResolver(
+        userName: (userId) => _userDisplayNames[userId] ?? '',
+        chatTitle: (chatId) => _chatsById[chatId]?.title ?? '',
+      );
+
+  ChatMessage _enrichGroupMessage(
+    Map<String, dynamic> json,
+    ChatMessage message,
+  ) {
+    final senderRaw = json['sender_id'] as Map<String, dynamic>?;
+    final senderIds = TdlibGroupMessageParser.parseSenderIds(senderRaw);
+    final resolver = _groupNameResolver;
+
+    var senderName = message.senderName;
+    if (!message.isOutgoing) {
+      senderName ??= TdlibGroupMessageParser.parseSenderDisplayName(
+        senderRaw,
+        resolver,
+      );
+    }
+
+    if (senderIds.userId != null) {
+      _requestUserIfNeeded(senderIds.userId!);
+    }
+
+    final contentMap = json['content'] as Map<String, dynamic>? ?? {};
+    var content = message.content;
+    final serviceContent = TdlibGroupMessageParser.parseServiceContent(
+      contentMap,
+      resolver,
+      senderId: senderRaw,
+    );
+    if (serviceContent != null) {
+      content = serviceContent;
+      for (final userId in serviceContent.serviceUserIds) {
+        _requestUserIfNeeded(userId);
+      }
+    }
+
+    if (senderName == message.senderName &&
+        content == message.content &&
+        senderIds.userId == message.senderUserId &&
+        senderIds.chatId == message.senderChatId) {
+      return message;
+    }
+
+    return message.copyWith(
+      senderName: senderName,
+      senderUserId: senderIds.userId,
+      senderChatId: senderIds.chatId,
+      content: content,
+    );
+  }
+
+  void _refreshMessagesForUser(int userId) {
+    final name = _userDisplayNames[userId];
+    if (name == null) {
+      return;
+    }
+
+    var changed = false;
+    for (var i = 0; i < _messages.length; i++) {
+      final message = _messages[i];
+      var updated = message;
+
+      if (message.senderUserId == userId && message.senderName != name) {
+        updated = updated.copyWith(senderName: name);
+      }
+
+      final raw = updated.content.serviceContentRaw;
+      if (raw != null &&
+          updated.content.serviceUserIds.contains(userId)) {
+        final serviceContent = TdlibGroupMessageParser.parseServiceContent(
+          raw,
+          _groupNameResolver,
+          senderId: _senderIdFromMessage(updated),
+        );
+        if (serviceContent != null &&
+            serviceContent.preview != updated.content.preview) {
+          updated = updated.copyWith(content: serviceContent);
+        }
+      }
+
+      if (updated != message) {
+        _messages[i] = updated;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
+  Map<String, dynamic>? _senderIdFromMessage(ChatMessage message) {
+    if (message.senderUserId != null) {
+      return {
+        '@type': 'messageSenderUser',
+        'user_id': message.senderUserId,
+      };
+    }
+    if (message.senderChatId != null) {
+      return {
+        '@type': 'messageSenderChat',
+        'chat_id': message.senderChatId,
+      };
+    }
+    return null;
   }
 
   void _refreshDeliveryStatuses() {
@@ -1398,6 +1513,7 @@ class ChatManager extends ChangeNotifier {
       };
     }
 
+    _applyForumTopicToPayload(payload);
     _client.send(payload);
     _clearComposerStateAfterSend();
   }
@@ -1920,6 +2036,7 @@ class ChatManager extends ChangeNotifier {
     if (displayName.isNotEmpty) {
       _userDisplayNames[userId] = displayName;
       _refreshMemberDisplayNames(userId);
+      _refreshMessagesForUser(userId);
     }
 
     if (user['@type'] == 'user' && (user['is_self'] as bool? ?? false)) {
@@ -2582,12 +2699,7 @@ class ChatManager extends ChangeNotifier {
     final lastRead = _lastReadOutboxMessageId[chatId] ?? 0;
     final parsed = rawMessages
         .whereType<Map<String, dynamic>>()
-        .map(
-          (raw) => TdlibChatParser.parseMessage(
-            raw,
-            lastReadOutboxMessageId: lastRead,
-          ),
-        )
+        .map(_parseMessage)
         .whereType<ChatMessage>()
         .toList()
         .reversed
@@ -3467,12 +3579,7 @@ class ChatManager extends ChangeNotifier {
     final parsed = rawMessages
         .whereType<Map<String, dynamic>>()
         .where(_messageMatchesActiveForumTopic)
-        .map(
-          (raw) => TdlibChatParser.parseMessage(
-            raw,
-            lastReadOutboxMessageId: lastRead,
-          ),
-        )
+        .map(_parseMessage)
         .whereType<ChatMessage>()
         .toList()
         .reversed

@@ -41,6 +41,7 @@ class MessageBubble extends StatelessWidget {
     this.onCancelTransfer,
     this.onCommentsTap,
     this.showComments = false,
+    this.showSenderName = false,
   });
 
   final ChatMessage message;
@@ -59,9 +60,14 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onCancelTransfer;
   final VoidCallback? onCommentsTap;
   final bool showComments;
+  final bool showSenderName;
 
   @override
   Widget build(BuildContext context) {
+    if (message.isServiceMessage) {
+      return _ServiceMessageBubble(message: message);
+    }
+
     final theme = Theme.of(context);
     final time = DateFormat.Hm().format(message.date);
     final alignment =
@@ -107,6 +113,18 @@ class MessageBubble extends StatelessWidget {
                       reply: message.replyTo!,
                       preview: replyPreview,
                     ),
+                  if (showSenderName &&
+                      !message.isOutgoing &&
+                      message.senderName != null) ...[
+                    Text(
+                      message.senderName!,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                   _MessageBody(
                     message: message,
                     albumMessages: albumMessages,
@@ -633,6 +651,29 @@ class _MediaPlaceholder extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _ServiceMessageBubble extends StatelessWidget {
+  const _ServiceMessageBubble({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+      child: Center(
+        child: Text(
+          message.content.preview,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
     );
   }

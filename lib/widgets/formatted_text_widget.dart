@@ -44,7 +44,7 @@ class FormattedTextWidget extends StatelessWidget {
       spans.add(
         TextSpan(
           text: entityText,
-          style: _styleForEntity(entity, baseStyle, linkStyle),
+          style: _styleForEntity(entity, entityText, baseStyle, linkStyle),
           recognizer: _recognizerForEntity(entity, entityText),
         ),
       );
@@ -73,6 +73,7 @@ class FormattedTextWidget extends StatelessWidget {
 
   TextStyle? _styleForEntity(
     TextEntity entity,
+    String entityText,
     TextStyle? base,
     TextStyle? link,
   ) {
@@ -86,9 +87,20 @@ class FormattedTextWidget extends StatelessWidget {
       TextEntityKind.url ||
       TextEntityKind.textUrl ||
       TextEntityKind.mention ||
+      TextEntityKind.mentionName ||
       TextEntityKind.hashtag =>
-        link,
+        _isBroadcastMention(entityText)
+            ? base?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: link?.color ?? base.color,
+              )
+            : link,
     };
+  }
+
+  static bool _isBroadcastMention(String text) {
+    final lower = text.toLowerCase();
+    return lower == '@all' || lower == '@admins';
   }
 
   TapGestureRecognizer? _recognizerForEntity(TextEntity entity, String label) {
