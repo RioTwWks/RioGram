@@ -325,9 +325,9 @@
 - [x] General topic vs именованные топики
 
 #### Групповая переписка
-- [ ] Имя отправителя у входящих (`messageSenderUser`, `messageSenderChat`)
-- [ ] Упоминание `@all` / `@admins` (где разрешено)
-- [ ] Служебные сообщения: «X вступил в группу» (`messageChatAddMembers` и др.)
+- [x] Имя отправителя у входящих (`messageSenderUser`, `messageSenderChat`)
+- [x] Упоминание `@all` / `@admins` (где разрешено)
+- [x] Служебные сообщения: «X вступил в группу» (`messageChatAddMembers` и др.)
 
 ---
 

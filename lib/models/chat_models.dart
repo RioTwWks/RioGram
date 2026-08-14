@@ -17,6 +17,7 @@ enum MessageKind {
   sticker,
   animation,
   poll,
+  service,
   unsupported,
 }
 
@@ -142,6 +143,8 @@ class MessageContent {
     this.fileSizeBytes,
     this.stickerInfo,
     this.animationInfo,
+    this.serviceContentRaw,
+    this.serviceUserIds = const [],
   });
 
   final MessageKind kind;
@@ -159,6 +162,10 @@ class MessageContent {
   final int? fileSizeBytes;
   final StickerMessageInfo? stickerInfo;
   final AnimationMessageInfo? animationInfo;
+  final Map<String, dynamic>? serviceContentRaw;
+  final List<int> serviceUserIds;
+
+  bool get isServiceMessage => kind == MessageKind.service;
 
   factory MessageContent.fromTdlib(Map<String, dynamic> content) {
     final type = content['@type'] as String? ?? '';
@@ -618,6 +625,8 @@ class ChatMessage {
     required this.date,
     required this.isOutgoing,
     this.senderName,
+    this.senderUserId,
+    this.senderChatId,
     this.localFilePath,
     this.mediaFileId,
     this.replyTo,
@@ -648,6 +657,8 @@ class ChatMessage {
   final DateTime date;
   final bool isOutgoing;
   final String? senderName;
+  final int? senderUserId;
+  final int? senderChatId;
   final String? localFilePath;
   final int? mediaFileId;
   final MessageReplyInfo? replyTo;
@@ -672,6 +683,8 @@ class ChatMessage {
   final bool canGetMessageThread;
 
   bool get isEdited => editDate != null;
+
+  bool get isServiceMessage => content.isServiceMessage;
 
   int get replyCount => interactionInfo?.replyCount ?? 0;
 
@@ -701,6 +714,9 @@ class ChatMessage {
 
   ChatMessage copyWith({
     MessageContent? content,
+    String? senderName,
+    int? senderUserId,
+    int? senderChatId,
     String? localFilePath,
     int? mediaFileId,
     MessageReplyInfo? replyTo,
@@ -732,7 +748,9 @@ class ChatMessage {
       content: content ?? this.content,
       date: date,
       isOutgoing: isOutgoing,
-      senderName: senderName,
+      senderName: senderName ?? this.senderName,
+      senderUserId: senderUserId ?? this.senderUserId,
+      senderChatId: senderChatId ?? this.senderChatId,
       localFilePath: localFilePath ?? this.localFilePath,
       mediaFileId: mediaFileId ?? this.mediaFileId,
       replyTo: replyTo ?? this.replyTo,

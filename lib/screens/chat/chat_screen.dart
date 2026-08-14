@@ -625,6 +625,8 @@ class _ChatScreenState extends State<ChatScreen> {
         !showSubscribeBanner &&
         !chatManager.canSendInActiveChat;
     final showComments = chat?.kind == ChatKind.channel;
+    final showSenderName =
+        chat?.kind == ChatKind.group || (chat?.isForum ?? false);
 
     if (messages.isNotEmpty) {
       _scrollToBottom();
@@ -763,6 +765,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               return MessageBubble(
                                 message: message,
                                 albumMessages: album,
+                                showSenderName: showSenderName,
                                 replyPreview:
                                     chatManager.replyPreviewFor(message),
                                 selectionMode: selectionMode,
