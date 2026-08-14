@@ -41,6 +41,12 @@ class ChatManager extends ChangeNotifier {
   int _searchRequestId = 0;
   int _pendingSearchRequests = 0;
 
+  List<int> _newChatSearchIds = [];
+  bool _isNewChatSearchLoading = false;
+  Timer? _newChatSearchDebounce;
+  int _newChatSearchRequestId = 0;
+  int _pendingNewChatSearchRequests = 0;
+
   List<ChatSummary> get chats => List.unmodifiable(_visibleChats);
   List<ChatFolderTab> get chatFolders => List.unmodifiable(_chatFolders);
   ChatListKey get activeChatList => _activeChatList;
@@ -56,6 +62,20 @@ class ChatManager extends ChangeNotifier {
   String? get searchError => _searchError;
   List<SearchMessageHit> get searchMessageResults =>
       List.unmodifiable(_searchMessages);
+
+  List<ChatSummary> get newChatSearchResults {
+    return _newChatSearchIds
+        .map((id) => _chatsById[id])
+        .whereType<ChatSummary>()
+        .toList();
+  }
+
+  bool get isNewChatSearchLoading => _isNewChatSearchLoading;
+
+  /// Чаты текущего списка для клавиатурной навигации (без Saved Messages).
+  List<ChatSummary> get navigableChats {
+    return chats.where((chat) => chat.kind != ChatKind.savedMessages).toList();
+  }
 
   List<ChatSummary> get searchChatResults {
     return _searchChatIds
@@ -168,6 +188,48 @@ class ChatManager extends ChangeNotifier {
     _searchDebounce?.cancel();
     _searchQuery = '';
     _clearSearchResults();
+    notifyListeners();
+  }
+
+  void searchForNewChat(String query) {
+    _newChatSearchDebounce?.cancel();
+    final trimmed = query.trim();
+
+    if (trimmed.isEmpty) {
+      _newChatSearchIds = [];
+      _isNewChatSearchLoading = false;
+      _pendingNewChatSearchRequests = 0;
+      notifyListeners();
+      return;
+    }
+
+    _isNewChatSearchLoading = true;
+    notifyListeners();
+
+    _newChatSearchDebounce = Timer(const Duration(milliseconds: 350), () {
+      final requestId = ++_newChatSearchRequestId;
+      _pendingNewChatSearchRequests = 2;
+
+      _client.send({
+        '@type': 'searchChats',
+        'query': trimmed,
+        'limit': 20,
+        '@extra': 'newChatSearchLocal_$requestId',
+      });
+      _client.send({
+        '@type': 'searchChatsOnServer',
+        'query': trimmed,
+        'limit': 20,
+        '@extra': 'newChatSearch_$requestId',
+      });
+    });
+  }
+
+  void clearNewChatSearch() {
+    _newChatSearchDebounce?.cancel();
+    _newChatSearchIds = [];
+    _isNewChatSearchLoading = false;
+    _pendingNewChatSearchRequests = 0;
     notifyListeners();
   }
 
@@ -506,6 +568,19 @@ class ChatManager extends ChangeNotifier {
         _completeSearchRequest();
         notifyListeners();
       }
+      return;
+    }
+
+    if (extra.startsWith('newChatSearch_') ||
+        extra.startsWith('newChatSearchLocal_')) {
+      final prefix = extra.startsWith('newChatSearchLocal_')
+          ? 'newChatSearchLocal_'
+          : 'newChatSearch_';
+      final requestId = int.tryParse(extra.substring(prefix.length));
+      if (requestId == _newChatSearchRequestId) {
+        _completeNewChatSearchRequest();
+        notifyListeners();
+      }
     }
   }
 
@@ -737,6 +812,14 @@ class ChatManager extends ChangeNotifier {
       _handleSearchChats(update, extra!);
       return;
     }
+    if (extra?.startsWith('newChatSearchLocal_') ?? false) {
+      _handleNewChatSearch(update, extra!, local: true);
+      return;
+    }
+    if (extra?.startsWith('newChatSearch_') ?? false) {
+      _handleNewChatSearch(update, extra!, local: false);
+      return;
+    }
 
     final chatIds = (update['chat_ids'] as List<dynamic>? ?? []).cast<int>();
     for (final chatId in chatIds) {
@@ -758,6 +841,39 @@ class ChatManager extends ChangeNotifier {
       }
     }
     _completeSearchRequest();
+  }
+
+  void _handleNewChatSearch(
+    Map<String, dynamic> update,
+    String extra, {
+    required bool local,
+  }) {
+    final prefix = local ? 'newChatSearchLocal_' : 'newChatSearch_';
+    final requestId = int.tryParse(extra.substring(prefix.length));
+    if (requestId != _newChatSearchRequestId) {
+      return;
+    }
+
+    final chatIds = (update['chat_ids'] as List<dynamic>? ?? []).cast<int>();
+    _newChatSearchIds = {
+      ..._newChatSearchIds,
+      ...chatIds,
+    }.toList();
+    for (final chatId in chatIds) {
+      if (!_chatsById.containsKey(chatId)) {
+        _client.send({'@type': 'getChat', 'chat_id': chatId});
+      }
+    }
+    _completeNewChatSearchRequest();
+  }
+
+  void _completeNewChatSearchRequest() {
+    _pendingNewChatSearchRequests =
+        (_pendingNewChatSearchRequests - 1).clamp(0, 2);
+    if (_pendingNewChatSearchRequests == 0) {
+      _isNewChatSearchLoading = false;
+      notifyListeners();
+    }
   }
 
   void _handleFoundMessages(Map<String, dynamic> update) {
@@ -1047,6 +1163,7 @@ class ChatManager extends ChangeNotifier {
   void dispose() {
     _messagesLoadTimeout?.cancel();
     _searchDebounce?.cancel();
+    _newChatSearchDebounce?.cancel();
     _subscription?.cancel();
     super.dispose();
   }

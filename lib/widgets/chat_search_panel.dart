@@ -11,11 +11,13 @@ class ChatSearchBar extends StatefulWidget {
     required this.controller,
     required this.onChanged,
     required this.onClear,
+    this.focusNode,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final FocusNode? focusNode;
 
   @override
   State<ChatSearchBar> createState() => _ChatSearchBarState();
@@ -44,6 +46,7 @@ class _ChatSearchBarState extends State<ChatSearchBar> {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: SearchBar(
         controller: widget.controller,
+        focusNode: widget.focusNode,
         hintText: 'Поиск',
         leading: const Icon(Icons.search),
         trailing: widget.controller.text.isNotEmpty
