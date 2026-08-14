@@ -14,6 +14,7 @@ import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
 import '../../widgets/poll_message_body.dart';
+import '../../widgets/sticker_panel_sheet.dart';
 import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
 
@@ -156,6 +157,13 @@ class _ChatScreenState extends State<ChatScreen> {
           await manager.sendAudio(audioPath);
         }
     }
+  }
+
+  Future<void> _openStickerPanel() async {
+    final chatManager = context.read<ChatManager>();
+    chatManager.sendChatAction(OutgoingChatAction.choosingSticker);
+    await StickerPanelSheet.show(context, chatId: widget.chatId);
+    chatManager.sendChatAction(OutgoingChatAction.cancel);
   }
 
   Future<void> _recordVoice() async {
@@ -688,9 +696,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onFormatLink: () =>
                   ComposerFormatting.insertLink(context, _controller),
               onVoiceAction: _recordVoice,
-              onStickerAction: () => chatManager.sendChatAction(
-                OutgoingChatAction.choosingSticker,
-              ),
+              onStickerAction: _openStickerPanel,
             ),
           ],
         ],

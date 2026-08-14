@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/auth/auth_manager.dart';
 import 'core/chat/chat_manager.dart';
 import 'core/config/app_config.dart';
+import 'core/chat/sticker_manager.dart';
 import 'core/media/media_cache_manager.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/proxy/proxy_manager.dart';
@@ -64,6 +65,7 @@ class _AppScopeState extends State<_AppScope> {
   ProxyManager? _proxyManager;
   late final AuthManager _authManager;
   late final MediaCacheManager _mediaCacheManager;
+  late final StickerManager _stickerManager;
   late final ChatManager _chatManager;
 
   @override
@@ -76,6 +78,7 @@ class _AppScopeState extends State<_AppScope> {
     _proxyManager = ProxyManager(client: _client, config: widget.config);
 
     _mediaCacheManager = MediaCacheManager(client: _client);
+    _stickerManager = StickerManager(client: _client);
 
     _chatManager = ChatManager(
       client: _client,
@@ -89,6 +92,7 @@ class _AppScopeState extends State<_AppScope> {
       proxyManager: _proxyManager,
       onAuthorized: () {
         _mediaCacheManager.startListening();
+        _stickerManager.startListening();
         _chatManager.startListening();
         _chatManager.loadChats();
       },
@@ -99,6 +103,7 @@ class _AppScopeState extends State<_AppScope> {
   void dispose() {
     _authManager.dispose();
     _chatManager.dispose();
+    _stickerManager.dispose();
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
     _client.dispose();
@@ -115,6 +120,9 @@ class _AppScopeState extends State<_AppScope> {
         ChangeNotifierProvider<ChatManager>.value(value: _chatManager),
         ChangeNotifierProvider<MediaCacheManager>.value(
           value: _mediaCacheManager,
+        ),
+        ChangeNotifierProvider<StickerManager>.value(
+          value: _stickerManager,
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),

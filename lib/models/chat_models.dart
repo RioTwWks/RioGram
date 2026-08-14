@@ -3,6 +3,8 @@ import 'formatted_text.dart';
 import 'media_models.dart';
 import 'message_enrichment.dart';
 
+import 'sticker_models.dart';
+
 /// Тип содержимого сообщения.
 enum MessageKind {
   text,
@@ -12,6 +14,8 @@ enum MessageKind {
   voice,
   audio,
   document,
+  sticker,
+  animation,
   poll,
   unsupported,
 }
@@ -136,6 +140,8 @@ class MessageContent {
     this.audioInfo,
     this.documentInfo,
     this.fileSizeBytes,
+    this.stickerInfo,
+    this.animationInfo,
   });
 
   final MessageKind kind;
@@ -151,6 +157,8 @@ class MessageContent {
   final AudioTrackInfo? audioInfo;
   final DocumentFileInfo? documentInfo;
   final int? fileSizeBytes;
+  final StickerMessageInfo? stickerInfo;
+  final AnimationMessageInfo? animationInfo;
 
   factory MessageContent.fromTdlib(Map<String, dynamic> content) {
     final type = content['@type'] as String? ?? '';
@@ -233,6 +241,27 @@ class MessageContent {
             fileSizeBytes: _fileSize(audioRaw['audio']),
           );
         }(),
+      'messageSticker' => () {
+          final info = StickerMessageInfo.fromTdlib(content);
+          return MessageContent(
+            kind: MessageKind.sticker,
+            preview: info.emoji ?? info.sticker.emoji,
+            stickerInfo: info,
+            fileSizeBytes: _fileSize(content['sticker']?['sticker']),
+          );
+        }(),
+      'messageAnimation' => () {
+          final captionFormatted = _optionalFormattedCaption(content['caption']);
+          final info = AnimationMessageInfo.fromTdlib(content);
+          return MessageContent(
+            kind: MessageKind.animation,
+            preview: '🎞 GIF',
+            caption: captionFormatted?.preview ?? info.caption,
+            formattedCaption: captionFormatted,
+            animationInfo: info,
+            fileSizeBytes: _fileSize(content['animation']?['animation']),
+          );
+        }(),
       'messagePoll' => () {
           final poll = PollContent.fromTdlib(content);
           return MessageContent(
@@ -272,6 +301,8 @@ class MessageContent {
       'messageVideoNote' => _videoNoteFileId(content),
       'messageVoiceNote' => _voiceNoteFileId(content),
       'messageAudio' => _audioFileId(content),
+      'messageSticker' => _stickerFileId(content),
+      'messageAnimation' => _animationFileId(content),
       'messageDocument' => _documentFileId(content),
       _ => null,
     };
@@ -343,6 +374,18 @@ class MessageContent {
   static int? _audioFileId(Map<String, dynamic> content) {
     final audio = content['audio'] as Map<String, dynamic>?;
     final file = audio?['audio'] as Map<String, dynamic>?;
+    return file?['id'] as int?;
+  }
+
+  static int? _stickerFileId(Map<String, dynamic> content) {
+    final sticker = content['sticker'] as Map<String, dynamic>?;
+    final file = sticker?['sticker'] as Map<String, dynamic>?;
+    return file?['id'] as int?;
+  }
+
+  static int? _animationFileId(Map<String, dynamic> content) {
+    final animation = content['animation'] as Map<String, dynamic>?;
+    final file = animation?['animation'] as Map<String, dynamic>?;
     return file?['id'] as int?;
   }
 

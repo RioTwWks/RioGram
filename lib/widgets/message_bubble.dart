@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import '../models/audio_models.dart';
 import '../models/chat_models.dart';
 import '../models/formatted_text.dart';
 import '../models/message_enrichment.dart';
+import '../models/sticker_models.dart';
 import 'audio_message_player.dart';
 import 'file_transfer_progress_bar.dart';
 import 'formatted_text_widget.dart';
@@ -464,7 +466,73 @@ class _MessageBody extends StatelessWidget {
       );
     }
 
+    if (content.kind == MessageKind.sticker) {
+      final sticker = content.stickerInfo?.sticker;
+      final size = _stickerDisplaySize(sticker);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (localPath != null && sticker != null && !sticker.isAnimated)
+            SizedBox(
+              width: size.width,
+              height: size.height,
+              child: Image.file(
+                File(localPath),
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => Text(content.preview),
+              ),
+            )
+          else if (localPath != null && sticker != null && sticker.isVideo)
+            SizedBox(
+              width: size.width,
+              height: size.height,
+              child: InlineVideoPlayer(
+                filePath: localPath,
+                maxHeight: size.height,
+              ),
+            )
+          else
+            Text(
+              content.preview,
+              style: const TextStyle(fontSize: 48),
+            ),
+        ],
+      );
+    }
+
+    if (content.kind == MessageKind.animation) {
+      final info = content.animationInfo;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (localPath != null)
+            InlineVideoPlayer(
+              filePath: localPath,
+              durationLabel: info?.animation.durationLabel,
+              onOpenFullscreen:
+                  onMediaTap == null ? null : () => onMediaTap!(message),
+            )
+          else
+            _MediaPlaceholder(
+              icon: Icons.gif_box_outlined,
+              label: content.preview,
+              durationLabel: info?.animation.durationLabel,
+            ),
+          ..._captionWidgets(content),
+        ],
+      );
+    }
+
     return Text(content.preview);
+  }
+
+  Size _stickerDisplaySize(StickerModel? sticker) {
+    if (sticker == null || sticker.width <= 0 || sticker.height <= 0) {
+      return const Size(180, 180);
+    }
+    const maxSide = 180.0;
+    final scale = maxSide / math.max(sticker.width, sticker.height);
+    return Size(sticker.width * scale, sticker.height * scale);
   }
 
   List<Widget> _captionWidgets(MessageContent content) {

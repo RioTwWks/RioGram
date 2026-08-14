@@ -8,6 +8,7 @@ import '../../models/formatted_text.dart';
 import '../../models/message_enrichment.dart';
 import '../media/media_cache_manager.dart';
 import '../notifications/notification_service.dart';
+import '../../models/sticker_models.dart';
 import '../tdlib/tdlib_client.dart';
 import 'formatted_text_builder.dart';
 import 'tdlib_chat_parser.dart';
@@ -791,6 +792,69 @@ class ChatManager extends ChangeNotifier {
           'caption': caption.toTdlib(),
       },
     ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendSticker(StickerModel sticker) async {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: sticker.toInputMessageSticker(),
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendAnimation(
+    AnimationModel animation, {
+    FormattedText? caption,
+  }) async {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: animation.toInputMessageAnimation(caption: caption),
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendGifInlineResult({
+    required int queryId,
+    required String resultId,
+  }) async {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    final payload = <String, dynamic>{
+      '@type': 'sendInlineQueryResultMessage',
+      'chat_id': chatId,
+      'query_id': queryId,
+      'result_id': resultId,
+      'hide_via_bot': true,
+    };
+
+    final options = _sendOptionsMap();
+    if (options != null) {
+      payload['options'] = options;
+    }
+
+    final reply = _pendingReply;
+    if (reply != null) {
+      payload['reply_to'] = {
+        '@type': 'inputMessageReplyToMessage',
+        'message_id': reply.messageId,
+      };
+    }
+
+    _client.send(payload);
     _clearComposerStateAfterSend();
   }
 
@@ -2018,6 +2082,8 @@ class ChatManager extends ChangeNotifier {
                   voiceInfo: message.content.voiceInfo,
                   audioInfo: message.content.audioInfo,
                   documentInfo: message.content.documentInfo,
+                  stickerInfo: message.content.stickerInfo,
+                  animationInfo: message.content.animationInfo,
                   fileSizeBytes: message.content.fileSizeBytes,
                 )
               : message.content,
