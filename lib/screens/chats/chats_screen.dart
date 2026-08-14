@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
 import '../../models/chat_models.dart';
-import '../../widgets/chat_avatar.dart';
+import '../../widgets/chat_list_tile.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../chat/chat_screen.dart';
 import '../settings/settings_screen.dart';
@@ -42,16 +41,28 @@ class _ChatsScreenState extends State<ChatsScreen> {
   ) {
     return Scaffold(
       appBar: _buildAppBar(context, proxy, showBack: false),
-      body: _ChatsList(
-        chats: chatManager.chats,
-        selectedChatId: _selectedChatId,
-        onChatTap: (chatId) {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ChatScreen(chatId: chatId),
+      body: Column(
+        children: [
+          ChatListTabs(
+            activeList: chatManager.activeChatList,
+            folders: chatManager.chatFolders,
+            onSelected: chatManager.switchChatList,
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: _ChatsList(
+              chatManager: chatManager,
+              selectedChatId: _selectedChatId,
+              onChatTap: (chatId) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ChatScreen(chatId: chatId),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -75,9 +86,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     child: _buildToolbar(context, proxy),
                   ),
                 ),
+                ChatListTabs(
+                  activeList: chatManager.activeChatList,
+                  folders: chatManager.chatFolders,
+                  onSelected: chatManager.switchChatList,
+                ),
+                const Divider(height: 1),
                 Expanded(
                   child: _ChatsList(
-                    chats: chatManager.chats,
+                    chatManager: chatManager,
                     selectedChatId: _selectedChatId,
                     onChatTap: (chatId) {
                       setState(() => _selectedChatId = chatId);
@@ -161,76 +178,66 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
 class _ChatsList extends StatelessWidget {
   const _ChatsList({
-    required this.chats,
+    required this.chatManager,
     required this.selectedChatId,
     required this.onChatTap,
   });
 
-  final List<ChatSummary> chats;
+  final ChatManager chatManager;
   final int? selectedChatId;
   final ValueChanged<int> onChatTap;
 
   @override
   Widget build(BuildContext context) {
+    final chats = chatManager.chats;
+    final activeList = chatManager.activeChatList;
+
     if (chats.isEmpty) {
-      return const Center(child: Text('Загрузка чатов...'));
+      final emptyLabel = switch (activeList) {
+        ChatListArchive() => 'Архив пуст',
+        ChatListFolder() => 'В папке нет чатов',
+        _ => 'Загрузка чатов...',
+      };
+      return Center(child: Text(emptyLabel));
     }
 
     return ListView.separated(
       itemCount: chats.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
       itemBuilder: (context, index) {
         final chat = chats[index];
         final selected = chat.id == selectedChatId;
-        final subtitle = chat.lastMessage;
-        final time = chat.lastMessageDate != null
-            ? DateFormat('dd.MM HH:mm').format(chat.lastMessageDate!)
-            : null;
 
-        return ListTile(
-          selected: selected,
-          leading: ChatAvatar(
-            title: chat.title,
-            localPath: chat.avatarLocalPath,
+        return ChatListDismissible(
+          chat: chat,
+          activeList: activeList,
+          onArchiveToggle: () => _toggleArchive(chatManager, chat.id),
+          child: ChatListTile(
+            chat: chat,
+            selected: selected,
+            activeList: activeList,
+            onTap: () => onChatTap(chat.id),
+            onPinToggle: () => _togglePin(chatManager, chat, activeList),
+            onArchiveToggle: () => _toggleArchive(chatManager, chat.id),
           ),
-          title: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  chat.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (time != null) ...[
-                const SizedBox(width: 8),
-                Text(time, style: Theme.of(context).textTheme.labelSmall),
-              ],
-            ],
-          ),
-          subtitle: subtitle != null
-              ? Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          trailing: chat.unreadCount > 0
-              ? CircleAvatar(
-                  radius: 10,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: Text(
-                    '${chat.unreadCount}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                    ),
-                  ),
-                )
-              : null,
-          onTap: () => onChatTap(chat.id),
         );
       },
     );
+  }
+
+  void _togglePin(ChatManager chatManager, ChatSummary chat, ChatListKey activeList) {
+    if (chat.isPinnedIn(activeList)) {
+      chatManager.unpinChat(chat.id);
+    } else {
+      chatManager.pinChat(chat.id);
+    }
+  }
+
+  void _toggleArchive(ChatManager chatManager, int chatId) {
+    if (chatManager.isArchiveList) {
+      chatManager.unarchiveChat(chatId);
+    } else {
+      chatManager.archiveChat(chatId);
+    }
   }
 }

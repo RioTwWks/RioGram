@@ -222,12 +222,12 @@
 
 #### Отображение и сортировка
 - [x] Основной список (`getChats`, `chatListMain`)
-- [ ] Закреплённые чаты (`updateChatPosition`, `pinChat` / `unpinChat`)
-- [ ] Архив (`chatListArchive`, свайп «В архив» / «Из архива»)
-- [ ] Папки чатов (`chatListFolder`, `updateChatFolders`, переключение вкладок)
-- [ ] Счётчик непрочитанных, mute (`notificationSettings`), иконка mute в списке
-- [ ] Черновик сообщения в preview (`draftMessage`)
-- [ ] Иконки типа чата: личный, группа, канал, бот, секретный
+- [x] Закреплённые чаты (`updateChatPosition`, `pinChat` / `unpinChat`)
+- [x] Архив (`chatListArchive`, свайп «В архив» / «Из архива»)
+- [x] Папки чатов (`chatListFolder`, `updateChatFolders`, переключение вкладок)
+- [x] Счётчик непрочитанных, mute (`notificationSettings`), иконка mute в списке
+- [x] Черновик сообщения в preview (`draftMessage`)
+- [x] Иконки типа чата: личный, группа, канал, бот, секретный
 
 #### Действия со списком
 - [ ] Поиск по чатам (`searchChats`, `searchMessages` глобально)
