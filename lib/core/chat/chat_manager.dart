@@ -7,6 +7,7 @@ import '../../models/chat_models.dart';
 import '../../models/channel_models.dart';
 import '../../models/chat_info_models.dart';
 import '../../models/forum_models.dart';
+import '../../models/formatted_text.dart';
 import '../../models/group_models.dart';
 import '../../models/message_enrichment.dart';
 import '../media/media_cache_manager.dart';
@@ -2696,7 +2697,6 @@ class ChatManager extends ChangeNotifier {
     }
 
     final rawMessages = update['messages'] as List<dynamic>? ?? [];
-    final lastRead = _lastReadOutboxMessageId[chatId] ?? 0;
     final parsed = rawMessages
         .whereType<Map<String, dynamic>>()
         .map(_parseMessage)
@@ -3575,7 +3575,6 @@ class ChatManager extends ChangeNotifier {
     }
 
     final rawMessages = update['messages'] as List<dynamic>? ?? [];
-    final lastRead = _lastReadOutboxMessageId[chatId] ?? 0;
     final parsed = rawMessages
         .whereType<Map<String, dynamic>>()
         .where(_messageMatchesActiveForumTopic)
