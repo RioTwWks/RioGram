@@ -253,6 +253,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _showMessageMenu(ChatMessage message) async {
     final manager = context.read<ChatManager>();
     final canEdit = message.canEditText || message.canEditCaption;
+    final hasMedia = message.mediaFileId != null;
+    final hasLocalMedia = message.localFilePath != null;
 
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -290,6 +292,18 @@ class _ChatScreenState extends State<ChatScreen> {
               title: const Text('Выбрать'),
               onTap: () => Navigator.pop(context, 'select'),
             ),
+            if (hasMedia && !hasLocalMedia)
+              ListTile(
+                leading: const Icon(Icons.download_outlined),
+                title: const Text('Скачать'),
+                onTap: () => Navigator.pop(context, 'download'),
+              ),
+            if (hasLocalMedia)
+              ListTile(
+                leading: const Icon(Icons.delete_sweep_outlined),
+                title: const Text('Удалить из кэша'),
+                onTap: () => Navigator.pop(context, 'delete_cache'),
+              ),
             if (message.canBeDeletedOnlyForSelf)
               ListTile(
                 leading: const Icon(Icons.delete_outline),
@@ -335,6 +349,10 @@ class _ChatScreenState extends State<ChatScreen> {
         await _forwardSelected();
       case 'select':
         manager.enterSelectionMode(initialMessageId: message.id);
+      case 'download':
+        manager.downloadMessageMedia(message);
+      case 'delete_cache':
+        manager.deleteMessageFromCache(message);
       case 'delete_self':
         manager.deleteMessage(message.id, revoke: false);
       case 'delete_all':
