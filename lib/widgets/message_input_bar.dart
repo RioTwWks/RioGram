@@ -113,6 +113,8 @@ class MessageInputBar extends StatelessWidget {
                   tooltip: 'Прикрепить',
                   onSelected: (value) {
                     switch (value) {
+                      case 'attach':
+                        onAttach();
                       case 'file':
                         onAttach();
                       case 'voice':
@@ -124,6 +126,7 @@ class MessageInputBar extends StatelessWidget {
                     }
                   },
                   itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'attach', child: Text('Медиа…')),
                     PopupMenuItem(value: 'file', child: Text('Файл')),
                     PopupMenuItem(value: 'poll', child: Text('Опрос')),
                     PopupMenuItem(value: 'voice', child: Text('Голосовое')),

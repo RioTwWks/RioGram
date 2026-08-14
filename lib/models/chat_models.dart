@@ -1,4 +1,5 @@
 import 'formatted_text.dart';
+import 'media_models.dart';
 import 'message_enrichment.dart';
 
 /// Тип содержимого сообщения.
@@ -6,6 +7,7 @@ enum MessageKind {
   text,
   photo,
   video,
+  videoNote,
   document,
   poll,
   unsupported,
@@ -126,6 +128,7 @@ class MessageContent {
     this.localPath,
     this.fileName,
     this.poll,
+    this.videoInfo,
   });
 
   final MessageKind kind;
@@ -136,6 +139,7 @@ class MessageContent {
   final String? localPath;
   final String? fileName;
   final PollContent? poll;
+  final MediaVideoInfo? videoInfo;
 
   factory MessageContent.fromTdlib(Map<String, dynamic> content) {
     final type = content['@type'] as String? ?? '';
@@ -162,11 +166,21 @@ class MessageContent {
         }(),
       'messageVideo' => () {
           final captionFormatted = _optionalFormattedCaption(content['caption']);
+          final videoRaw = content['video'] as Map<String, dynamic>? ?? {};
           return MessageContent(
             kind: MessageKind.video,
             preview: '🎬 Видео',
             caption: captionFormatted?.preview,
             formattedCaption: captionFormatted,
+            videoInfo: _parseVideoInfo(videoRaw),
+          );
+        }(),
+      'messageVideoNote' => () {
+          final note = content['video_note'] as Map<String, dynamic>? ?? {};
+          return MessageContent(
+            kind: MessageKind.videoNote,
+            preview: '⭕ Видеосообщение',
+            videoInfo: _parseVideoNoteInfo(note),
           );
         }(),
       'messageDocument' => () {
@@ -215,9 +229,34 @@ class MessageContent {
     return switch (type) {
       'messagePhoto' => _photoFileId(content),
       'messageVideo' => _videoFileId(content),
+      'messageVideoNote' => _videoNoteFileId(content),
       'messageDocument' => _documentFileId(content),
       _ => null,
     };
+  }
+
+  static MediaVideoInfo? _parseVideoInfo(Map<String, dynamic> videoRaw) {
+    if (videoRaw.isEmpty) {
+      return null;
+    }
+    return MediaVideoInfo(
+      durationSeconds: videoRaw['duration'] as int? ?? 0,
+      width: videoRaw['width'] as int? ?? 0,
+      height: videoRaw['height'] as int? ?? 0,
+    );
+  }
+
+  static MediaVideoInfo? _parseVideoNoteInfo(Map<String, dynamic> note) {
+    if (note.isEmpty) {
+      return null;
+    }
+    final videoRaw = note['video'] as Map<String, dynamic>? ?? {};
+    return MediaVideoInfo(
+      durationSeconds: note['duration'] as int? ?? videoRaw['duration'] as int? ?? 0,
+      width: note['length'] as int? ?? 0,
+      height: note['length'] as int? ?? 0,
+      videoNoteLength: note['length'] as int? ?? 0,
+    );
   }
 
   static int? _photoFileId(Map<String, dynamic> content) {
@@ -234,6 +273,12 @@ class MessageContent {
   static int? _videoFileId(Map<String, dynamic> content) {
     final video = content['video'] as Map<String, dynamic>?;
     final file = video?['video'] as Map<String, dynamic>?;
+    return file?['id'] as int?;
+  }
+
+  static int? _videoNoteFileId(Map<String, dynamic> content) {
+    final note = content['video_note'] as Map<String, dynamic>?;
+    final file = note?['video'] as Map<String, dynamic>?;
     return file?['id'] as int?;
   }
 
@@ -428,6 +473,7 @@ class ChatMessage {
     this.interactionInfo,
     this.reactions = const [],
     this.inlineKeyboard = const [],
+    this.groupedId,
   });
 
   final int id;
@@ -450,6 +496,7 @@ class ChatMessage {
   final MessageInteractionInfo? interactionInfo;
   final List<MessageReactionSummary> reactions;
   final List<List<InlineKeyboardButtonModel>> inlineKeyboard;
+  final int? groupedId;
 
   bool get isEdited => editDate != null;
 
@@ -492,6 +539,7 @@ class ChatMessage {
     MessageInteractionInfo? interactionInfo,
     List<MessageReactionSummary>? reactions,
     List<List<InlineKeyboardButtonModel>>? inlineKeyboard,
+    int? groupedId,
   }) {
     return ChatMessage(
       id: id,
@@ -516,6 +564,7 @@ class ChatMessage {
       interactionInfo: interactionInfo ?? this.interactionInfo,
       reactions: reactions ?? this.reactions,
       inlineKeyboard: inlineKeyboard ?? this.inlineKeyboard,
+      groupedId: groupedId ?? this.groupedId,
     );
   }
 
@@ -578,6 +627,7 @@ class ChatMessage {
       inlineKeyboard: MessageEnrichmentParser.parseInlineKeyboard(
         json['reply_markup'] as Map<String, dynamic>?,
       ),
+      groupedId: json['grouped_id'] as int?,
     );
   }
 }

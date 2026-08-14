@@ -8,9 +8,12 @@ import '../models/formatted_text.dart';
 import '../models/message_enrichment.dart';
 import 'formatted_text_widget.dart';
 import 'inline_keyboard_widget.dart';
+import 'inline_video_player.dart';
+import 'media_album_grid.dart';
 import 'message_delivery_icon.dart';
 import 'message_reactions_row.dart';
 import 'poll_message_body.dart';
+import 'video_note_player.dart';
 
 /// Пузырь сообщения в переписке.
 class MessageBubble extends StatelessWidget {
@@ -27,6 +30,8 @@ class MessageBubble extends StatelessWidget {
     this.onAddReaction,
     this.onPollVote,
     this.onInlineButtonTap,
+    this.albumMessages,
+    this.onMediaTap,
   });
 
   final ChatMessage message;
@@ -40,6 +45,8 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onAddReaction;
   final void Function(int optionId)? onPollVote;
   final void Function(InlineKeyboardButtonModel button)? onInlineButtonTap;
+  final List<ChatMessage>? albumMessages;
+  final void Function(ChatMessage message)? onMediaTap;
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +97,9 @@ class MessageBubble extends StatelessWidget {
                     ),
                   _MessageBody(
                     message: message,
+                    albumMessages: albumMessages,
                     onPollVote: onPollVote,
+                    onMediaTap: onMediaTap,
                   ),
                   if (message.reactions.isNotEmpty || onAddReaction != null) ...[
                     const SizedBox(height: 8),
@@ -224,14 +233,36 @@ class _ReplyQuote extends StatelessWidget {
 class _MessageBody extends StatelessWidget {
   const _MessageBody({
     required this.message,
+    this.albumMessages,
     this.onPollVote,
+    this.onMediaTap,
   });
 
   final ChatMessage message;
+  final List<ChatMessage>? albumMessages;
   final void Function(int optionId)? onPollVote;
+  final void Function(ChatMessage message)? onMediaTap;
 
   @override
   Widget build(BuildContext context) {
+    if (albumMessages != null && albumMessages!.length > 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MediaAlbumGrid(
+            messages: albumMessages!,
+            onItemTap: onMediaTap == null
+                ? null
+                : (item, _) => onMediaTap!(item),
+          ),
+          if (_albumCaption(albumMessages!) != null) ...[
+            const SizedBox(height: 8),
+            Text(_albumCaption(albumMessages!)!),
+          ],
+        ],
+      );
+    }
+
     final content = message.content;
     final localPath = message.localFilePath ?? content.localPath;
 
@@ -264,21 +295,31 @@ class _MessageBody extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.file(
-              File(localPath),
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Text(content.preview),
+          GestureDetector(
+            onTap: onMediaTap == null ? null : () => onMediaTap!(message),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(
+                File(localPath),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Text(content.preview),
+              ),
             ),
           ),
-          if (content.formattedCaption != null) ...[
-            const SizedBox(height: 8),
-            FormattedTextWidget(formatted: content.formattedCaption!),
-          ] else if (content.caption != null) ...[
-            const SizedBox(height: 8),
-            Text(content.caption!),
-          ],
+          ..._captionWidgets(content),
+        ],
+      );
+    }
+
+    if (content.kind == MessageKind.photo && localPath == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MediaPlaceholder(
+            icon: Icons.image_outlined,
+            label: content.preview,
+          ),
+          ..._captionWidgets(content),
         ],
       );
     }
@@ -287,18 +328,38 @@ class _MessageBody extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.play_circle_outline),
-              const SizedBox(width: 8),
-              Expanded(child: Text(localPath != null ? 'Видео' : content.preview)),
-            ],
-          ),
-          if (content.formattedCaption != null)
-            FormattedTextWidget(formatted: content.formattedCaption!)
-          else if (content.caption != null)
-            Text(content.caption!),
+          if (localPath != null)
+            InlineVideoPlayer(
+              filePath: localPath,
+              durationLabel: content.videoInfo?.durationLabel,
+              onOpenFullscreen:
+                  onMediaTap == null ? null : () => onMediaTap!(message),
+            )
+          else
+            _MediaPlaceholder(
+              icon: Icons.videocam_outlined,
+              label: content.preview,
+              durationLabel: content.videoInfo?.durationLabel,
+            ),
+          ..._captionWidgets(content),
         ],
+      );
+    }
+
+    if (content.kind == MessageKind.videoNote) {
+      return Align(
+        alignment: Alignment.center,
+        child: localPath != null
+            ? VideoNotePlayer(
+                filePath: localPath,
+                videoInfo: content.videoInfo,
+                onOpenFullscreen:
+                    onMediaTap == null ? null : () => onMediaTap!(message),
+              )
+            : _MediaPlaceholder(
+                icon: Icons.radio_button_checked_outlined,
+                label: content.preview,
+              ),
       );
     }
 
@@ -315,5 +376,86 @@ class _MessageBody extends StatelessWidget {
     }
 
     return Text(content.preview);
+  }
+
+  List<Widget> _captionWidgets(MessageContent content) {
+    if (content.formattedCaption != null) {
+      return [
+        const SizedBox(height: 8),
+        FormattedTextWidget(formatted: content.formattedCaption!),
+      ];
+    }
+    if (content.caption != null) {
+      return [
+        const SizedBox(height: 8),
+        Text(content.caption!),
+      ];
+    }
+    return const [];
+  }
+
+  String? _albumCaption(List<ChatMessage> messages) {
+    for (final item in messages.reversed) {
+      final caption = item.content.caption;
+      if (caption != null && caption.isNotEmpty) {
+        return caption;
+      }
+    }
+    return null;
+  }
+}
+
+class _MediaPlaceholder extends StatelessWidget {
+  const _MediaPlaceholder({
+    required this.icon,
+    required this.label,
+    this.durationLabel,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? durationLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 160,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 40),
+              const SizedBox(height: 8),
+              Text(label),
+            ],
+          ),
+          if (durationLabel != null)
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Text(
+                    durationLabel!,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
