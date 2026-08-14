@@ -152,6 +152,8 @@ class AutoDownloadSettingsModel {
     return switch (kind) {
       MessageKind.photo =>
         maxPhotoBytes <= 0 || size <= maxPhotoBytes,
+      MessageKind.sticker || MessageKind.animation =>
+        maxPhotoBytes <= 0 || size <= maxPhotoBytes,
       MessageKind.video || MessageKind.videoNote =>
         maxVideoBytes <= 0 || size <= maxVideoBytes,
       MessageKind.voice || MessageKind.audio || MessageKind.document =>

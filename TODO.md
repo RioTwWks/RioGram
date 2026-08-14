@@ -293,10 +293,10 @@
 - [x] Очистка кэша (`optimizeStorage`, выборочное удаление)
 
 #### Стикеры и GIF
-- [ ] Отправка стикеров (`inputMessageSticker`, `messageSticker`)
-- [ ] Панель стикеров: наборы, избранное, недавние (`getInstalledStickerSets`, `searchStickers`)
-- [ ] GIF: `searchAnimatedEmojis` / `searchGifs`, `inputMessageAnimation`
-- [ ] Стикерпаки: установка по ссылке, просмотр набора
+- [x] Отправка стикеров (`inputMessageSticker`, `messageSticker`)
+- [x] Панель стикеров: наборы, избранное, недавние (`getInstalledStickerSets`, `searchStickers`)
+- [x] GIF: `searchAnimatedEmojis` / `searchGifs`, `inputMessageAnimation`
+- [x] Стикерпаки: установка по ссылке, просмотр набора
 
 ---
 
