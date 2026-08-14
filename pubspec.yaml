@@ -12,10 +12,12 @@ dependencies:
   cupertino_icons: ^1.0.8
   provider: ^6.1.5
   path_provider: ^2.1.5
+  path: ^1.9.1
   shared_preferences: ^2.5.3
   ffi: ^2.1.4
   flutter_dotenv: ^5.2.1
   file_picker: ^8.3.7
+  video_player: ^2.10.0
   flutter_local_notifications: ^19.0.0
   intl: ^0.20.2
 

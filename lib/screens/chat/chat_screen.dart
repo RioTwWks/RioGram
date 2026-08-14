@@ -7,11 +7,14 @@ import 'package:provider/provider.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../models/chat_models.dart';
 import '../../models/formatted_text.dart';
+import '../../models/media_models.dart';
 import '../../widgets/forward_messages_dialog.dart';
+import '../../widgets/media_attach_sheet.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
 import '../../widgets/poll_message_body.dart';
+import 'media_viewer_screen.dart';
 
 /// Экран переписки: форматирование, ответ, пересылка, редактирование, удаление.
 class ChatScreen extends StatefulWidget {
@@ -88,12 +91,90 @@ class _ChatScreenState extends State<ChatScreen> {
     manager.clearScheduledSendAt();
   }
 
-  Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles();
-    final path = result?.files.single.path;
-    if (path != null && mounted) {
-      await context.read<ChatManager>().sendFile(path);
+  Future<void> _attachMedia() async {
+    final action = await MediaAttachSheet.show(context);
+    if (action == null || !mounted) {
+      return;
     }
+
+    final manager = context.read<ChatManager>();
+    switch (action) {
+      case MediaAttachAction.photoCompressed:
+        final photo = await FilePicker.platform.pickFiles(type: FileType.image);
+        final photoPath = photo?.files.single.path;
+        if (photoPath != null) {
+          await manager.sendPhoto(photoPath);
+        }
+      case MediaAttachAction.photoAsFile:
+        final photoFile = await FilePicker.platform.pickFiles(type: FileType.image);
+        final photoFilePath = photoFile?.files.single.path;
+        if (photoFilePath != null) {
+          await manager.sendDocument(photoFilePath);
+        }
+      case MediaAttachAction.videoCompressed:
+        final video = await FilePicker.platform.pickFiles(type: FileType.video);
+        final videoPath = video?.files.single.path;
+        if (videoPath != null) {
+          await manager.sendVideo(videoPath);
+        }
+      case MediaAttachAction.videoAsFile:
+        final videoFile = await FilePicker.platform.pickFiles(type: FileType.video);
+        final videoFilePath = videoFile?.files.single.path;
+        if (videoFilePath != null) {
+          await manager.sendDocument(videoFilePath);
+        }
+      case MediaAttachAction.videoNote:
+        final note = await FilePicker.platform.pickFiles(type: FileType.video);
+        final notePath = note?.files.single.path;
+        if (notePath != null) {
+          await manager.sendVideoNote(notePath);
+        }
+      case MediaAttachAction.album:
+        final album = await FilePicker.platform.pickFiles(
+          allowMultiple: true,
+          type: FileType.media,
+        );
+        final paths = album?.files
+                .map((file) => file.path)
+                .whereType<String>()
+                .toList() ??
+            [];
+        if (paths.isNotEmpty) {
+          await manager.sendMediaAlbum(paths);
+        }
+      case MediaAttachAction.document:
+        final doc = await FilePicker.platform.pickFiles();
+        final docPath = doc?.files.single.path;
+        if (docPath != null) {
+          await manager.sendDocument(docPath);
+        }
+    }
+  }
+
+  void _openMediaViewer(ChatMessage anchor) {
+    final manager = context.read<ChatManager>();
+    final items = manager.messages
+        .where((message) => MediaAlbumGrouper.isMediaKind(message.content.kind))
+        .map(MediaViewerItem.fromMessage)
+        .where((item) => item.hasLocalFile)
+        .toList();
+    if (items.isEmpty) {
+      return;
+    }
+
+    var initialIndex = items.indexWhere((item) => item.messageId == anchor.id);
+    if (initialIndex < 0) {
+      initialIndex = 0;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MediaViewerScreen(
+          items: items,
+          initialIndex: initialIndex,
+        ),
+      ),
+    );
   }
 
   Future<void> _pickSchedule() async {
@@ -411,6 +492,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatManager = context.watch<ChatManager>();
     final chat = chatManager.activeChat;
     final messages = chatManager.messages;
+    final listItems = MediaAlbumGrouper.group(messages);
     final typing = chatManager.typingStatus;
     final selectionMode = chatManager.isSelectionMode;
     final editing = chatManager.editingMessage;
@@ -484,16 +566,21 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         ),
                       )
-                    : messages.isEmpty
+                    : listItems.isEmpty
                         ? const Center(child: Text('Нет сообщений'))
                         : ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: messages.length,
+                            itemCount: listItems.length,
                             itemBuilder: (context, index) {
-                              final message = messages[index];
+                              final item = listItems[index];
+                              final message = item.primary;
+                              final album = item is AlbumChatMessageItem
+                                  ? item.albumMessages
+                                  : null;
                               return MessageBubble(
                                 message: message,
+                                albumMessages: album,
                                 replyPreview:
                                     chatManager.replyPreviewFor(message),
                                 selectionMode: selectionMode,
@@ -524,6 +611,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                     );
                                   }
                                 },
+                                onMediaTap: selectionMode
+                                    ? null
+                                    : _openMediaViewer,
                               );
                             },
                           ),
@@ -533,7 +623,7 @@ class _ChatScreenState extends State<ChatScreen> {
             MessageInputBar(
               controller: _controller,
               onSend: _sendMessage,
-              onAttach: _pickFile,
+              onAttach: _attachMedia,
               onPoll: _createPoll,
               onSchedule: _pickSchedule,
               replyDraft: chatManager.pendingReply,

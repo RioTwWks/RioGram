@@ -655,22 +655,196 @@ class ChatManager extends ChangeNotifier {
   }
 
   Future<void> sendFile(String path) async {
+    await sendDocument(path);
+  }
+
+  Future<void> sendDocument(String path, {FormattedText? caption}) async {
     final chatId = _activeChatId;
     if (chatId == null) {
       return;
     }
 
-    _client.send({
-      '@type': 'sendMessage',
-      'chat_id': chatId,
-      'input_message_content': {
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: {
         '@type': 'inputMessageDocument',
         'document': {
           '@type': 'inputFileLocal',
           'path': path,
         },
+        if (caption != null && caption.text.isNotEmpty)
+          'caption': caption.toTdlib(),
       },
-    });
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendPhoto(String path, {FormattedText? caption}) async {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: {
+        '@type': 'inputMessagePhoto',
+        'photo': {
+          '@type': 'inputFileLocal',
+          'path': path,
+        },
+        if (caption != null && caption.text.isNotEmpty)
+          'caption': caption.toTdlib(),
+      },
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendVideo(String path, {FormattedText? caption}) async {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: {
+        '@type': 'inputMessageVideo',
+        'video': {
+          '@type': 'inputFileLocal',
+          'path': path,
+        },
+        'supports_streaming': true,
+        if (caption != null && caption.text.isNotEmpty)
+          'caption': caption.toTdlib(),
+      },
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendVideoNote(String path) async {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: {
+        '@type': 'inputMessageVideoNote',
+        'video_note': {
+          '@type': 'inputFileLocal',
+          'path': path,
+        },
+      },
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendMediaAlbum(List<String> paths) async {
+    final chatId = _activeChatId;
+    if (chatId == null || paths.isEmpty) {
+      return;
+    }
+
+    if (paths.length == 1) {
+      await sendPhoto(paths.first);
+      return;
+    }
+
+    final contents = paths.map((path) {
+      final lower = path.toLowerCase();
+      if (_isVideoPath(lower)) {
+        return {
+          '@type': 'inputMessageVideo',
+          'video': {
+            '@type': 'inputFileLocal',
+            'path': path,
+          },
+          'supports_streaming': true,
+        };
+      }
+      return {
+        '@type': 'inputMessagePhoto',
+        'photo': {
+          '@type': 'inputFileLocal',
+          'path': path,
+        },
+      };
+    }).toList();
+
+    final payload = <String, dynamic>{
+      '@type': 'sendMessageAlbum',
+      'chat_id': chatId,
+      'input_message_contents': contents,
+    };
+
+    final options = _sendOptionsMap();
+    if (options != null) {
+      payload['options'] = options;
+    }
+
+    final reply = _pendingReply;
+    if (reply != null) {
+      payload['reply_to'] = {
+        '@type': 'inputMessageReplyToMessage',
+        'message_id': reply.messageId,
+      };
+    }
+
+    _client.send(payload);
+    _clearComposerStateAfterSend();
+  }
+
+  Map<String, dynamic> _buildSendPayload({
+    required int chatId,
+    required Map<String, dynamic> inputMessageContent,
+  }) {
+    final payload = <String, dynamic>{
+      '@type': 'sendMessage',
+      'chat_id': chatId,
+      'input_message_content': inputMessageContent,
+    };
+
+    final options = _sendOptionsMap();
+    if (options != null) {
+      payload['options'] = options;
+    }
+
+    final reply = _pendingReply;
+    if (reply != null) {
+      payload['reply_to'] = {
+        '@type': 'inputMessageReplyToMessage',
+        'message_id': reply.messageId,
+      };
+    }
+
+    return payload;
+  }
+
+  Map<String, dynamic>? _sendOptionsMap() {
+    if (_scheduledSendAt == null) {
+      return null;
+    }
+    return {
+      '@type': 'messageSendOptions',
+      'scheduling_state':
+          MessageSchedulingAtDate(sendAt: _scheduledSendAt!).toTdlib(),
+    };
+  }
+
+  void _clearComposerStateAfterSend() {
+    _pendingReply = null;
+    _scheduledSendAt = null;
+    sendChatAction(OutgoingChatAction.cancel);
+    notifyListeners();
+  }
+
+  static bool _isVideoPath(String lowerPath) {
+    return lowerPath.endsWith('.mp4') ||
+        lowerPath.endsWith('.mov') ||
+        lowerPath.endsWith('.webm') ||
+        lowerPath.endsWith('.mkv');
   }
 
   void sendTypingAction() {
@@ -1675,6 +1849,8 @@ class ChatManager extends ChangeNotifier {
             formattedCaption: message.content.formattedCaption,
             localPath: localPath,
             fileName: message.content.fileName,
+            poll: message.content.poll,
+            videoInfo: message.content.videoInfo,
           ),
         );
         messagesChanged = true;
@@ -1714,6 +1890,7 @@ class ChatManager extends ChangeNotifier {
 
   void _requestDownloadForMessage(ChatMessage message) {
     if (message.content.kind == MessageKind.text ||
+        message.content.kind == MessageKind.poll ||
         message.localFilePath != null ||
         message.mediaFileId == null) {
       return;
