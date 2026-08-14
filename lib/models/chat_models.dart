@@ -628,6 +628,8 @@ class ChatMessage {
     this.fileTransfer,
     this.coverFileId,
     this.coverLocalPath,
+    this.isPinned = false,
+    this.canBePinned = false,
   });
 
   final int id;
@@ -654,6 +656,8 @@ class ChatMessage {
   final FileTransferState? fileTransfer;
   final int? coverFileId;
   final String? coverLocalPath;
+  final bool isPinned;
+  final bool canBePinned;
 
   bool get isEdited => editDate != null;
 
@@ -701,6 +705,8 @@ class ChatMessage {
     FileTransferState? fileTransfer,
     int? coverFileId,
     String? coverLocalPath,
+    bool? isPinned,
+    bool? canBePinned,
     bool clearFileTransfer = false,
     bool clearCoverLocalPath = false,
   }) {
@@ -733,6 +739,8 @@ class ChatMessage {
       coverFileId: coverFileId ?? this.coverFileId,
       coverLocalPath:
           clearCoverLocalPath ? null : (coverLocalPath ?? this.coverLocalPath),
+      isPinned: isPinned ?? this.isPinned,
+      canBePinned: canBePinned ?? this.canBePinned,
     );
   }
 
@@ -797,6 +805,16 @@ class ChatMessage {
         json['reply_markup'] as Map<String, dynamic>?,
       ),
       groupedId: json['grouped_id'] as int?,
+      isPinned: json['is_pinned'] as bool? ?? false,
+      canBePinned: _parseCanBePinned(json),
     );
+  }
+
+  static bool _parseCanBePinned(Map<String, dynamic> json) {
+    final properties = json['properties'] as Map<String, dynamic>?;
+    if (properties != null) {
+      return properties['can_be_pinned'] as bool? ?? false;
+    }
+    return json['can_be_pinned'] as bool? ?? false;
   }
 }
