@@ -38,6 +38,9 @@ enum MediaAttachAction {
   audio,
   document,
   album,
+  location,
+  liveLocation,
+  venue,
 }
 
 /// Элемент списка переписки: одно сообщение или альбом.

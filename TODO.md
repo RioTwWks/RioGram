@@ -342,10 +342,10 @@
 - [x] История звонков (`messageCall`)
 
 #### Геолокация
-- [ ] Отправка точки на карте (`inputMessageLocation`)
-- [ ] Live Location: трансляция, `editMessageLiveLocation`, остановка
-- [ ] Venues / места (`inputMessageVenue`)
-- [ ] Открытие координат во внешней карте
+- [x] Отправка точки на карте (`inputMessageLocation`)
+- [x] Live Location: трансляция, `editMessageLiveLocation`, остановка
+- [x] Venues / места (`inputMessageVenue`)
+- [x] Открытие координат во внешней карте
 
 ---
 

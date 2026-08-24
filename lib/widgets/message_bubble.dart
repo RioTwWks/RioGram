@@ -9,11 +9,13 @@ import '../models/chat_models.dart';
 import '../models/formatted_text.dart';
 import '../models/message_enrichment.dart';
 import '../models/sticker_models.dart';
+import '../core/location/map_launcher.dart';
 import 'audio_message_player.dart';
 import 'file_transfer_progress_bar.dart';
 import 'formatted_text_widget.dart';
 import 'inline_keyboard_widget.dart';
 import 'inline_video_player.dart';
+import 'location_message_body.dart';
 import 'media_album_grid.dart';
 import 'message_delivery_icon.dart';
 import 'message_reactions_row.dart';
@@ -42,6 +44,7 @@ class MessageBubble extends StatelessWidget {
     this.onCommentsTap,
     this.showComments = false,
     this.showSenderName = false,
+    this.activeLiveLocationMessageId,
   });
 
   final ChatMessage message;
@@ -61,6 +64,7 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onCommentsTap;
   final bool showComments;
   final bool showSenderName;
+  final int? activeLiveLocationMessageId;
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +134,7 @@ class MessageBubble extends StatelessWidget {
                     albumMessages: albumMessages,
                     onPollVote: onPollVote,
                     onMediaTap: onMediaTap,
+                    activeLiveLocationMessageId: activeLiveLocationMessageId,
                   ),
                   if (message.fileTransfer != null &&
                       message.fileTransfer!.isActive)
@@ -289,12 +294,14 @@ class _MessageBody extends StatelessWidget {
     this.albumMessages,
     this.onPollVote,
     this.onMediaTap,
+    this.activeLiveLocationMessageId,
   });
 
   final ChatMessage message;
   final List<ChatMessage>? albumMessages;
   final void Function(int optionId)? onPollVote;
   final void Function(ChatMessage message)? onMediaTap;
+  final int? activeLiveLocationMessageId;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +363,34 @@ class _MessageBody extends StatelessWidget {
             ),
           ),
         ],
+      );
+    }
+
+    if ((content.kind == MessageKind.location ||
+            content.kind == MessageKind.liveLocation) &&
+        content.locationInfo != null) {
+      final info = content.locationInfo!;
+      return LocationMessageBody(
+        preview: info.preview(),
+        point: info.point,
+        subtitle: info.liveMeta?.periodLabel,
+        isLive: info.isLive,
+        isExpired: info.isExpired,
+        isBroadcasting: activeLiveLocationMessageId == message.id,
+        onOpenMap: () => MapLauncher.openLocation(info.point),
+      );
+    }
+
+    if (content.kind == MessageKind.venue && content.venueInfo != null) {
+      final venue = content.venueInfo!.venue;
+      return LocationMessageBody(
+        preview: venue.preview(),
+        point: venue.location,
+        subtitle: venue.address,
+        onOpenMap: () => MapLauncher.openLocation(
+          venue.location,
+          label: venue.title,
+        ),
       );
     }
 

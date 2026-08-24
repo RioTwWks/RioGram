@@ -67,6 +67,24 @@ class MediaAttachSheet extends StatelessWidget {
             title: const Text('Файл'),
             onTap: () => Navigator.pop(context, MediaAttachAction.document),
           ),
+          ListTile(
+            leading: const Icon(Icons.location_on_outlined),
+            title: const Text('Геолокация'),
+            subtitle: const Text('Точка на карте'),
+            onTap: () => Navigator.pop(context, MediaAttachAction.location),
+          ),
+          ListTile(
+            leading: const Icon(Icons.my_location),
+            title: const Text('Live Location'),
+            subtitle: const Text('Трансляция геопозиции'),
+            onTap: () => Navigator.pop(context, MediaAttachAction.liveLocation),
+          ),
+          ListTile(
+            leading: const Icon(Icons.place_outlined),
+            title: const Text('Место'),
+            subtitle: const Text('Venue с названием и адресом'),
+            onTap: () => Navigator.pop(context, MediaAttachAction.venue),
+          ),
         ],
       ),
     );
