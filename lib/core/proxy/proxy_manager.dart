@@ -74,6 +74,10 @@ class ProxyManager extends ChangeNotifier {
 
   SystemProxyConfig? _systemProxy;
 
+  /// Snapshot на время addProxy System/Transport — не зависит от `_systemProxy`,
+  /// который `setupProxies()` обнуляет при повторном входе.
+  SystemProxyConfig? _pendingSystemProxy;
+
   /// Загрузка настроек и регистрация прокси в TDLib.
   Future<void> setupProxies() async {
     _autoFailoverEnabled = await _preferences.isAutoFailoverEnabled();
@@ -83,6 +87,7 @@ class ProxyManager extends ChangeNotifier {
     _pendingConfigs.clear();
     _proxyPayloadsById.clear();
     _systemProxy = null;
+    _pendingSystemProxy = null;
     _lastError = null;
 
     // Старый transport (127.0.0.1:12334) из binlog иначе остаётся и даёт
@@ -115,6 +120,9 @@ class ProxyManager extends ChangeNotifier {
     if (systemProxy != null && systemProxy.isConfigured) {
       expectedRegistrations++;
       final isTransportOnly = validConfigs.isNotEmpty;
+      // Локальный snapshot: ответ addProxy может прийти после повторного
+      // setupProxies(), когда _systemProxy уже снова null.
+      _pendingSystemProxy = systemProxy;
       _client.send({
         '@type': 'addProxy',
         'proxy': _systemProxyPayload(systemProxy),
@@ -473,19 +481,20 @@ class ProxyManager extends ChangeNotifier {
 
     final extra = addedProxy['@extra'] as String?;
     ProxyConfig? config;
+    SystemProxyConfig? systemConfig;
     String? displayName;
     Map<String, dynamic>? payload;
     if (extra == 'addProxy_System') {
       displayName = systemProxyName;
-      final systemProxy = _systemProxy;
-      if (systemProxy != null) {
-        payload = _systemProxyPayload(systemProxy);
+      systemConfig = _pendingSystemProxy ?? _systemProxy;
+      if (systemConfig != null) {
+        payload = _systemProxyPayload(systemConfig);
       }
     } else if (extra == 'addProxy_Transport') {
       displayName = transportProxyName;
-      final systemProxy = _systemProxy;
-      if (systemProxy != null) {
-        payload = _systemProxyPayload(systemProxy);
+      systemConfig = _pendingSystemProxy ?? _systemProxy;
+      if (systemConfig != null) {
+        payload = _systemProxyPayload(systemConfig);
       }
     } else if (extra != null && extra.startsWith('addProxy_')) {
       final name = extra.substring('addProxy_'.length);
@@ -505,18 +514,46 @@ class ProxyManager extends ChangeNotifier {
       return;
     }
 
+    // Fallback: TDLib echo'ит server/port/type в ответе addProxy.
+    payload ??= _payloadFromRegisteredProxy(addedProxy);
+
     if (payload != null) {
       _proxyPayloadsById[id] = payload;
     }
+
+    final server = addedProxy['server'] as String?;
+    final port = tdInt(addedProxy['port']);
     _proxies.add(
       ProxyEntry(
         id: id,
         name: displayName,
-        host: config?.host ?? _systemProxy?.host ?? '',
-        port: config?.port ?? _systemProxy?.port ?? 0,
+        host: config?.host ?? systemConfig?.host ?? server ?? '',
+        port: config?.port ?? systemConfig?.port ?? port ?? 0,
       ),
     );
     notifyListeners();
+  }
+
+  /// Собирает ping-payload из ответа TDLib, если локальный snapshot уже сброшен.
+  Map<String, dynamic>? _payloadFromRegisteredProxy(
+    Map<String, dynamic> addedProxy,
+  ) {
+    final server = addedProxy['server'] as String?;
+    final port = tdInt(addedProxy['port']);
+    final type = addedProxy['type'];
+    if (server == null ||
+        server.isEmpty ||
+        port == null ||
+        port <= 0 ||
+        type is! Map) {
+      return null;
+    }
+    return {
+      '@type': 'proxy',
+      'server': server,
+      'port': port,
+      'type': Map<String, dynamic>.from(type),
+    };
   }
 
   void _handleProxyError(Map<String, dynamic> update) {
