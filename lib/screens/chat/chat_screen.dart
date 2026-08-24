@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/call/call_manager.dart';
+import '../../core/call/group_call_manager.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../models/call_models.dart';
 import '../../models/channel_models.dart';
@@ -114,6 +115,20 @@ class _ChatScreenState extends State<ChatScreen> {
       userId: userId,
       isVideo: isVideo,
       displayName: chat?.title,
+    );
+  }
+
+  Future<void> _startGroupCall({required bool isVideo}) async {
+    final chatManager = context.read<ChatManager>();
+    final groupCallManager = context.read<GroupCallManager>();
+    final chat = chatManager.activeChat;
+    if (chat == null) {
+      return;
+    }
+    await groupCallManager.startVideoChat(
+      chatId: widget.chatId,
+      title: chat.title,
+      isVideo: isVideo,
     );
   }
 
@@ -723,6 +738,11 @@ class _ChatScreenState extends State<ChatScreen> {
         chat?.kind == ChatKind.privateChat &&
         privateUserId != null &&
         callCaps.canBeCalled;
+    final showGroupCallActions =
+        !selectionMode &&
+        widget.forumTopicId == null &&
+        (chat?.kind == ChatKind.group || chat?.kind == ChatKind.channel) &&
+        chatManager.canSendInActiveChat;
 
     if (messages.isNotEmpty) {
       _scrollToBottom();
@@ -778,6 +798,18 @@ class _ChatScreenState extends State<ChatScreen> {
         automaticallyImplyLeading:
             !selectionMode && widget.forumTopicId == null,
         actions: [
+          if (showGroupCallActions) ...[
+            IconButton(
+              tooltip: 'Video chat',
+              icon: const Icon(Icons.groups),
+              onPressed: () => _startGroupCall(isVideo: false),
+            ),
+            IconButton(
+              tooltip: 'Video chat с камерой',
+              icon: const Icon(Icons.video_chat),
+              onPressed: () => _startGroupCall(isVideo: true),
+            ),
+          ],
           if (showCallActions) ...[
             IconButton(
               tooltip: 'Аудиозвонок',
