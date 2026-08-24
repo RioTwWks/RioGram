@@ -336,6 +336,29 @@ class _MessageBody extends StatelessWidget {
       );
     }
 
+    if (content.kind == MessageKind.call && content.callInfo != null) {
+      final info = content.callInfo!;
+      final icon = info.isVideo ? Icons.videocam : Icons.call;
+      final color = info.isMissed || info.isDeclined
+          ? Theme.of(context).colorScheme.error
+          : Theme.of(context).colorScheme.primary;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              info.preview(isOutgoing: message.isOutgoing),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: color,
+                  ),
+            ),
+          ),
+        ],
+      );
+    }
+
     if (content.kind == MessageKind.text) {
       final formatted = content.formattedText;
       if (formatted != null && formatted.text.isNotEmpty) {

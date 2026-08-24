@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/auth/auth_manager.dart';
+import 'core/call/call_manager.dart';
 import 'core/chat/chat_manager.dart';
 import 'core/config/app_config.dart';
 import 'core/chat/sticker_manager.dart';
@@ -15,6 +16,7 @@ import 'screens/auth/code_screen.dart';
 import 'screens/auth/password_screen.dart';
 import 'screens/auth/phone_screen.dart';
 import 'screens/chats/chats_screen.dart';
+import 'widgets/call_overlay_host.dart';
 
 class RioGramApp extends StatelessWidget {
   const RioGramApp({super.key, required this.config});
@@ -40,7 +42,9 @@ class RioGramApp extends StatelessWidget {
             theme: themeManager.lightTheme,
             darkTheme: themeManager.darkTheme,
             themeMode: themeManager.themeMode,
-            home: const _RootScreen(),
+            home: const CallOverlayHost(
+              child: _RootScreen(),
+            ),
           );
         },
       ),
@@ -66,6 +70,7 @@ class _AppScopeState extends State<_AppScope> {
   late final AuthManager _authManager;
   late final MediaCacheManager _mediaCacheManager;
   late final StickerManager _stickerManager;
+  late final CallManager _callManager;
   late final ChatManager _chatManager;
 
   @override
@@ -79,6 +84,7 @@ class _AppScopeState extends State<_AppScope> {
 
     _mediaCacheManager = MediaCacheManager(client: _client);
     _stickerManager = StickerManager(client: _client);
+    _callManager = CallManager(client: _client);
 
     _chatManager = ChatManager(
       client: _client,
@@ -93,6 +99,7 @@ class _AppScopeState extends State<_AppScope> {
       onAuthorized: () {
         _mediaCacheManager.startListening();
         _stickerManager.startListening();
+        _callManager.startListening();
         _chatManager.startListening();
         _chatManager.loadChats();
       },
@@ -103,6 +110,7 @@ class _AppScopeState extends State<_AppScope> {
   void dispose() {
     _authManager.dispose();
     _chatManager.dispose();
+    _callManager.dispose();
     _stickerManager.dispose();
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
@@ -123,6 +131,9 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<StickerManager>.value(
           value: _stickerManager,
+        ),
+        ChangeNotifierProvider<CallManager>.value(
+          value: _callManager,
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),
