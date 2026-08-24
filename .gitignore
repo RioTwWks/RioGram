@@ -14,6 +14,7 @@
 *.swp
 .buildlog/
 .history
+.cache/
 
 
 
