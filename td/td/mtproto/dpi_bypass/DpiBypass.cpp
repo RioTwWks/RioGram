@@ -13,9 +13,9 @@ namespace dpi_bypass {
 
 BrowserProfile pick_random_profile() {
   if (kDpiBypassStableProxyMode) {
-    // DPI_BYPASS: Yandex-профиль без ECH — PhantomProxy с reject_fronting отклоняет ECH (0xfe0d).
-    // utls HelloChrome_Auto тоже без ECH; наш Chrome-профиль содержит ECH и не подходит.
-    return BrowserProfile::Yandex;
+    // DPI_BYPASS: Chrome без ECH — как PhantomProxy testclient (utls HelloChrome_Auto).
+    // Ранее Yandex; сервер с reject_fronting может RST на чужой JA3.
+    return BrowserProfile::Chrome;
   }
 
   // DPI_BYPASS: случайный выбор профиля при каждом подключении.
@@ -78,6 +78,9 @@ std::vector<string> fragment_client_hello(Slice packet, size_t min_parts, size_t
 }
 
 size_t pick_random_record_size(size_t default_max) {
+  if (kDpiBypassStableProxyMode) {
+    return default_max;
+  }
   // DPI_BYPASS: варьируем размер TLS Application Data записей.
   constexpr size_t min_size = 1024;
   if (default_max <= min_size) {

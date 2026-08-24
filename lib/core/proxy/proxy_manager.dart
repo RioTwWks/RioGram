@@ -33,16 +33,23 @@ class ProxyManager extends ChangeNotifier {
   static const Duration pingTimeout = Duration(seconds: 20);
   static const Duration healthCheckInterval = Duration(seconds: 30);
   static const Duration transportProxyWarmup = Duration(seconds: 3);
+  static const Duration pingSettleDelay = Duration(seconds: 1);
+
+  static const String systemProxyName = 'Системный прокси';
+  static const String transportProxyName = 'Системный прокси (транспорт)';
 
   final List<ProxyEntry> _proxies = [];
   final List<ProxyConfig> _pendingConfigs = [];
-  final Map<int, ProxyConfig> _configsById = {};
+  /// TDLib `proxy` payload для pingProxy (MTProto и HTTP/SOCKS).
+  final Map<int, Map<String, dynamic>> _proxyPayloadsById = {};
 
   StreamSubscription<Map<String, dynamic>>? _updatesSubscription;
   Timer? _healthTimer;
 
   ProxyStatus _status = ProxyStatus.unknown;
   bool _autoFailoverEnabled = true;
+  bool _readyForFailover = false;
+  bool _failoverRunning = false;
   String? _lastError;
 
   List<ProxyEntry> get proxies => List.unmodifiable(_proxies);
@@ -70,11 +77,17 @@ class ProxyManager extends ChangeNotifier {
   /// Загрузка настроек и регистрация прокси в TDLib.
   Future<void> setupProxies() async {
     _autoFailoverEnabled = await _preferences.isAutoFailoverEnabled();
+    _readyForFailover = false;
+    _failoverRunning = false;
     _proxies.clear();
     _pendingConfigs.clear();
-    _configsById.clear();
+    _proxyPayloadsById.clear();
     _systemProxy = null;
     _lastError = null;
+
+    // Старый transport (127.0.0.1:12334) из binlog иначе остаётся и даёт
+    // Connection refused на ping MTProto, даже когда локальный прокси выключен.
+    await _purgeStoredProxies();
 
     _systemProxy = await SystemProxyDetector.detect();
     final systemProxy = _systemProxy;
@@ -108,7 +121,7 @@ class ProxyManager extends ChangeNotifier {
         'enable': false,
         'comment': isTransportOnly
             ? SystemProxyConfig.transportComment
-            : 'Системный прокси',
+            : systemProxyName,
         '@extra': isTransportOnly ? 'addProxy_Transport' : 'addProxy_System',
       });
     }
@@ -127,7 +140,9 @@ class ProxyManager extends ChangeNotifier {
       notifyListeners();
       await _waitForProxyRegistration(expectedRegistrations);
       await _enableSystemProxyOnly();
-      _startHealthChecks();
+      if (hasActiveProxy) {
+        _startHealthChecks();
+      }
       return;
     }
 
@@ -152,12 +167,97 @@ class ProxyManager extends ChangeNotifier {
       await Future<void>.delayed(transportProxyWarmup);
     }
     await _enableFirstAvailable();
-    _startHealthChecks();
+    if (hasActiveProxy) {
+      _startHealthChecks();
+    }
+  }
+
+  /// Удаляет все прокси из TDLib (включая transport из прошлого запуска).
+  Future<void> _purgeStoredProxies() async {
+    await _sendProxyOk('disableProxy', {'@type': 'disableProxy'});
+
+    const extra = 'getProxies_purge';
+    final listedFuture = _client.waitFor(
+      predicate: (update) {
+        if (update['@extra'] != extra) {
+          return false;
+        }
+        final type = update['@type'];
+        return type == 'proxies' ||
+            type == 'addedProxies' ||
+            type == 'error';
+      },
+      timeout: const Duration(seconds: 5),
+    );
+    _client.send({
+      '@type': 'getProxies',
+      '@extra': extra,
+    });
+    final listed = await listedFuture;
+    if (listed == null || listed['@type'] == 'error') {
+      debugPrint(
+        'ProxyManager: getProxies failed: '
+        '${listed?['message'] ?? 'timeout'}',
+      );
+      return;
+    }
+
+    final rawProxies = listed['proxies'];
+    if (rawProxies is! List) {
+      return;
+    }
+
+    var removed = 0;
+    for (final item in rawProxies) {
+      if (item is! Map) {
+        continue;
+      }
+      final id = tdInt(item['id']);
+      if (id == null || id <= 0) {
+        continue;
+      }
+      final ok = await _sendProxyOk('removeProxy', {
+        '@type': 'removeProxy',
+        'proxy_id': id,
+      });
+      if (ok) {
+        removed++;
+      }
+    }
+    if (removed > 0) {
+      debugPrint('ProxyManager: очищено старых прокси TDLib: $removed');
+    }
+  }
+
+  Future<bool> _sendProxyOk(String label, Map<String, dynamic> request) async {
+    final extra = '${label}_${DateTime.now().microsecondsSinceEpoch}';
+    final responseFuture = _client.waitFor(
+      predicate: (update) {
+        if (update['@extra'] != extra) {
+          return false;
+        }
+        final type = update['@type'];
+        return type == 'ok' || type == 'error';
+      },
+      timeout: const Duration(seconds: 5),
+    );
+    _client.send({...request, '@extra': extra});
+    final response = await responseFuture;
+    if (response == null || response['@type'] == 'error') {
+      debugPrint(
+        'ProxyManager: $label failed: '
+        '${response?['message'] ?? 'timeout'}',
+      );
+      return false;
+    }
+    return true;
   }
 
   Future<void> _enableSystemProxyOnly() async {
     final systemEntry = _proxies.cast<ProxyEntry?>().firstWhere(
-          (proxy) => proxy?.name == 'Системный прокси',
+          (proxy) =>
+              proxy != null &&
+              (proxy.name == systemProxyName || proxy.name == transportProxyName),
           orElse: () => null,
         );
     if (systemEntry == null) {
@@ -167,6 +267,23 @@ class ProxyManager extends ChangeNotifier {
       return;
     }
     await _enableProxy(systemEntry.id);
+  }
+
+  bool _isSystemLikeProxy(ProxyEntry proxy) =>
+      proxy.name == systemProxyName || proxy.name == transportProxyName;
+
+  /// Порядок failover: PhantomProxy → StealthGate → системный HTTP/SOCKS.
+  List<ProxyEntry> get _failoverCandidates {
+    final mtproto = <ProxyEntry>[];
+    final system = <ProxyEntry>[];
+    for (final proxy in _proxies) {
+      if (_isSystemLikeProxy(proxy)) {
+        system.add(proxy);
+      } else {
+        mtproto.add(proxy);
+      }
+    }
+    return [...mtproto, ...system];
   }
 
   Future<void> setAutoFailoverEnabled(bool enabled) async {
@@ -182,6 +299,7 @@ class ProxyManager extends ChangeNotifier {
       return false;
     }
 
+    final entry = _proxies[index];
     _setProxyHealth(proxyId, ProxyHealth.checking);
     _status = ProxyStatus.switching;
     notifyListeners();
@@ -190,7 +308,7 @@ class ProxyManager extends ChangeNotifier {
     if (!ping.ok) {
       // Включаем всё равно: ping через Fake TLS иногда ложно падает,
       // а рабочий прокси всё равно нужен для авторизации.
-      debugPrint('ProxyManager: ping ${ _proxies[index].name} failed: ${ping.error}');
+      debugPrint('ProxyManager: ping ${entry.name} failed: ${ping.error}');
     }
 
     await _enableProxy(proxyId);
@@ -211,59 +329,73 @@ class ProxyManager extends ChangeNotifier {
     return ping.ok;
   }
 
-  /// Переключение на следующий рабочий прокси.
+  /// Переключение на следующий рабочий прокси (ручное или auto-failover).
+  ///
+  /// Переключает **только** если ping следующего успешен.
+  /// Иначе оставляем текущий — иначе health-check включает битый StealthGate
+  /// (`Expected packet size is too big`) и рвёт сессии.
   Future<void> switchToNextProxy() async {
-    if (_proxies.isEmpty || !_autoFailoverEnabled) {
+    final candidates = _failoverCandidates;
+    if (candidates.isEmpty || _failoverRunning) {
       return;
     }
 
+    _failoverRunning = true;
     _status = ProxyStatus.switching;
     notifyListeners();
 
-    final currentIndex = _proxies.indexWhere((proxy) => proxy.isActive);
-    final startIndex = currentIndex < 0 ? 0 : currentIndex + 1;
+    try {
+      final currentIndex = candidates.indexWhere((proxy) => proxy.isActive);
+      final startIndex = currentIndex < 0 ? 0 : currentIndex + 1;
 
-    for (var offset = 0; offset < _proxies.length; offset++) {
-      final index = (startIndex + offset) % _proxies.length;
-      final proxy = _proxies[index];
-      if (proxy.isActive) {
-        continue;
+      for (var offset = 0; offset < candidates.length; offset++) {
+        final index = (startIndex + offset) % candidates.length;
+        final proxy = candidates[index];
+        if (proxy.isActive) {
+          continue;
+        }
+
+        final ping = await pingProxy(proxy.id);
+        if (ping.ok) {
+          await _enableProxy(proxy.id);
+          return;
+        }
+        _setProxyHealth(proxy.id, ProxyHealth.failed);
+        debugPrint('ProxyManager: failover skip ${proxy.name}: ${ping.error}');
       }
 
-      final ping = await pingProxy(proxy.id);
-      if (ping.ok) {
-        await _enableProxy(proxy.id);
-        return;
-      }
-      _setProxyHealth(proxy.id, ProxyHealth.failed);
-    }
-
-    // Если ни один ping не прошёл — всё равно пробуем следующий по кругу.
-    if (_proxies.isNotEmpty) {
-      final fallback = _proxies[startIndex % _proxies.length];
-      await _enableProxy(fallback.id);
-      _lastError = 'Ping не подтвердил доступность, включён ${fallback.name}';
+      // Все кандидаты мертвы — не трогаем active, чтобы не усугублять обрывы.
+      final active = activeProxy;
+      _status = active != null ? ProxyStatus.active : ProxyStatus.error;
+      _lastError =
+          'Нет доступного прокси для переключения'
+          '${active != null ? ' — оставлен ${active.name}' : ''}';
       notifyListeners();
-      return;
+    } finally {
+      _failoverRunning = false;
     }
-
-    _status = ProxyStatus.error;
-    _lastError = 'Все прокси недоступны';
-    notifyListeners();
   }
 
   /// Вызывается при проблемах с соединением (из AuthManager).
   Future<void> handleConnectionIssue() async {
-    if (!_autoFailoverEnabled || _proxies.isEmpty) {
+    if (!_autoFailoverEnabled || _failoverCandidates.isEmpty) {
       return;
     }
     await switchToNextProxy();
   }
 
-  Future<({bool ok, String? error})> pingProxy(int proxyId) async {
-    final config = _configsById[proxyId];
-    if (config == null) {
-      return (ok: false, error: 'Прокси $proxyId не найден в локальном кэше');
+  Future<({bool ok, String? error})> pingProxy(
+    int proxyId, {
+    int retriesOnCanceled = 2,
+  }) async {
+    final payload = _proxyPayloadsById[proxyId];
+    final entry = _proxies.cast<ProxyEntry?>().firstWhere(
+          (proxy) => proxy?.id == proxyId,
+          orElse: () => null,
+        );
+    final name = entry?.name ?? 'прокси $proxyId';
+    if (payload == null) {
+      return (ok: false, error: 'Прокси $proxyId ($name) не найден в локальном кэше');
     }
 
     final extra = 'ping_$proxyId';
@@ -280,7 +412,7 @@ class ProxyManager extends ChangeNotifier {
 
     _client.send({
       '@type': 'pingProxy',
-      'proxy': _proxyPayload(config),
+      'proxy': payload,
       '@extra': extra,
     });
 
@@ -289,13 +421,18 @@ class ProxyManager extends ChangeNotifier {
       _setProxyHealth(proxyId, ProxyHealth.failed);
       return (
         ok: false,
-        error: 'Таймаут ping ${config.name} (${pingTimeout.inSeconds}с)',
+        error: 'Таймаут ping $name (${pingTimeout.inSeconds}с)',
       );
     }
     if (response['@type'] == 'error') {
-      _setProxyHealth(proxyId, ProxyHealth.failed);
       final message = response['message'] as String? ?? 'неизвестная ошибка';
-      return (ok: false, error: '${config.name}: $message');
+      // enableProxy / реконнект часто рвут in-flight TransparentProxy → "Canceled".
+      if (retriesOnCanceled > 0 && message == 'Canceled') {
+        await Future<void>.delayed(pingSettleDelay);
+        return pingProxy(proxyId, retriesOnCanceled: retriesOnCanceled - 1);
+      }
+      _setProxyHealth(proxyId, ProxyHealth.failed);
+      return (ok: false, error: '$name: $message');
     }
 
     _setProxyHealth(proxyId, ProxyHealth.ok);
@@ -314,7 +451,11 @@ class ProxyManager extends ChangeNotifier {
   }
 
   void _handleConnectionState(Map<String, dynamic>? state) {
-    if (state == null || !_autoFailoverEnabled) {
+    if (state == null ||
+        !_autoFailoverEnabled ||
+        !_readyForFailover ||
+        _failoverRunning ||
+        _status == ProxyStatus.switching) {
       return;
     }
 
@@ -333,28 +474,39 @@ class ProxyManager extends ChangeNotifier {
     final extra = addedProxy['@extra'] as String?;
     ProxyConfig? config;
     String? displayName;
+    Map<String, dynamic>? payload;
     if (extra == 'addProxy_System') {
-      displayName = 'Системный прокси';
+      displayName = systemProxyName;
+      final systemProxy = _systemProxy;
+      if (systemProxy != null) {
+        payload = _systemProxyPayload(systemProxy);
+      }
     } else if (extra == 'addProxy_Transport') {
-      displayName = 'Системный прокси (транспорт)';
+      displayName = transportProxyName;
+      final systemProxy = _systemProxy;
+      if (systemProxy != null) {
+        payload = _systemProxyPayload(systemProxy);
+      }
     } else if (extra != null && extra.startsWith('addProxy_')) {
       final name = extra.substring('addProxy_'.length);
       final index = _pendingConfigs.indexWhere((item) => item.name == name);
       if (index >= 0) {
         config = _pendingConfigs.removeAt(index);
         displayName = config.name;
+        payload = _proxyPayload(config);
       }
     } else if (_pendingConfigs.isNotEmpty) {
       config = _pendingConfigs.removeAt(0);
       displayName = config.name;
+      payload = _proxyPayload(config);
     }
 
     if (displayName == null) {
       return;
     }
 
-    if (config != null) {
-      _configsById[id] = config;
+    if (payload != null) {
+      _proxyPayloadsById[id] = payload;
     }
     _proxies.add(
       ProxyEntry(
@@ -428,41 +580,50 @@ class ProxyManager extends ChangeNotifier {
     }
 
     final mtprotoProxies = _proxies
-        .where(
-          (proxy) =>
-              proxy.name != 'Системный прокси (транспорт)' &&
-              proxy.name != 'Системный прокси',
-        )
+        .where((proxy) => !_isSystemLikeProxy(proxy))
         .toList(growable: false);
     if (mtprotoProxies.isEmpty) {
       await _enableSystemProxyOnly();
       return;
     }
 
-    // Сначала включаем первый MTProto-прокси — без этого авторизация в РФ зависает.
+    // Ping может ложно падать (RST/Canceled), но без enable MTProto авторизация не стартует.
+    String? lastPingError;
+    for (final proxy in mtprotoProxies) {
+      final ping = await pingProxy(proxy.id);
+      if (ping.ok) {
+        await _enableProxy(proxy.id);
+        return;
+      }
+      lastPingError = ping.error;
+      debugPrint('ProxyManager: стартовый ping ${proxy.name}: ${ping.error}');
+    }
+
+    final systemEntry = _proxies.cast<ProxyEntry?>().firstWhere(
+          (proxy) => proxy != null && _isSystemLikeProxy(proxy),
+          orElse: () => null,
+        );
+    if (systemEntry != null) {
+      final systemPing = await pingProxy(systemEntry.id);
+      debugPrint(
+        'ProxyManager: fallback ping ${systemEntry.name}: '
+        '${systemPing.ok ? 'ok' : systemPing.error}',
+      );
+      if (systemPing.ok) {
+        await _enableProxy(systemEntry.id);
+        return;
+      }
+      lastPingError = systemPing.error;
+    }
+
+    // Все ping провалились — включаем первый MTProto (PhantomProxy), иначе TDLib
+    // уходит в direct DC и «Lost connection» в РФ/DPI.
     final first = mtprotoProxies.first;
     await _enableProxy(first.id);
-
-    final ping = await pingProxy(first.id);
-    if (!ping.ok) {
-      debugPrint('ProxyManager: стартовый ping ${first.name}: ${ping.error}');
-      for (final proxy in mtprotoProxies.skip(1)) {
-        final other = await pingProxy(proxy.id);
-        if (other.ok) {
-          await _enableProxy(proxy.id);
-          return;
-        }
-        debugPrint('ProxyManager: ping ${proxy.name}: ${other.error}');
-      }
-      final systemHint = _systemProxy != null && _systemProxy!.isConfigured
-          ? ' Системный прокси: ${_systemProxy!.host}:${_systemProxy!.port} '
-              '(${_systemProxy!.type.name}).'
-          : '';
-      _lastError =
-          '${ping.error ?? 'Ping прокси не подтвердил доступность'}.$systemHint '
-          'Прокси включён — можно попробовать авторизацию.';
-      notifyListeners();
-    }
+    _lastError =
+        '${lastPingError ?? 'Ping не подтвердил доступность'}. '
+        'Включён ${first.name} — проверь secret/SNI на VPS.';
+    notifyListeners();
   }
 
   Future<void> _enableProxy(int proxyId) async {
@@ -515,8 +676,9 @@ class ProxyManager extends ChangeNotifier {
 
   void _startHealthChecks() {
     _healthTimer?.cancel();
+    _readyForFailover = true;
     _healthTimer = Timer.periodic(healthCheckInterval, (_) async {
-      if (!_autoFailoverEnabled) {
+      if (!_autoFailoverEnabled || _failoverRunning) {
         return;
       }
       final active = activeProxy;
@@ -524,10 +686,36 @@ class ProxyManager extends ChangeNotifier {
         return;
       }
       final ping = await pingProxy(active.id);
-      if (!ping.ok) {
-        await switchToNextProxy();
+      if (ping.ok) {
+        return;
       }
+      // "Canceled" часто ложный при реконнекте.
+      if (ping.error?.contains('Canceled') ?? false) {
+        debugPrint(
+          'ProxyManager: health ping ${active.name} canceled, skip failover',
+        );
+        return;
+      }
+      // Протокольный мусор / RST — переключение только если другой ping ok.
+      if (_isHardProxyFailure(ping.error)) {
+        debugPrint(
+          'ProxyManager: health ${active.name} hard-fail (${ping.error}), '
+          'failover only if another proxy pings ok',
+        );
+      }
+      await switchToNextProxy();
     });
+  }
+
+  /// Явный отказ протокола/TCP — не «ложный Canceled».
+  bool _isHardProxyFailure(String? error) {
+    if (error == null) {
+      return false;
+    }
+    return error.contains('Expected packet size is too big') ||
+        error.contains('Connection reset by peer') ||
+        error.contains('Connection refused') ||
+        error.contains('Connection closed');
   }
 
   @override

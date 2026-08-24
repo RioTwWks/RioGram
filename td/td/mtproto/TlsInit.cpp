@@ -174,8 +174,63 @@ class TlsHello {
   }
 
   static const TlsHello &get_default() {
-    // DPI_BYPASS: выбираем случайный браузерный профиль для каждого ClientHello.
+    if (dpi_bypass::kDpiBypassStableProxyMode) {
+      static const TlsHello stable = [] {
+        TlsHello res;
+        res.ops_ = build_stable_proxy_ops();
+        return res;
+      }();
+      return stable;
+    }
+    // DPI_BYPASS: случайный браузерный профиль для полного bypass-режима.
     return get_for_profile(dpi_bypass::pick_random_profile());
+  }
+
+ private:
+  // DPI_BYPASS: фиксированный ClientHello для PhantomProxy testclient / utls Chrome.
+  // Без ECH, ML-KEM, shuffle расширений и padding — иначе front с reject_fronting даёт RST.
+  static std::vector<Op> build_stable_proxy_ops() {
+    return {
+        Op::str("\x16\x03\x01"),
+        Op::begin_scope(),
+        Op::str("\x01\x00"),
+        Op::begin_scope(),
+        Op::str("\x03\x03"),
+        Op::zero(32),
+        Op::str("\x20"),
+        Op::random(32),
+        Op::str("\x00\x20"),
+        Op::grease(0),
+        Op::str("\x13\x01\x13\x02\x13\x03\xc0\x2b\xc0\x2f\xc0\x2c\xc0\x30\xcc\xa9\xcc\xa8\xc0\x13\xc0\x14\x00\x9c\x00"
+                "\x9d\x00\x2f\x00\x35\x01\x00"),
+        Op::begin_scope(),
+        Op::grease(2),
+        Op::str("\x00\x00"),
+        Op::str("\x00\x00"),
+        Op::begin_scope(),
+        Op::begin_scope(),
+        Op::str("\x00"),
+        Op::begin_scope(),
+        Op::domain(),
+        Op::end_scope(),
+        Op::end_scope(),
+        Op::end_scope(),
+        Op::str("\x00\x17\x00\x00"),
+        Op::str("\xff\x01\x00\x01\x00"),
+        Op::str("\x00\x0a\x00\x0c\x00\x0a"), Op::grease(4),
+        Op::str("\x11\xec\x00\x1d\x00\x17\x00\x18"),
+        Op::str("\x00\x0b\x00\x02\x01\x00"),
+        Op::str("\x00\x10\x00\x0e\x00\x0c\x02\x68\x32\x08\x68\x74\x74\x70\x2f\x31\x2e\x31"),
+        Op::str("\x00\x05\x00\x05\x01\x00\x00\x00\x00"),
+        Op::str("\x00\x0d\x00\x12\x00\x10\x04\x03\x08\x04\x04\x01\x05\x03\x08\x05\x05\x01\x08\x06\x06\x01"),
+        Op::str("\x00\x2b\x00\x07\x06"), Op::grease(6), Op::str("\x03\x04\x03\x03"),
+        Op::str("\x00\x33\x00\x26\x00\x24"), Op::grease(4), Op::str("\x00\x1d\x00\x20"), Op::key(),
+        Op::str("\x00\x2d\x00\x02\x01\x01"),
+        Op::grease(3),
+        Op::str("\x00\x01\x00"),
+        Op::end_scope(),
+        Op::end_scope(),
+        Op::end_scope()};
   }
 
  private:
@@ -213,9 +268,7 @@ class TlsHello {
              vector<Op>{Op::str("\x00\x33\x04\xef\x04\xed"), Op::grease(4), Op::str("\x00\x01\x00\x11\xec\x04\xc0"),
                         Op::ml_kem_768_key(), Op::key(), Op::str("\x00\x1d\x00\x20"), Op::key()},
              vector<Op>{Op::str("\x44\xcd\x00\x05\x00\x03\x02\x68\x32")},
-             vector<Op>{Op::str("\xfe\x0d"), Op::begin_scope(), Op::str("\x00\x00\x01\x00\x01"), Op::random(1),
-                        Op::str("\x00\x20"), Op::random(32), Op::begin_scope(), Op::ech_payload(), Op::end_scope(),
-                        Op::end_scope()},
+             // DPI_BYPASS: без ECH (0xfe0d) — PhantomProxy reject_fronting / utls Chrome_Auto.
              vector<Op>{Op::str("\xff\x01\x00\x01\x00")}}),
         Op::grease(3),
         Op::str("\x00\x01\x00"),

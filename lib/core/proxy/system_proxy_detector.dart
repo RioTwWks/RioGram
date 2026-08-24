@@ -13,53 +13,36 @@ class SystemProxyDetector {
   static const MethodChannel _channel =
       MethodChannel('com.riotwwks.riogram/system_proxy');
 
-  /// Возвращает системный прокси или `null`, если не настроен.
+  /// Возвращает системный прокси или `null`, если не настроен / порт закрыт.
   static Future<SystemProxyConfig?> detect() async {
-    final fromPlatform = await _readPlatformProxy();
-    if (fromPlatform != null) {
+    final candidates = <SystemProxyConfig?>[
+      await _readPlatformProxy(),
+      _readEnvironmentProxy(),
+      if (!kIsWeb && Platform.isLinux) ...[
+        await _readEtcEnvironmentProxy(),
+        await _readKdeProxy(),
+        await _readGnomeProxy(),
+      ],
+    ];
+
+    for (var candidate in candidates) {
+      if (candidate == null || !candidate.isConfigured) {
+        continue;
+      }
+      candidate = await _enrichWithGnomeCredentials(candidate);
+      if (!await _isPortOpen(candidate.host, candidate.port)) {
+        debugPrint(
+          'SystemProxyDetector: ${candidate.host}:${candidate.port} '
+          'не отвечает (Connection refused) — пропуск',
+        );
+        continue;
+      }
       debugPrint(
-        'SystemProxyDetector: platform ${fromPlatform.type.name} '
-        '${fromPlatform.host}:${fromPlatform.port}',
+        'SystemProxyDetector: ${candidate.type.name} '
+        '${candidate.host}:${candidate.port}'
+        '${candidate.username.isNotEmpty ? ' (auth)' : ''}',
       );
-      return fromPlatform;
-    }
-
-    final fromEnv = _readEnvironmentProxy();
-    if (fromEnv != null) {
-      debugPrint(
-        'SystemProxyDetector: env ${fromEnv.type.name} '
-        '${fromEnv.host}:${fromEnv.port}',
-      );
-      return fromEnv;
-    }
-
-    if (!kIsWeb && Platform.isLinux) {
-      final fromEtc = await _readEtcEnvironmentProxy();
-      if (fromEtc != null) {
-        debugPrint(
-          'SystemProxyDetector: /etc/environment ${fromEtc.type.name} '
-          '${fromEtc.host}:${fromEtc.port}',
-        );
-        return fromEtc;
-      }
-
-      final fromKde = await _readKdeProxy();
-      if (fromKde != null) {
-        debugPrint(
-          'SystemProxyDetector: KDE ${fromKde.type.name} '
-          '${fromKde.host}:${fromKde.port}',
-        );
-        return fromKde;
-      }
-
-      final fromGnome = await _readGnomeProxy();
-      if (fromGnome != null) {
-        debugPrint(
-          'SystemProxyDetector: GNOME ${fromGnome.type.name} '
-          '${fromGnome.host}:${fromGnome.port}',
-        );
-        return fromGnome;
-      }
+      return candidate;
     }
 
     debugPrint('SystemProxyDetector: системный прокси не найден');
@@ -71,7 +54,8 @@ class SystemProxyDetector {
       return null;
     }
     try {
-      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('getSystemProxy');
+      final result =
+          await _channel.invokeMethod<Map<dynamic, dynamic>>('getSystemProxy');
       if (result == null) {
         return null;
       }
@@ -169,53 +153,27 @@ class SystemProxyDetector {
 
   static Future<SystemProxyConfig?> _readKdeProxy() async {
     try {
-      final type = await Process.run('kreadconfig5', [
-        '--file',
-        'kioslaverc',
-        '--group',
-        'Proxy Settings',
-        '--key',
-        'ProxyType',
-      ]);
-      if (type.exitCode != 0) {
+      final type = await _runKdeConfig(['ProxyType']);
+      if (type == null) {
         return null;
       }
-      final proxyType = int.tryParse((type.stdout as String).trim());
+      final proxyType = int.tryParse(type);
+      // 1 = Manual, 4 = Use environment variables (handled elsewhere).
       if (proxyType != 1) {
         return null;
       }
 
-      final socks = await Process.run('kreadconfig5', [
-        '--file',
-        'kioslaverc',
-        '--group',
-        'Proxy Settings',
-        '--key',
-        'socksProxy',
-      ]);
-      if (socks.exitCode == 0) {
-        final socksValue = (socks.stdout as String).trim();
-        if (socksValue.isNotEmpty && socksValue != '/') {
-          final parsed = _parseProxyUrl(socksValue);
-          if (parsed != null) {
-            return parsed.copyWith(type: SystemProxyType.socks5);
-          }
+      final socks = await _runKdeConfig(['socksProxy']);
+      if (socks != null && socks.isNotEmpty && socks != '/') {
+        final parsed = _parseProxyUrl(socks);
+        if (parsed != null) {
+          return parsed.copyWith(type: SystemProxyType.socks5);
         }
       }
 
-      final http = await Process.run('kreadconfig5', [
-        '--file',
-        'kioslaverc',
-        '--group',
-        'Proxy Settings',
-        '--key',
-        'httpProxy',
-      ]);
-      if (http.exitCode == 0) {
-        final httpValue = (http.stdout as String).trim();
-        if (httpValue.isNotEmpty && httpValue != '/') {
-          return _parseProxyUrl(httpValue);
-        }
+      final http = await _runKdeConfig(['httpProxy']);
+      if (http != null && http.isNotEmpty && http != '/') {
+        return _parseProxyUrl(http);
       }
     } catch (error) {
       debugPrint('SystemProxyDetector: KDE error: $error');
@@ -223,6 +181,32 @@ class SystemProxyDetector {
     return null;
   }
 
+  /// kreadconfig6 (Plasma 6) с fallback на kreadconfig5.
+  static Future<String?> _runKdeConfig(List<String> keyArgs) async {
+    const bins = ['kreadconfig6', 'kreadconfig5'];
+    final args = [
+      '--file',
+      'kioslaverc',
+      '--group',
+      'Proxy Settings',
+      '--key',
+      ...keyArgs,
+    ];
+    for (final bin in bins) {
+      try {
+        final result = await Process.run(bin, args);
+        if (result.exitCode == 0) {
+          return (result.stdout as String).trim();
+        }
+      } on ProcessException {
+        continue;
+      }
+    }
+    return null;
+  }
+
+  /// GNOME: mode=manual, либо host/port заданы и локальный порт слушает
+  /// (часто VPN оставляет credentials при mode=none).
   static Future<SystemProxyConfig?> _readGnomeProxy() async {
     try {
       final mode = await Process.run('gsettings', [
@@ -234,60 +218,134 @@ class SystemProxyDetector {
         return null;
       }
       final modeValue = (mode.stdout as String).trim();
-      if (modeValue != "'manual'") {
+      final isManual = modeValue == "'manual'";
+
+      final socks = await _readGnomeEndpoint('socks', SystemProxyType.socks5);
+      final http = await _readGnomeEndpoint('http', SystemProxyType.http);
+
+      final preferred = socks ?? http;
+      if (preferred == null) {
         return null;
       }
 
-      // SOCKS vs HTTP
-      final socksHost = await Process.run('gsettings', [
-        'get',
-        'org.gnome.system.proxy.socks',
-        'host',
-      ]);
-      final socksPort = await Process.run('gsettings', [
-        'get',
-        'org.gnome.system.proxy.socks',
-        'port',
-      ]);
-      final socksHostValue = _unwrapGsettingsString(socksHost.stdout as String);
-      final socksPortValue = int.tryParse((socksPort.stdout as String).trim());
-      if (socksHostValue != null &&
-          socksHostValue.isNotEmpty &&
-          socksPortValue != null &&
-          socksPortValue > 0) {
-        return SystemProxyConfig(
-          host: socksHostValue,
-          port: socksPortValue,
-          type: SystemProxyType.socks5,
-        );
+      if (isManual) {
+        return preferred;
       }
 
-      final httpHost = await Process.run('gsettings', [
-        'get',
-        'org.gnome.system.proxy.http',
-        'host',
-      ]);
-      final httpPort = await Process.run('gsettings', [
-        'get',
-        'org.gnome.system.proxy.http',
-        'port',
-      ]);
-      final httpHostValue = _unwrapGsettingsString(httpHost.stdout as String);
-      final httpPortValue = int.tryParse((httpPort.stdout as String).trim());
-      if (httpHostValue != null &&
-          httpHostValue.isNotEmpty &&
-          httpPortValue != null &&
-          httpPortValue > 0) {
-        return SystemProxyConfig(
-          host: httpHostValue,
-          port: httpPortValue,
-          type: SystemProxyType.http,
+      // mode=none/auto: берём только если порт реально открыт (локальный клиент).
+      if (await _isPortOpen(preferred.host, preferred.port)) {
+        debugPrint(
+          'SystemProxyDetector: GNOME mode=$modeValue, но порт '
+          '${preferred.host}:${preferred.port} открыт — используем',
         );
+        return preferred;
       }
     } catch (error) {
       debugPrint('SystemProxyDetector: gsettings error: $error');
     }
     return null;
+  }
+
+  static Future<SystemProxyConfig?> _readGnomeEndpoint(
+    String kind,
+    SystemProxyType type,
+  ) async {
+    final hostResult = await Process.run('gsettings', [
+      'get',
+      'org.gnome.system.proxy.$kind',
+      'host',
+    ]);
+    final portResult = await Process.run('gsettings', [
+      'get',
+      'org.gnome.system.proxy.$kind',
+      'port',
+    ]);
+    if (hostResult.exitCode != 0 || portResult.exitCode != 0) {
+      return null;
+    }
+
+    final host = _unwrapGsettingsString(hostResult.stdout as String);
+    final port = int.tryParse((portResult.stdout as String).trim());
+    if (host == null || host.isEmpty || port == null || port <= 0) {
+      return null;
+    }
+
+    var username = '';
+    var password = '';
+    if (kind == 'http') {
+      final useAuth = await Process.run('gsettings', [
+        'get',
+        'org.gnome.system.proxy.http',
+        'use-authentication',
+      ]);
+      if (useAuth.exitCode == 0 &&
+          (useAuth.stdout as String).trim() == 'true') {
+        final user = await Process.run('gsettings', [
+          'get',
+          'org.gnome.system.proxy.http',
+          'authentication-user',
+        ]);
+        final pass = await Process.run('gsettings', [
+          'get',
+          'org.gnome.system.proxy.http',
+          'authentication-password',
+        ]);
+        username = _unwrapGsettingsString(user.stdout as String) ?? '';
+        password = _unwrapGsettingsString(pass.stdout as String) ?? '';
+      }
+    }
+
+    return SystemProxyConfig(
+      host: host,
+      port: port,
+      type: type,
+      username: username,
+      password: password,
+    );
+  }
+
+  /// GProxyResolver часто не отдаёт login/password — добираем из gsettings.
+  static Future<SystemProxyConfig> _enrichWithGnomeCredentials(
+    SystemProxyConfig proxy,
+  ) async {
+    if (proxy.username.isNotEmpty || kIsWeb || !Platform.isLinux) {
+      return proxy;
+    }
+    try {
+      final gnome = await _readGnomeEndpoint(
+        proxy.type == SystemProxyType.socks5 ? 'socks' : 'http',
+        proxy.type,
+      );
+      if (gnome == null) {
+        return proxy;
+      }
+      if (gnome.host != proxy.host || gnome.port != proxy.port) {
+        return proxy;
+      }
+      if (gnome.username.isEmpty) {
+        return proxy;
+      }
+      return proxy.copyWith(
+        username: gnome.username,
+        password: gnome.password,
+      );
+    } catch (_) {
+      return proxy;
+    }
+  }
+
+  static Future<bool> _isPortOpen(String host, int port) async {
+    try {
+      final socket = await Socket.connect(
+        host,
+        port,
+        timeout: const Duration(milliseconds: 700),
+      );
+      await socket.close();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   static String? _unwrapGsettingsString(String value) {

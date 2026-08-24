@@ -71,11 +71,17 @@ class AuthManager extends ChangeNotifier {
       final proxyManager = _proxyManager;
       if (proxyManager != null) {
         await proxyManager.setupProxies();
-        if (!proxyManager.hasActiveProxy) {
+        // Нет активного прокси только если setup полностью провалился
+        // (нет MTProto в .env и нет системного). Отсутствие системного —
+        // штатная ситуация, не блокируем авторизацию.
+        if (!proxyManager.hasActiveProxy && proxyManager.proxies.isEmpty) {
           throw StateError(
             proxyManager.lastError ??
                 'Прокси недоступен. Проверьте VPS, порт и secret в .env',
           );
+        }
+        if (proxyManager.lastError != null) {
+          debugPrint('AuthManager: proxy warning: ${proxyManager.lastError}');
         }
       }
 

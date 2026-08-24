@@ -169,7 +169,9 @@ class _ProxySettings extends StatelessWidget {
         ),
         SwitchListTile(
           title: const Text('Автоматическое переключение'),
-          subtitle: const Text('Failover PhantomProxy → StealthGate'),
+          subtitle: const Text(
+            'Failover PhantomProxy → StealthGate → системный',
+          ),
           value: proxyManager.autoFailoverEnabled,
           onChanged: proxyManager.setAutoFailoverEnabled,
         ),
@@ -237,6 +239,9 @@ class _ProxyTile extends StatelessWidget {
       ProxyHealth.unknown => Colors.grey,
     };
 
+    final isSystemTransport =
+        proxy.name == ProxyManager.transportProxyName;
+
     return Card(
       child: ListTile(
         leading: Icon(
@@ -244,7 +249,11 @@ class _ProxyTile extends StatelessWidget {
           color: proxy.isActive ? Theme.of(context).colorScheme.primary : null,
         ),
         title: Text(proxy.name),
-        subtitle: Text('$healthLabel • ${proxy.displayAddress}'),
+        subtitle: Text(
+          isSystemTransport
+              ? '$healthLabel • ${proxy.displayAddress} • транспорт + fallback'
+              : '$healthLabel • ${proxy.displayAddress}',
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
