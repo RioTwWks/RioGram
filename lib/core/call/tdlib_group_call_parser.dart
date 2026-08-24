@@ -1,4 +1,5 @@
 import '../../models/group_call_models.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Парсинг TDLib group call updates.
 class TdlibGroupCallParser {
@@ -14,13 +15,13 @@ class TdlibGroupCallParser {
     }
 
     return GroupCallSummary(
-      id: json['id'] as int? ?? 0,
+      id: tdIntOr(json['id']),
       title: json['title'] as String? ?? 'Групповой звонок',
       chatId: chatId,
       isVideoChat: json['is_video_chat'] as bool? ?? true,
       isJoined: json['is_joined'] as bool? ?? false,
       isActive: json['is_active'] as bool? ?? false,
-      participantCount: json['participant_count'] as int? ?? 0,
+      participantCount: tdIntOr(json['participant_count']),
       isMyVideoEnabled: json['is_my_video_enabled'] as bool? ?? false,
       canEnableVideo: json['can_enable_video'] as bool? ?? false,
       inviteLink: json['invite_link'] as String? ?? '',
@@ -37,7 +38,7 @@ class TdlibGroupCallParser {
 
     final participantId = json['participant_id'] as Map<String, dynamic>? ?? {};
     final userId = switch (participantId['@type']) {
-      'messageSenderUser' => participantId['user_id'] as int? ?? 0,
+      'messageSenderUser' => tdIntOr(participantId['user_id']),
       _ => 0,
     };
 
@@ -49,8 +50,8 @@ class TdlibGroupCallParser {
       isMutedForCurrentUser:
           json['is_muted_for_current_user'] as bool? ?? false,
       isHandRaised: json['is_hand_raised'] as bool? ?? false,
-      volumeLevel: json['volume_level'] as int? ?? 0,
-      audioSourceId: json['audio_source_id'] as int? ?? 0,
+      volumeLevel: tdIntOr(json['volume_level']),
+      audioSourceId: tdIntOr(json['audio_source_id']),
     );
   }
 
@@ -59,9 +60,9 @@ class TdlibGroupCallParser {
       return null;
     }
     return switch (json['@type']) {
-      'groupCallId' => json['id'] as int?,
-      'groupCallInfo' => json['group_call_id'] as int?,
-      'groupCall' => json['id'] as int?,
+      'groupCallId' => tdInt(json['id']),
+      'groupCallInfo' => tdInt(json['group_call_id']),
+      'groupCall' => tdInt(json['id']),
       _ => null,
     };
   }

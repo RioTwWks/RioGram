@@ -1,3 +1,4 @@
+import '../core/tdlib/tdlib_json.dart';
 /// Тип текстовой entity TDLib.
 enum TextEntityKind {
   bold,
@@ -41,11 +42,11 @@ class TextEntity {
     };
 
     return TextEntity(
-      offset: json['offset'] as int? ?? 0,
-      length: json['length'] as int? ?? 0,
+      offset: tdIntOr(json['offset']),
+      length: tdIntOr(json['length']),
       kind: kind,
       url: type['url'] as String?,
-      userId: type['user_id'] as int?,
+      userId: tdInt(type['user_id']),
     );
   }
 
@@ -137,7 +138,7 @@ class MessageReplyInfo {
     }
 
     return MessageReplyInfo(
-      messageId: json['message_id'] as int? ?? 0,
+      messageId: tdIntOr(json['message_id']),
       preview: preview ?? 'Сообщение',
       authorName: authorName,
     );
@@ -191,13 +192,13 @@ sealed class MessageSchedulingInfo {
     return switch (json['@type']) {
       'messageSchedulingStateSendAtDate' => MessageSchedulingAtDate(
           sendAt: DateTime.fromMillisecondsSinceEpoch(
-            (json['send_date'] as int? ?? 0) * 1000,
+            (tdIntOr(json['send_date'])) * 1000,
           ),
         ),
       'messageSchedulingStateSendWhenOnline' => const MessageSchedulingWhenOnline(),
       _ => MessageSchedulingAtDate(
           sendAt: DateTime.fromMillisecondsSinceEpoch(
-            (json['send_date'] as int? ?? 0) * 1000,
+            (tdIntOr(json['send_date'])) * 1000,
           ),
         ),
     };

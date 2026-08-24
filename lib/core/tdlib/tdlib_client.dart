@@ -69,10 +69,14 @@ class TdlibClient {
       );
     }
 
+    // 2 = warnings+ в debug (`flutter run`); 0 = только fatal в release.
     send({
       '@type': 'setLogVerbosityLevel',
-      'new_verbosity_level': kDebugMode ? 1 : 0,
+      'new_verbosity_level': kDebugMode ? 2 : 0,
     });
+    if (kDebugMode) {
+      debugPrint('[Tdlib] log verbosity set to 2 (debug build)');
+    }
 
     final directories = await _resolveDirectories();
     send({

@@ -8,6 +8,7 @@ import '../tdlib/tdlib_client.dart';
 import 'call_platform_service.dart';
 import 'call_signaling_bridge.dart';
 import 'tdlib_call_parser.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Управление 1:1 звонками через TDLib (`createCall`, `acceptCall`, `discardCall`).
 class CallManager extends ChangeNotifier {
@@ -275,7 +276,7 @@ class CallManager extends ChangeNotifier {
   }
 
   void _handleNewSignalingData(Map<String, dynamic> update) {
-    final callId = update['call_id'] as int?;
+    final callId = tdInt(update['call_id']);
     final dataRaw = update['data'];
     if (callId == null || _activeCall?.id != callId) {
       return;
@@ -316,7 +317,7 @@ class CallManager extends ChangeNotifier {
   }
 
   void _handleUser(Map<String, dynamic> user) {
-    final userId = user['id'] as int?;
+    final userId = tdInt(user['id']);
     if (userId == null) {
       return;
     }

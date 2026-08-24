@@ -1,3 +1,4 @@
+import '../core/tdlib/tdlib_json.dart';
 /// Статус доставки исходящего сообщения.
 enum MessageDeliveryStatus {
   sending,
@@ -24,9 +25,9 @@ class MessageInteractionInfo {
     }
     final replyInfo = json['reply_info'] as Map<String, dynamic>?;
     return MessageInteractionInfo(
-      viewCount: json['view_count'] as int? ?? 0,
-      forwardCount: json['forward_count'] as int? ?? 0,
-      replyCount: replyInfo?['reply_count'] as int? ?? 0,
+      viewCount: tdIntOr(json['view_count']),
+      forwardCount: tdIntOr(json['forward_count']),
+      replyCount: tdIntOr(replyInfo?['reply_count']),
     );
   }
 }
@@ -119,7 +120,7 @@ class PollContent {
         PollOptionModel(
           id: i,
           text: textRaw['text'] as String? ?? 'Вариант ${i + 1}',
-          voterCount: option['voter_count'] as int? ?? 0,
+          voterCount: tdIntOr(option['voter_count']),
           votePercentage: (option['vote_percentage'] as num? ?? 0).toDouble(),
           isChosen: option['is_chosen'] as bool? ?? false,
         ),
@@ -132,12 +133,12 @@ class PollContent {
     return PollContent(
       question: question,
       options: options,
-      totalVoterCount: poll['total_voter_count'] as int? ?? 0,
+      totalVoterCount: tdIntOr(poll['total_voter_count']),
       isClosed: poll['is_closed'] as bool? ?? false,
       isAnonymous: poll['is_anonymous'] as bool? ?? true,
       kind: isQuiz ? PollKind.quiz : PollKind.regular,
       correctOptionId:
-          isQuiz ? type['correct_option_id'] as int? : null,
+          isQuiz ? tdInt(type['correct_option_id']) : null,
     );
   }
 }
@@ -163,7 +164,7 @@ class MessageEnrichmentParser {
       };
     }
 
-    final messageId = json['id'] as int? ?? 0;
+    final messageId = tdIntOr(json['id']);
     if (messageId > 0 &&
         lastReadOutboxMessageId > 0 &&
         messageId <= lastReadOutboxMessageId) {
@@ -185,7 +186,7 @@ class MessageEnrichmentParser {
       final type = reaction['type'] as Map<String, dynamic>? ?? {};
       return MessageReactionSummary(
         emoji: type['emoji'] as String? ?? '👍',
-        count: reaction['total_count'] as int? ?? 0,
+        count: tdIntOr(reaction['total_count']),
         isChosen: reaction['is_chosen'] as bool? ?? false,
       );
     }).toList();

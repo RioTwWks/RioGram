@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/sticker_models.dart';
 import '../tdlib/tdlib_client.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Загрузка стикеров, GIF-поиска и установки наборов.
 class StickerManager extends ChangeNotifier {
@@ -215,7 +216,7 @@ class StickerManager extends ChangeNotifier {
     final extra = update['@extra'] as String?;
 
     if (type == 'chat' && extra != null && extra.startsWith('gifBot_')) {
-      _gifBotUserId = update['id'] as int?;
+      _gifBotUserId = tdInt(update['id']);
       _pendingGifSearch?.call();
       _pendingGifSearch = null;
       return;
@@ -292,7 +293,7 @@ class StickerManager extends ChangeNotifier {
     }
 
     if (type == 'inlineQueryResults' && extra != null && extra.startsWith('gifSearch_')) {
-      final queryId = update['inline_query_id'] as int? ?? 0;
+      final queryId = tdIntOr(update['inline_query_id']);
       final results = update['results'] as List<dynamic>? ?? [];
       _gifResults
         ..clear()

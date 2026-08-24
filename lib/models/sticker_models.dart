@@ -1,5 +1,6 @@
 import 'chat_models.dart';
 import 'formatted_text.dart';
+import '../core/tdlib/tdlib_json.dart';
 
 /// Модель стикера TDLib.
 class StickerModel {
@@ -31,12 +32,22 @@ class StickerModel {
     final formatType = format['@type'] as String? ?? '';
 
     return StickerModel(
-      fileId: stickerFile['id'] as int? ?? 0,
-      setId: json['set_id'] as int? ?? 0,
-      width: json['width'] as int? ?? 512,
-      height: json['height'] as int? ?? 512,
+      fileId: tdInt(
+            stickerFile['id'],
+            field: 'sticker.id',
+            context: 'StickerModel',
+          ) ??
+          0,
+      setId: tdInt(
+            json['set_id'],
+            field: 'set_id',
+            context: 'StickerModel',
+          ) ??
+          0,
+      width: tdIntOr(json['width'], 512),
+      height: tdIntOr(json['height'], 512),
       emoji: json['emoji'] as String? ?? '🙂',
-      thumbnailFileId: thumbFile?['id'] as int?,
+      thumbnailFileId: tdInt(thumbFile?['id']),
       isAnimated: formatType == 'stickerFormatTgs',
       isVideo: formatType == 'stickerFormatWebm',
     );
@@ -93,12 +104,11 @@ class StickerSetSummary {
 
   factory StickerSetSummary.fromTdlib(Map<String, dynamic> json) {
     return StickerSetSummary(
-      id: json['id'] as int? ?? 0,
+      id: tdIntOr(json['id']),
       title: json['title'] as String? ?? 'Набор',
       name: json['name'] as String? ?? '',
       count: (json['stickers'] as List<dynamic>?)?.length ??
-          json['count'] as int? ??
-          0,
+          tdIntOr(json['count']),
       isInstalled: json['is_installed'] as bool? ?? true,
       isArchived: json['is_archived'] as bool? ?? false,
     );
@@ -136,13 +146,13 @@ class AnimationModel {
     final thumbFile = thumbnail?['file'] as Map<String, dynamic>?;
 
     return AnimationModel(
-      fileId: animationFile['id'] as int? ?? 0,
-      width: json['width'] as int? ?? 0,
-      height: json['height'] as int? ?? 0,
-      durationSeconds: json['duration'] as int? ?? 0,
+      fileId: tdIntOr(animationFile['id']),
+      width: tdIntOr(json['width']),
+      height: tdIntOr(json['height']),
+      durationSeconds: tdIntOr(json['duration']),
       fileName: json['file_name'] as String?,
       mimeType: json['mime_type'] as String?,
-      thumbnailFileId: thumbFile?['id'] as int?,
+      thumbnailFileId: tdInt(thumbFile?['id']),
     );
   }
 

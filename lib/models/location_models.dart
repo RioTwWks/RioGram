@@ -1,3 +1,4 @@
+import '../core/tdlib/tdlib_json.dart';
 /// Точка на карте (TDLib `location`).
 class LocationPoint {
   const LocationPoint({
@@ -60,9 +61,9 @@ class LiveLocationMeta {
       return const LiveLocationMeta(livePeriod: 0);
     }
     return LiveLocationMeta(
-      livePeriod: json['live_period'] as int? ?? 0,
-      heading: json['heading'] as int? ?? 0,
-      proximityAlertRadius: json['proximity_alert_radius'] as int? ?? 0,
+      livePeriod: tdIntOr(json['live_period']),
+      heading: tdIntOr(json['heading']),
+      proximityAlertRadius: tdIntOr(json['proximity_alert_radius']),
     );
   }
 
@@ -172,7 +173,7 @@ class LocationMessageInfo {
         liveRaw['location'] as Map<String, dynamic>?,
       ),
       liveMeta: LiveLocationMeta.fromTdlib(liveRaw),
-      expiresIn: content['expires_in'] as int?,
+      expiresIn: tdInt(content['expires_in']),
     );
   }
 

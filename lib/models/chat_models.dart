@@ -6,6 +6,7 @@ import 'media_models.dart';
 import 'message_enrichment.dart';
 
 import 'sticker_models.dart';
+import '../core/tdlib/tdlib_json.dart';
 
 /// Тип содержимого сообщения.
 enum MessageKind {
@@ -49,7 +50,7 @@ sealed class ChatListKey {
     return switch (json['@type']) {
       'chatListArchive' => const ChatListArchive(),
       'chatListFolder' => ChatListFolder(
-          folderId: json['chat_folder_id'] as int? ?? 0,
+          folderId: tdIntOr(json['chat_folder_id']),
         ),
       _ => const ChatListMain(),
     };
@@ -110,7 +111,12 @@ class ChatPositionInfo {
     final listRaw = json['list'] as Map<String, dynamic>? ?? {};
     return ChatPositionInfo(
       list: ChatListKey.fromTdlib(listRaw),
-      order: json['order'] as int? ?? 0,
+      order: tdInt(
+            json['order'],
+            field: 'order',
+            context: 'ChatPositionInfo',
+          ) ??
+          0,
       isPinned: json['is_pinned'] as bool? ?? false,
     );
   }
@@ -370,9 +376,9 @@ class MessageContent {
       return null;
     }
     return MediaVideoInfo(
-      durationSeconds: videoRaw['duration'] as int? ?? 0,
-      width: videoRaw['width'] as int? ?? 0,
-      height: videoRaw['height'] as int? ?? 0,
+      durationSeconds: tdIntOr(videoRaw['duration']),
+      width: tdIntOr(videoRaw['width']),
+      height: tdIntOr(videoRaw['height']),
     );
   }
 
@@ -382,10 +388,10 @@ class MessageContent {
     }
     final videoRaw = note['video'] as Map<String, dynamic>? ?? {};
     return MediaVideoInfo(
-      durationSeconds: note['duration'] as int? ?? videoRaw['duration'] as int? ?? 0,
-      width: note['length'] as int? ?? 0,
-      height: note['length'] as int? ?? 0,
-      videoNoteLength: note['length'] as int? ?? 0,
+      durationSeconds: tdInt(note['duration']) ?? tdInt(videoRaw['duration']) ?? 0,
+      width: tdIntOr(note['length']),
+      height: tdIntOr(note['length']),
+      videoNoteLength: tdIntOr(note['length']),
     );
   }
 
@@ -396,7 +402,7 @@ class MessageContent {
     final audio = content['audio'] as Map<String, dynamic>? ?? {};
     final cover = audio['album_cover_thumbnail'] as Map<String, dynamic>?;
     final file = cover?['file'] as Map<String, dynamic>?;
-    return file?['id'] as int?;
+    return tdInt(file?['id']);
   }
 
   static int? _photoFileId(Map<String, dynamic> content) {
@@ -407,56 +413,56 @@ class MessageContent {
     }
     final largest = sizes.last as Map<String, dynamic>;
     final photoSize = largest['photo'] as Map<String, dynamic>?;
-    return photoSize?['id'] as int?;
+    return tdInt(photoSize?['id']);
   }
 
   static int? _videoFileId(Map<String, dynamic> content) {
     final video = content['video'] as Map<String, dynamic>?;
     final file = video?['video'] as Map<String, dynamic>?;
-    return file?['id'] as int?;
+    return tdInt(file?['id']);
   }
 
   static int? _videoNoteFileId(Map<String, dynamic> content) {
     final note = content['video_note'] as Map<String, dynamic>?;
     final file = note?['video'] as Map<String, dynamic>?;
-    return file?['id'] as int?;
+    return tdInt(file?['id']);
   }
 
   static int? _voiceNoteFileId(Map<String, dynamic> content) {
     final note = content['voice_note'] as Map<String, dynamic>?;
     final file = note?['voice'] as Map<String, dynamic>?;
-    return file?['id'] as int?;
+    return tdInt(file?['id']);
   }
 
   static int? _audioFileId(Map<String, dynamic> content) {
     final audio = content['audio'] as Map<String, dynamic>?;
     final file = audio?['audio'] as Map<String, dynamic>?;
-    return file?['id'] as int?;
+    return tdInt(file?['id']);
   }
 
   static int? _stickerFileId(Map<String, dynamic> content) {
     final sticker = content['sticker'] as Map<String, dynamic>?;
     final file = sticker?['sticker'] as Map<String, dynamic>?;
-    return file?['id'] as int?;
+    return tdInt(file?['id']);
   }
 
   static int? _animationFileId(Map<String, dynamic> content) {
     final animation = content['animation'] as Map<String, dynamic>?;
     final file = animation?['animation'] as Map<String, dynamic>?;
-    return file?['id'] as int?;
+    return tdInt(file?['id']);
   }
 
   static int? _documentFileId(Map<String, dynamic> content) {
     final document = content['document'] as Map<String, dynamic>?;
     final file = document?['document'] as Map<String, dynamic>?;
-    return file?['id'] as int?;
+    return tdInt(file?['id']);
   }
 
   static int? _fileSize(dynamic fileJson) {
     if (fileJson is! Map<String, dynamic>) {
       return null;
     }
-    return fileJson['expected_size'] as int? ?? fileJson['size'] as int?;
+    return tdInt(fileJson['expected_size']) ?? tdInt(fileJson['size']);
   }
 
   static int? _photoSize(Map<String, dynamic> content) {
@@ -835,7 +841,7 @@ class ChatMessage {
     Map<String, dynamic> json, {
     int lastReadOutboxMessageId = 0,
   }) {
-    final dateSeconds = json['date'] as int? ?? 0;
+    final dateSeconds = tdIntOr(json['date']);
     final contentMap = json['content'] as Map<String, dynamic>? ?? {};
 
     MessageReplyInfo? replyTo;
@@ -856,14 +862,14 @@ class ChatMessage {
       schedulingInfo = MessageSchedulingInfo.fromTdlib(schedulingRaw);
     }
 
-    final editDateSeconds = json['edit_date'] as int? ?? 0;
+    final editDateSeconds = tdIntOr(json['edit_date']);
     final editDate = editDateSeconds > 0
         ? DateTime.fromMillisecondsSinceEpoch(editDateSeconds * 1000)
         : null;
 
     return ChatMessage(
-      id: json['id'] as int? ?? 0,
-      chatId: json['chat_id'] as int? ?? 0,
+      id: tdIntOr(json['id']),
+      chatId: tdIntOr(json['chat_id']),
       content: MessageContent.fromTdlib(
         contentMap,
         isOutgoing: json['is_outgoing'] as bool? ?? false,
@@ -894,7 +900,7 @@ class ChatMessage {
       inlineKeyboard: MessageEnrichmentParser.parseInlineKeyboard(
         json['reply_markup'] as Map<String, dynamic>?,
       ),
-      groupedId: json['grouped_id'] as int?,
+      groupedId: tdInt(json['grouped_id']),
       isPinned: json['is_pinned'] as bool? ?? false,
       canBePinned: _parseCanBePinned(json),
       isChannelPost: json['is_channel_post'] as bool? ?? false,

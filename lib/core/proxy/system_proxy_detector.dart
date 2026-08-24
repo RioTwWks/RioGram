@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'system_proxy_config.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Определяет системный HTTP/SOCKS-прокси (корпоративная сеть, VPN, GNOME/KDE).
 class SystemProxyDetector {
@@ -75,7 +76,7 @@ class SystemProxyDetector {
         return null;
       }
       final host = result['host'] as String? ?? '';
-      final port = result['port'] as int? ?? 0;
+      final port = tdIntOr(result['port']);
       if (host.isEmpty || port <= 0) {
         return null;
       }

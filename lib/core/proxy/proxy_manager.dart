@@ -8,6 +8,7 @@ import '../tdlib/tdlib_client.dart';
 import 'proxy_preferences.dart';
 import 'system_proxy_config.dart';
 import 'system_proxy_detector.dart';
+import '../tdlib/tdlib_json.dart';
 
 export '../../models/proxy_models.dart' show ProxyEntry, ProxyHealth;
 
@@ -324,7 +325,7 @@ class ProxyManager extends ChangeNotifier {
   }
 
   void _registerAddedProxy(Map<String, dynamic> addedProxy) {
-    final id = addedProxy['id'] as int?;
+    final id = tdInt(addedProxy['id']);
     if (id == null) {
       return;
     }

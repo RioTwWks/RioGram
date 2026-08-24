@@ -54,42 +54,49 @@ class AuthManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (!_initialized) {
-        await _client.ensureClient();
-        _subscription?.cancel();
-        _subscription = _client.updates.listen(_handleUpdate);
-        await _client.configure(_config);
+      if (_initialized) {
+        // Повтор после ложной ошибки: не пересоздаём клиент, а синхронизируем фазу.
+        _client.send({
+          '@type': 'getAuthorizationState',
+          '@extra': 'auth_getState',
+        });
+        return;
+      }
 
-        final proxyManager = _proxyManager;
-        if (proxyManager != null) {
-          await proxyManager.setupProxies();
-          if (!proxyManager.hasActiveProxy) {
-            throw StateError(
-              proxyManager.lastError ??
-                  'Прокси недоступен. Проверьте VPS, порт и secret в .env',
-            );
-          }
-        }
+      await _client.ensureClient();
+      _subscription?.cancel();
+      _subscription = _client.updates.listen(_handleUpdate);
+      await _client.configure(_config);
 
-        final authReady = _waitForAuthorizationState(
-          'authorizationStateWaitPhoneNumber',
-          timeout: initTimeout,
-        );
-
-        // Состояние могло прийти во время setupProxies — тогда _phase уже обновлён.
-        final isReady = _phase == AuthPhase.waitPhoneNumber ||
-            _phase == AuthPhase.waitCode ||
-            _phase == AuthPhase.waitPassword ||
-            _phase == AuthPhase.ready ||
-            await authReady;
-        if (!isReady && _phase == AuthPhase.initializing) {
+      final proxyManager = _proxyManager;
+      if (proxyManager != null) {
+        await proxyManager.setupProxies();
+        if (!proxyManager.hasActiveProxy) {
           throw StateError(
-            'TDLib не готов к авторизации. Проверьте API-ключи и прокси.',
+            proxyManager.lastError ??
+                'Прокси недоступен. Проверьте VPS, порт и secret в .env',
           );
         }
-
-        _initialized = true;
       }
+
+      final authReady = _waitForAuthorizationState(
+        'authorizationStateWaitPhoneNumber',
+        timeout: initTimeout,
+      );
+
+      // Состояние могло прийти во время setupProxies — тогда _phase уже обновлён.
+      final isReady = _phase == AuthPhase.waitPhoneNumber ||
+          _phase == AuthPhase.waitCode ||
+          _phase == AuthPhase.waitPassword ||
+          _phase == AuthPhase.ready ||
+          await authReady;
+      if (!isReady && _phase == AuthPhase.initializing) {
+        throw StateError(
+          'TDLib не готов к авторизации. Проверьте API-ключи и прокси.',
+        );
+      }
+
+      _initialized = true;
     } catch (error) {
       _phase = AuthPhase.error;
       _errorMessage = error.toString().replaceFirst('StateError: ', '');
@@ -183,18 +190,23 @@ class AuthManager extends ChangeNotifier {
         _handleAuthorizationState(
           update['authorization_state'] as Map<String, dynamic>,
         );
+      case 'authorizationStateWaitPhoneNumber':
+      case 'authorizationStateWaitCode':
+      case 'authorizationStateWaitPassword':
+      case 'authorizationStateWaitOtherDeviceConfirmation':
+      case 'authorizationStateWaitEmailAddress':
+      case 'authorizationStateWaitEmailCode':
+      case 'authorizationStateWaitRegistration':
+      case 'authorizationStateReady':
+      case 'authorizationStateClosing':
+      case 'authorizationStateClosed':
+        // Ответ getAuthorizationState (retry после ложной ошибки).
+        if (update['@extra'] == 'auth_getState') {
+          _handleAuthorizationState(update);
+        }
       case 'error':
         final extra = update['@extra'] as String?;
-        if (extra != null &&
-            (extra.startsWith('ping_') ||
-                extra.startsWith('addProxy_') ||
-                extra.startsWith('openChat_') ||
-                extra.startsWith('getChatHistory_') ||
-                extra.startsWith('getChatHistoryLocal_') ||
-                extra.startsWith('viewMessages_') ||
-                extra.startsWith('autoDownloadPresets_') ||
-                extra.startsWith('storageStats_') ||
-                extra.startsWith('optimizeStorage_'))) {
+        if (!_shouldTreatAsAuthError(extra)) {
           break;
         }
 
@@ -209,6 +221,54 @@ class AuthManager extends ChangeNotifier {
         _errorMessage = message;
         notifyListeners();
     }
+  }
+
+  /// Ошибки чатов/прокси/медиа не должны выкидывать из авторизованной сессии.
+  bool _shouldTreatAsAuthError(String? extra) {
+    if (_phase == AuthPhase.ready) {
+      return false;
+    }
+    if (extra == null) {
+      return true;
+    }
+    if (extra == 'auth_getState') {
+      return true;
+    }
+    const nonAuthPrefixes = [
+      'ping_',
+      'addProxy_',
+      'enableProxy_',
+      'disableProxy_',
+      'openChat_',
+      'getChatHistory_',
+      'getChatHistoryLocal_',
+      'forumTopicHistory_',
+      'forumTopics_',
+      'viewMessages_',
+      'chatInfo_',
+      'messageThread_',
+      'searchChats_',
+      'searchMessages_',
+      'newChatSearch_',
+      'newChatSearchLocal_',
+      'newChatPublic_',
+      'autoDownloadPresets_',
+      'storageStats_',
+      'optimizeStorage_',
+      'createSupergroup_',
+      'createBasicGroup_',
+      'upgradeBasicGroup_',
+      'joinChat_',
+      'joinInvite_',
+      'createPrivateChat_',
+      'createForumTopic_',
+    ];
+    for (final prefix in nonAuthPrefixes) {
+      if (extra.startsWith(prefix)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool _isBenignAuthError(String message) {

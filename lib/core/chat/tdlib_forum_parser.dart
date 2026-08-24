@@ -1,5 +1,6 @@
 import '../../models/chat_models.dart';
 import '../../models/forum_models.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Парсинг TDLib forumTopic / forumTopics.
 class TdlibForumParser {
@@ -23,9 +24,9 @@ class TdlibForumParser {
       return const ForumTopicsPageOffset();
     }
     return ForumTopicsPageOffset(
-      offsetDate: json['next_offset_date'] as int? ?? 0,
-      offsetMessageId: json['next_offset_message_id'] as int? ?? 0,
-      offsetForumTopicId: json['next_offset_forum_topic_id'] as int? ?? 0,
+      offsetDate: tdIntOr(json['next_offset_date']),
+      offsetMessageId: tdIntOr(json['next_offset_message_id']),
+      offsetForumTopicId: tdIntOr(json['next_offset_forum_topic_id']),
     );
   }
 
@@ -33,7 +34,7 @@ class TdlibForumParser {
     if (json['@type'] != 'forumTopics') {
       return null;
     }
-    return json['total_count'] as int?;
+    return tdInt(json['total_count']);
   }
 
   static ForumTopicSummary? parseForumTopic(Map<String, dynamic> json) {
@@ -45,7 +46,7 @@ class TdlibForumParser {
       return null;
     }
 
-    final forumTopicId = info['forum_topic_id'] as int? ?? 0;
+    final forumTopicId = tdIntOr(info['forum_topic_id']);
     if (forumTopicId == 0) {
       return null;
     }
@@ -56,7 +57,7 @@ class TdlibForumParser {
     if (lastMessage != null) {
       final content = lastMessage['content'] as Map<String, dynamic>? ?? {};
       preview = MessageContent.fromTdlib(content).preview;
-      final dateSeconds = lastMessage['date'] as int? ?? 0;
+      final dateSeconds = tdIntOr(lastMessage['date']);
       if (dateSeconds > 0) {
         date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
       }
@@ -68,10 +69,10 @@ class TdlibForumParser {
       isGeneral: info['is_general'] as bool? ?? false,
       isClosed: info['is_closed'] as bool? ?? false,
       isPinned: json['is_pinned'] as bool? ?? false,
-      unreadCount: json['unread_count'] as int? ?? 0,
+      unreadCount: tdIntOr(json['unread_count']),
       lastMessagePreview: preview,
       lastMessageDate: date,
-      order: (json['order'] as num?)?.toInt() ?? 0,
+      order: tdIntOr(json['order']),
     );
   }
 
@@ -79,7 +80,7 @@ class TdlibForumParser {
     if (json['@type'] != 'forumTopicInfo') {
       return null;
     }
-    final forumTopicId = json['forum_topic_id'] as int? ?? 0;
+    final forumTopicId = tdIntOr(json['forum_topic_id']);
     if (forumTopicId == 0) {
       return null;
     }

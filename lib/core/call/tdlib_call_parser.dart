@@ -1,4 +1,5 @@
 import '../../models/call_models.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Парсинг TDLib call / userFullInfo / messageCall.
 class TdlibCallParser {
@@ -29,8 +30,8 @@ class TdlibCallParser {
         : null;
 
     return CallSummary(
-      id: json['id'] as int? ?? 0,
-      userId: json['user_id'] as int? ?? 0,
+      id: tdIntOr(json['id']),
+      userId: tdIntOr(json['user_id']),
       isOutgoing: json['is_outgoing'] as bool? ?? false,
       isVideo: json['is_video'] as bool? ?? false,
       stateKind: stateKind,
@@ -108,7 +109,7 @@ class TdlibCallParser {
     final reason = parseDiscardReason(
       content['discard_reason'] as Map<String, dynamic>?,
     );
-    final duration = content['duration'] as int? ?? 0;
+    final duration = tdIntOr(content['duration']);
     final isVideo = content['is_video'] as bool? ?? false;
     final isMissed = reason == CallDiscardReasonKind.missed;
     final isDeclined = reason == CallDiscardReasonKind.declined;

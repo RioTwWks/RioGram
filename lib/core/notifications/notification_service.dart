@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Локальные уведомления о новых сообщениях.
@@ -47,11 +48,16 @@ class NotificationService {
       linux: LinuxNotificationDetails(),
     );
 
-    await _plugin.show(
-      DateTime.now().millisecondsSinceEpoch % 100000,
-      title,
-      body,
-      details,
-    );
+    try {
+      await _plugin.show(
+        DateTime.now().millisecondsSinceEpoch % 100000,
+        title,
+        body,
+        details,
+      );
+    } catch (error) {
+      // Linux: ExcessNotificationGeneration при лавине однотипных notify.
+      debugPrint('NotificationService: show failed: $error');
+    }
   }
 }

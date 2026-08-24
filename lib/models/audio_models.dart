@@ -1,3 +1,4 @@
+import '../core/tdlib/tdlib_json.dart';
 /// Состояние загрузки/выгрузки файла TDLib (updateFile).
 class FileTransferState {
   const FileTransferState({
@@ -33,10 +34,10 @@ class FileTransferState {
   }
 
   factory FileTransferState.fromTdlibFile(Map<String, dynamic> file) {
-    final fileId = file['id'] as int? ?? 0;
+    final fileId = tdIntOr(file['id']);
     final local = file['local'] as Map<String, dynamic>? ?? {};
     final remote = file['remote'] as Map<String, dynamic>? ?? {};
-    final expectedSize = file['expected_size'] as int? ?? remote['size'] as int? ?? 0;
+    final expectedSize = tdInt(file['expected_size']) ?? tdInt(remote['size']) ?? 0;
 
     final isUploadingActive = local['is_uploading_active'] as bool? ?? false;
     final isUploadingCompleted = local['is_uploading_completed'] as bool? ?? false;
@@ -45,21 +46,20 @@ class FileTransferState {
         local['is_downloading_completed'] as bool? ?? false;
 
     if (isUploadingActive || isUploadingCompleted) {
-      final uploaded = local['uploaded_size'] as int? ??
-          remote['uploaded_size'] as int? ??
-          0;
+      final uploaded = tdInt(local['uploaded_size']) ??
+          tdIntOr(remote['uploaded_size']);
       return FileTransferState(
         fileId: fileId,
         transferredBytes: uploaded,
-        totalBytes: expectedSize > 0 ? expectedSize : remote['size'] as int? ?? 0,
+        totalBytes: expectedSize > 0 ? expectedSize : tdIntOr(remote['size']),
         isUpload: true,
         isActive: isUploadingActive,
         isCompleted: isUploadingCompleted,
       );
     }
 
-    final downloaded = local['downloaded_prefix_size'] as int? ?? 0;
-    final total = remote['size'] as int? ?? expectedSize;
+    final downloaded = tdIntOr(local['downloaded_prefix_size']);
+    final total = tdInt(remote['size']) ?? expectedSize;
     return FileTransferState(
       fileId: fileId,
       transferredBytes: downloaded,
@@ -105,11 +105,11 @@ class VoiceNoteInfo {
     final waveform = raw is List
         ? raw.whereType<int>().toList(growable: false)
         : raw is List<dynamic>
-            ? raw.map((value) => value as int? ?? 0).toList(growable: false)
+            ? raw.map((value) => tdIntOr(value)).toList(growable: false)
             : const <int>[];
 
     return VoiceNoteInfo(
-      durationSeconds: voiceNote['duration'] as int? ?? 0,
+      durationSeconds: tdIntOr(voiceNote['duration']),
       waveform: waveform,
     );
   }
@@ -158,11 +158,11 @@ class AudioTrackInfo {
     final cover = audio['album_cover_thumbnail'] as Map<String, dynamic>?;
     final coverFile = cover?['file'] as Map<String, dynamic>?;
     return AudioTrackInfo(
-      durationSeconds: audio['duration'] as int? ?? 0,
+      durationSeconds: tdIntOr(audio['duration']),
       title: audio['title'] as String?,
       performer: audio['performer'] as String?,
       fileName: audio['file_name'] as String?,
-      coverFileId: coverFile?['id'] as int?,
+      coverFileId: tdInt(coverFile?['id']),
     );
   }
 }
@@ -182,7 +182,7 @@ class DocumentFileInfo {
     final file = document['document'] as Map<String, dynamic>? ?? {};
     return DocumentFileInfo(
       fileName: document['file_name'] as String?,
-      fileSize: file['expected_size'] as int? ?? file['size'] as int? ?? 0,
+      fileSize: tdInt(file['expected_size']) ?? tdInt(file['size']) ?? 0,
     );
   }
 

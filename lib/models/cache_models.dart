@@ -1,4 +1,5 @@
 import 'chat_models.dart';
+import '../core/tdlib/tdlib_json.dart';
 
 /// Тип сети для автозагрузки TDLib.
 enum DownloadNetworkType {
@@ -96,9 +97,9 @@ class AutoDownloadSettingsModel {
     return AutoDownloadSettingsModel(
       networkType: networkType,
       isEnabled: json['is_auto_download_enabled'] as bool? ?? true,
-      maxPhotoBytes: json['max_photo_file_size'] as int? ?? mb10,
-      maxVideoBytes: json['max_video_file_size'] as int? ?? mb10,
-      maxOtherBytes: json['max_other_file_size'] as int? ?? mb10,
+      maxPhotoBytes: tdInt(json['max_photo_file_size']) ?? mb10,
+      maxVideoBytes: tdInt(json['max_video_file_size']) ?? mb10,
+      maxOtherBytes: tdInt(json['max_other_file_size']) ?? mb10,
       preloadNextAudio: json['preload_next_audio'] as bool? ?? true,
       preloadLargeVideo: json['preload_large_videos'] as bool? ?? false,
     );
@@ -184,7 +185,7 @@ class StorageStatisticsModel {
   final int databaseSize;
 
   factory StorageStatisticsModel.fromTdlib(Map<String, dynamic> json) {
-    int readSize(String key) => json[key] as int? ?? 0;
+    int readSize(String key) => tdIntOr(json[key]);
     return StorageStatisticsModel(
       totalSize: readSize('size'),
       photoSize: readSize('photo_size'),

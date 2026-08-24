@@ -6,6 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../../../models/call_media_models.dart';
 import '../../../models/call_models.dart';
+import '../../tdlib/tdlib_json.dart';
 
 /// WebRTC/tgcalls медиа-слой: захват A/V, ICE, passthrough сигналинга TDLib.
 class WebRtcMediaEngine {
@@ -282,7 +283,7 @@ class WebRtcMediaEngine {
     final iceServers = <Map<String, dynamic>>[];
     for (final server in payload.servers) {
       final host = server['ip_address'] as String? ?? '';
-      final port = server['port'] as int? ?? 0;
+      final port = tdIntOr(server['port']);
       if (host.isEmpty || port <= 0) {
         continue;
       }

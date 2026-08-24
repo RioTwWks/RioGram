@@ -7,6 +7,7 @@ import '../tdlib/tdlib_client.dart';
 import 'call_platform_service.dart';
 import 'call_signaling_bridge.dart';
 import 'tdlib_group_call_parser.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Групповые звонки / video chat через TDLib.
 class GroupCallManager extends ChangeNotifier {
@@ -291,7 +292,7 @@ class GroupCallManager extends ChangeNotifier {
         ids.map(
           (id) => GroupCallParticipantSummary(
             userId: switch (id['@type']) {
-              'messageSenderUser' => id['user_id'] as int? ?? 0,
+              'messageSenderUser' => tdIntOr(id['user_id']),
               _ => 0,
             },
           ),
@@ -306,7 +307,7 @@ class GroupCallManager extends ChangeNotifier {
   }
 
   void _handleParticipantUpdate(Map<String, dynamic> update) {
-    final callId = update['group_call_id'] as int?;
+    final callId = tdInt(update['group_call_id']);
     if (_activeCall?.id != callId) {
       return;
     }

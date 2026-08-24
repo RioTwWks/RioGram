@@ -1,5 +1,6 @@
 import '../../models/channel_models.dart';
 import '../../models/chat_info_models.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Парсинг TDLib-ответов для экрана информации о чате.
 class TdlibChatInfoParser {
@@ -42,7 +43,7 @@ class TdlibChatInfoParser {
       name: json['name'] as String? ?? '',
       isPrimary: json['is_primary'] as bool? ?? false,
       isRevoked: json['is_revoked'] as bool? ?? false,
-      memberCount: json['member_count'] as int? ?? 0,
+      memberCount: tdIntOr(json['member_count']),
       createsJoinRequest: json['creates_join_request'] as bool? ?? false,
     );
   }
@@ -110,7 +111,7 @@ class TdlibChatInfoParser {
   static ChatMemberInfo parseChatMember(Map<String, dynamic> json) {
     final memberId = json['member_id'] as Map<String, dynamic>? ?? {};
     final userId = switch (memberId['@type']) {
-      'messageSenderUser' => memberId['user_id'] as int? ?? 0,
+      'messageSenderUser' => tdIntOr(memberId['user_id']),
       _ => 0,
     };
     final statusJson = json['status'] as Map<String, dynamic>?;
@@ -150,7 +151,7 @@ class TdlibChatInfoParser {
     if (json['@type'] != 'chatMembers') {
       return null;
     }
-    return json['total_count'] as int?;
+    return tdInt(json['total_count']);
   }
 
   static ChatDetailInfo parseChatForInfo(
@@ -195,11 +196,11 @@ class TdlibChatInfoParser {
       return ChatDetailInfo(chatId: chatId);
     }
     final status = json['status'] as Map<String, dynamic>?;
-    final upgradedId = json['upgraded_to_supergroup_id'] as int? ?? 0;
+    final upgradedId = tdIntOr(json['upgraded_to_supergroup_id']);
     final isActive = json['is_active'] as bool? ?? true;
     return ChatDetailInfo(
       chatId: chatId,
-      memberCount: json['member_count'] as int?,
+      memberCount: tdInt(json['member_count']),
       myStatus: parseMemberStatus(status),
       canManageMembers: parseCanManageMembers(status),
       canChangeInfo: parseCanChangeInfo(status),
@@ -219,7 +220,7 @@ class TdlibChatInfoParser {
     return ChatDetailInfo(
       chatId: chatId,
       username: parseActiveUsername(json['usernames'] as Map<String, dynamic>?),
-      memberCount: json['member_count'] as int?,
+      memberCount: tdInt(json['member_count']),
       myStatus: parseMemberStatus(status),
       canManageMembers: parseCanManageMembers(status),
       canChangeInfo: parseCanChangeInfo(status),
@@ -243,13 +244,13 @@ class TdlibChatInfoParser {
     return ChatDetailInfo(
       chatId: chatId,
       description: json['description'] as String? ?? '',
-      memberCount: json['member_count'] as int?,
+      memberCount: tdInt(json['member_count']),
       inviteLink: parseInviteLink(
         json['invite_link'] as Map<String, dynamic>?,
       ),
       linkedChatId: _parseLinkedChatId(json['linked_chat_id']),
       adminSettings: ChatAdminSettings(
-        slowModeDelay: json['slow_mode_delay'] as int? ?? 0,
+        slowModeDelay: tdIntOr(json['slow_mode_delay']),
         slowModeDelayExpiresIn:
             (json['slow_mode_delay_expires_in'] as num?)?.toDouble() ?? 0,
         hasAggressiveAntiSpamEnabled:
@@ -281,8 +282,8 @@ class TdlibChatInfoParser {
     if (json['@type'] != 'messageThreadInfo') {
       return null;
     }
-    final threadId = json['message_thread_id'] as int? ?? 0;
-    final discussionChatId = json['chat_id'] as int? ?? 0;
+    final threadId = tdIntOr(json['message_thread_id']);
+    final discussionChatId = tdIntOr(json['chat_id']);
     if (threadId == 0 || discussionChatId == 0) {
       return null;
     }
@@ -296,7 +297,7 @@ class TdlibChatInfoParser {
   }
 
   static int? _parseLinkedChatId(dynamic value) {
-    final id = value as int? ?? 0;
+    final id = tdIntOr(value);
     return id == 0 ? null : id;
   }
 }

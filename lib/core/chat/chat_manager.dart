@@ -21,6 +21,7 @@ import 'tdlib_forum_parser.dart';
 import 'tdlib_chat_info_parser.dart';
 import 'tdlib_chat_parser.dart';
 import 'tdlib_group_message_parser.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Управление списком чатов и активной перепиской.
 class ChatManager extends ChangeNotifier {
@@ -53,6 +54,11 @@ class ChatManager extends ChangeNotifier {
   bool _isLoadingMessages = false;
   String? _messagesError;
   Timer? _messagesLoadTimeout;
+  /// Сколько сообщений хотим набрать при открытии чата (TDLib часто отдаёт по 1).
+  int _historyTargetCount = 50;
+  int _historyPagesFetched = 0;
+  static const int _historyPageLimit = 50;
+  static const int _historyMaxPages = 20;
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
   String _searchQuery = '';
@@ -916,6 +922,8 @@ class ChatManager extends ChangeNotifier {
     _editingMessage = null;
     _exitSelectionMode();
     _isLoadingMessages = true;
+    _historyTargetCount = _historyPageLimit;
+    _historyPagesFetched = 0;
     _startMessagesLoadTimeout(chatId);
     notifyListeners();
 
@@ -1096,6 +1104,8 @@ class ChatManager extends ChangeNotifier {
     _editingMessage = null;
     _exitSelectionMode();
     _isLoadingMessages = true;
+    _historyTargetCount = _historyPageLimit;
+    _historyPagesFetched = 0;
     _startMessagesLoadTimeout(chatId);
     notifyListeners();
 
@@ -2193,103 +2203,108 @@ class ChatManager extends ChangeNotifier {
 
   void _handleUpdate(Map<String, dynamic> update) {
     final type = update['@type'];
-
-    switch (type) {
-      case 'user':
-        _handleUser(update);
-      case 'updateUser':
-        _handleUser(update['user'] as Map<String, dynamic>);
-      case 'updateChatFolders':
-        _handleChatFolders(update);
-      case 'updateNewChat':
-        _upsertChat(
-          TdlibChatParser.parseChat(
-            update['chat'] as Map<String, dynamic>,
-            myUserId: _myUserId,
-            botUsers: _botUsers,
-          ),
-        );
-      case 'chat':
-        _handleChatResponse(update);
-      case 'supergroup':
-        _handleSupergroupResponse(update);
-      case 'supergroupFullInfo':
-        _handleSupergroupFullInfoResponse(update);
-      case 'basicGroup':
-        _handleBasicGroupResponse(update);
-      case 'basicGroupFullInfo':
-        _handleBasicGroupFullInfoResponse(update);
-      case 'chatMembers':
-        _handleChatMembersResponse(update);
-      case 'chatInviteLink':
-        _handleChatInviteLinkResponse(update);
-      case 'messageThreadInfo':
-        _handleMessageThreadInfo(update);
-      case 'forumTopics':
-        _handleForumTopics(update);
-      case 'forumTopicInfo':
-        _handleForumTopicInfo(update);
-      case 'createdBasicGroupChat':
-        _handleCreatedBasicGroupChat(update);
-      case 'chatJoinResultSuccess':
-        _handleChatJoinSuccess(update);
-      case 'chatJoinResultRequestSent':
-        _handleChatJoinRequestSent(update);
-      case 'chatJoinResultDeclined':
-        _handleChatJoinDeclined(update);
-      case 'updateChatLastMessage':
-        _handleChatLastMessage(update);
-      case 'updateChatPosition':
-        _handleUpdateChatPosition(update);
-      case 'updateChatDraftMessage':
-        _handleUpdateChatDraftMessage(update);
-      case 'updateChatNotificationSettings':
-        _handleUpdateChatNotificationSettings(update);
-      case 'updateChatReadInbox':
-        _handleUpdateChatReadInbox(update);
-      case 'updateChatReadOutbox':
-        _handleUpdateChatReadOutbox(update);
-      case 'updateChatIsMarkedAsUnread':
-        _handleUpdateChatIsMarkedAsUnread(update);
-      case 'chats':
-        _handleChats(update);
-      case 'foundMessages':
-        _handleFoundMessages(update);
-      case 'messages':
-        _handleMessages(update);
-      case 'message':
-        _handleSingleMessage(update);
-      case 'updateNewMessage':
-        _handleNewMessage(update);
-      case 'updateMessageSendSucceeded':
-        _handleSendSucceeded(update);
-      case 'updateMessageEdited':
-        _handleMessageEdited(update);
-      case 'updateDeleteMessages':
-        _handleDeleteMessages(update);
-      case 'updateMessageContent':
-        _handleMessageContent(update);
-      case 'updateMessageReactions':
-        _handleMessageReactions(update);
-      case 'updateMessageInteractionInfo':
-        _handleMessageInteractionInfo(update);
-      case 'updateNewCallbackQuery':
-        _handleNewCallbackQuery(update);
-      case 'updateUserChatAction':
-        _handleTyping(update);
-      case 'updateFile':
-        _handleFileUpdate(update);
-      case 'updateChatPhoto':
-        _handleChatPhoto(update);
-      case 'ok':
-        _handleOk(update);
-      case 'error':
-        _handleError(update);
+    try {
+      switch (type) {
+        case 'user':
+          _handleUser(update);
+        case 'updateUser':
+          _handleUser(update['user'] as Map<String, dynamic>);
+        case 'updateChatFolders':
+          _handleChatFolders(update);
+        case 'updateNewChat':
+          _upsertChat(
+            TdlibChatParser.parseChat(
+              update['chat'] as Map<String, dynamic>,
+              myUserId: _myUserId,
+              botUsers: _botUsers,
+            ),
+          );
+        case 'chat':
+          _handleChatResponse(update);
+        case 'supergroup':
+          _handleSupergroupResponse(update);
+        case 'supergroupFullInfo':
+          _handleSupergroupFullInfoResponse(update);
+        case 'basicGroup':
+          _handleBasicGroupResponse(update);
+        case 'basicGroupFullInfo':
+          _handleBasicGroupFullInfoResponse(update);
+        case 'chatMembers':
+          _handleChatMembersResponse(update);
+        case 'chatInviteLink':
+          _handleChatInviteLinkResponse(update);
+        case 'messageThreadInfo':
+          _handleMessageThreadInfo(update);
+        case 'forumTopics':
+          _handleForumTopics(update);
+        case 'forumTopicInfo':
+          _handleForumTopicInfo(update);
+        case 'createdBasicGroupChat':
+          _handleCreatedBasicGroupChat(update);
+        case 'chatJoinResultSuccess':
+          _handleChatJoinSuccess(update);
+        case 'chatJoinResultRequestSent':
+          _handleChatJoinRequestSent(update);
+        case 'chatJoinResultDeclined':
+          _handleChatJoinDeclined(update);
+        case 'updateChatLastMessage':
+          _handleChatLastMessage(update);
+        case 'updateChatPosition':
+          _handleUpdateChatPosition(update);
+        case 'updateChatDraftMessage':
+          _handleUpdateChatDraftMessage(update);
+        case 'updateChatNotificationSettings':
+          _handleUpdateChatNotificationSettings(update);
+        case 'updateChatReadInbox':
+          _handleUpdateChatReadInbox(update);
+        case 'updateChatReadOutbox':
+          _handleUpdateChatReadOutbox(update);
+        case 'updateChatIsMarkedAsUnread':
+          _handleUpdateChatIsMarkedAsUnread(update);
+        case 'chats':
+          _handleChats(update);
+        case 'foundMessages':
+          _handleFoundMessages(update);
+        case 'messages':
+          _handleMessages(update);
+        case 'message':
+          _handleSingleMessage(update);
+        case 'updateNewMessage':
+          _handleNewMessage(update);
+        case 'updateMessageSendSucceeded':
+          _handleSendSucceeded(update);
+        case 'updateMessageEdited':
+          _handleMessageEdited(update);
+        case 'updateDeleteMessages':
+          _handleDeleteMessages(update);
+        case 'updateMessageContent':
+          _handleMessageContent(update);
+        case 'updateMessageReactions':
+          _handleMessageReactions(update);
+        case 'updateMessageInteractionInfo':
+          _handleMessageInteractionInfo(update);
+        case 'updateNewCallbackQuery':
+          _handleNewCallbackQuery(update);
+        case 'updateUserChatAction':
+          _handleTyping(update);
+        case 'updateFile':
+          _handleFileUpdate(update);
+        case 'updateChatPhoto':
+          _handleChatPhoto(update);
+        case 'ok':
+          _handleOk(update);
+        case 'error':
+          _handleError(update);
+      }
+    } catch (error, stackTrace) {
+      tdlibDebugLog(
+        'ChatManager failed on @$type: $error\n$stackTrace',
+      );
     }
   }
 
   void _handleUser(Map<String, dynamic> user) {
-    final userId = user['id'] as int?;
+    final userId = tdInt(user['id']);
     if (userId == null) {
       return;
     }
@@ -2430,6 +2445,19 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    if (extra.startsWith('chatInfo_members_')) {
+      // Ожидаемо для каналов / скрытых списков — не показываем как фатал info.
+      if (kDebugMode) {
+        debugPrint(
+          'ChatManager: members unavailable: '
+          '${update['message'] as String? ?? 'unknown'}',
+        );
+      }
+      _completeChatInfoRequest();
+      notifyListeners();
+      return;
+    }
+
     if (extra.startsWith('chatInfo_')) {
       _chatInfoError = update['message'] as String? ?? 'Ошибка загрузки информации';
       _completeChatInfoRequest();
@@ -2491,16 +2519,20 @@ class ChatManager extends ChangeNotifier {
     return int.tryParse(extra.substring(prefix.length));
   }
 
-  void _requestChatHistory(int chatId, {required bool onlyLocal}) {
+  void _requestChatHistory(
+    int chatId, {
+    required bool onlyLocal,
+    int fromMessageId = 0,
+  }) {
     if (_activeForumTopicId != null) {
       return;
     }
     _client.send({
       '@type': 'getChatHistory',
       'chat_id': chatId,
-      'from_message_id': 0,
+      'from_message_id': fromMessageId,
       'offset': 0,
-      'limit': 50,
+      'limit': _historyPageLimit,
       'only_local': onlyLocal,
       '@extra': onlyLocal
           ? 'getChatHistoryLocal_$chatId'
@@ -2508,14 +2540,18 @@ class ChatManager extends ChangeNotifier {
     });
   }
 
-  void _requestForumTopicHistory(int chatId, int forumTopicId) {
+  void _requestForumTopicHistory(
+    int chatId,
+    int forumTopicId, {
+    int fromMessageId = 0,
+  }) {
     _client.send({
       '@type': 'getForumTopicHistory',
       'chat_id': chatId,
       'forum_topic_id': forumTopicId,
-      'from_message_id': 0,
+      'from_message_id': fromMessageId,
       'offset': 0,
-      'limit': 50,
+      'limit': _historyPageLimit,
       '@extra': 'forumTopicHistory_${chatId}_$forumTopicId',
     });
   }
@@ -2533,7 +2569,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleChatPhoto(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     final photo = update['photo'] as Map<String, dynamic>?;
     if (chatId == null || photo == null) {
       return;
@@ -2599,7 +2635,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleChatLastMessage(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     final lastMessage = update['last_message'] as Map<String, dynamic>?;
     if (chatId == null) {
       return;
@@ -2616,7 +2652,7 @@ class ChatManager extends ChangeNotifier {
     if (lastMessage != null) {
       final content = lastMessage['content'] as Map<String, dynamic>? ?? {};
       preview = MessageContent.fromTdlib(content).preview;
-      final dateSeconds = lastMessage['date'] as int? ?? 0;
+      final dateSeconds = tdIntOr(lastMessage['date']);
       date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
     }
 
@@ -2630,7 +2666,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleUpdateChatPosition(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     final positionRaw = update['position'] as Map<String, dynamic>?;
     if (chatId == null || positionRaw == null) {
       return;
@@ -2650,7 +2686,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleUpdateChatDraftMessage(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     if (chatId == null) {
       return;
     }
@@ -2674,7 +2710,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleUpdateChatNotificationSettings(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     final settings = update['notification_settings'] as Map<String, dynamic>?;
     if (chatId == null || settings == null) {
       return;
@@ -2692,7 +2728,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleUpdateChatReadInbox(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     if (chatId == null) {
       return;
     }
@@ -2703,26 +2739,26 @@ class ChatManager extends ChangeNotifier {
     }
 
     _chatsById[chatId] = chat.copyWith(
-      unreadCount: update['unread_count'] as int? ?? chat.unreadCount,
+      unreadCount: tdInt(update['unread_count']) ?? chat.unreadCount,
     );
     notifyListeners();
   }
 
   void _handleUpdateChatReadOutbox(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     if (chatId == null) {
       return;
     }
 
     _lastReadOutboxMessageId[chatId] =
-        update['last_read_outbox_message_id'] as int? ?? 0;
+        tdIntOr(update['last_read_outbox_message_id']);
     if (chatId == _activeChatId) {
       _refreshDeliveryStatuses();
     }
   }
 
   void _handleUpdateChatIsMarkedAsUnread(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     if (chatId == null) {
       return;
     }
@@ -2812,7 +2848,7 @@ class ChatManager extends ChangeNotifier {
 
   void _handleChatResponse(Map<String, dynamic> update) {
     final extra = update['@extra'] as String?;
-    final chatId = update['id'] as int?;
+    final chatId = tdInt(update['id']);
 
     if (extra != null && chatId != null) {
       if (extra.startsWith('newChatPublic_')) {
@@ -2855,7 +2891,7 @@ class ChatManager extends ChangeNotifier {
 
   void _handleCreatedBasicGroupChat(Map<String, dynamic> update) {
     final extra = update['@extra'] as String?;
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     if (extra == null || chatId == null) {
       return;
     }
@@ -2865,7 +2901,7 @@ class ChatManager extends ChangeNotifier {
 
   void _handleChatJoinSuccess(Map<String, dynamic> update) {
     final extra = update['@extra'] as String?;
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     if (extra == null || chatId == null) {
       return;
     }
@@ -2960,7 +2996,7 @@ class ChatManager extends ChangeNotifier {
     }
 
     final isLocal = extra?.startsWith('getChatHistoryLocal_') ?? false;
-    final chatId = update['chat_id'] as int? ??
+    final chatId = tdInt(update['chat_id']) ??
         _chatIdFromExtra(extra, 'getChatHistoryLocal_') ??
         _chatIdFromExtra(extra, 'getChatHistory_');
     if (chatId == null || chatId != _activeChatId) {
@@ -2972,32 +3008,79 @@ class ChatManager extends ChangeNotifier {
         .whereType<Map<String, dynamic>>()
         .map(_parseMessage)
         .whereType<ChatMessage>()
-        .toList()
-        .reversed
         .toList();
 
-    if (parsed.isNotEmpty) {
-      _messages
-        ..clear()
-        ..addAll(parsed);
+    // TDLib: reverse chronological → храним oldest→newest.
+    parsed.sort((a, b) => a.id.compareTo(b.id));
+    final added = _mergeHistoryMessages(parsed);
+    if (added > 0) {
       _requestMediaDownloads();
     }
+    _historyPagesFetched += 1;
 
-    if (isLocal) {
-      // Кэш показан сразу — не ждём сеть (прокси может быть недоступен).
+    // Показываем UI сразу по первому батчу; дальше догружаем в фоне.
+    if (_isLoadingMessages && (_messages.isNotEmpty || !isLocal)) {
       _isLoadingMessages = false;
       _messagesError = null;
-      notifyListeners();
-      return;
     }
 
-    _messagesLoadTimeout?.cancel();
-    _messagesError = null;
-    _isLoadingMessages = false;
-    if (parsed.isNotEmpty) {
-      _markMessagesRead(chatId, parsed);
+    final shouldContinue = _shouldContinueHistoryLoad(added: added);
+    if (shouldContinue) {
+      final oldestId = _messages.first.id;
+      _requestChatHistory(
+        chatId,
+        onlyLocal: isLocal,
+        fromMessageId: oldestId,
+      );
+    } else if (!isLocal) {
+      _messagesLoadTimeout?.cancel();
+      _isLoadingMessages = false;
+      _messagesError = null;
+      if (_messages.isNotEmpty) {
+        _markMessagesRead(chatId, _messages);
+      }
     }
+
     notifyListeners();
+  }
+
+  /// Добавляет сообщения истории без потери уже показанных.
+  /// Возвращает число новых id.
+  int _mergeHistoryMessages(List<ChatMessage> batch) {
+    if (batch.isEmpty) {
+      return 0;
+    }
+    final existingIds = {for (final message in _messages) message.id};
+    var added = 0;
+    for (final message in batch) {
+      if (existingIds.add(message.id)) {
+        _messages.add(message);
+        added += 1;
+      } else {
+        final index = _messages.indexWhere((item) => item.id == message.id);
+        if (index >= 0) {
+          _messages[index] = message;
+        }
+      }
+    }
+    if (added > 0) {
+      _messages.sort((a, b) => a.id.compareTo(b.id));
+    }
+    return added;
+  }
+
+  bool _shouldContinueHistoryLoad({required int added}) {
+    if (_activeChatId == null || _messages.isEmpty) {
+      return false;
+    }
+    if (_messages.length >= _historyTargetCount) {
+      return false;
+    }
+    if (_historyPagesFetched >= _historyMaxPages) {
+      return false;
+    }
+    // Нет новых сообщений → конец истории (дубликат from_message_id).
+    return added > 0;
   }
 
   void _markMessagesRead(int chatId, List<ChatMessage> messages) {
@@ -3051,7 +3134,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleSendSucceeded(Map<String, dynamic> update) {
-    final oldMessageId = update['old_message_id'] as int?;
+    final oldMessageId = tdInt(update['old_message_id']);
     final message = _parseMessage(
       update['message'] as Map<String, dynamic>,
     );
@@ -3073,13 +3156,13 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleMessageEdited(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
-    final messageId = update['message_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
+    final messageId = tdInt(update['message_id']);
     if (chatId != _activeChatId || messageId == null) {
       return;
     }
 
-    final editDateSeconds = update['edit_date'] as int? ?? 0;
+    final editDateSeconds = tdIntOr(update['edit_date']);
     final editDate = editDateSeconds > 0
         ? DateTime.fromMillisecondsSinceEpoch(editDateSeconds * 1000)
         : null;
@@ -3092,8 +3175,8 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleMessageContent(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
-    final messageId = update['message_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
+    final messageId = tdInt(update['message_id']);
     final newContent = update['new_content'] as Map<String, dynamic>?;
     if (chatId != _activeChatId || messageId == null || newContent == null) {
       return;
@@ -3120,7 +3203,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleDeleteMessages(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     if (chatId != _activeChatId) {
       return;
     }
@@ -3154,8 +3237,8 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleMessageReactions(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
-    final messageId = update['message_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
+    final messageId = tdInt(update['message_id']);
     if (chatId != _activeChatId || messageId == null) {
       return;
     }
@@ -3171,8 +3254,8 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleMessageInteractionInfo(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
-    final messageId = update['message_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
+    final messageId = tdInt(update['message_id']);
     if (chatId != _activeChatId || messageId == null) {
       return;
     }
@@ -3196,7 +3279,7 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _handleTyping(Map<String, dynamic> update) {
-    final chatId = update['chat_id'] as int?;
+    final chatId = tdInt(update['chat_id']);
     if (chatId != _activeChatId) {
       return;
     }
@@ -3218,7 +3301,7 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
-    final fileId = file['id'] as int?;
+    final fileId = tdInt(file['id']);
     if (fileId == null) {
       return;
     }
@@ -3481,7 +3564,10 @@ class ChatManager extends ChangeNotifier {
         '@extra': 'chatInfo_basic_$chatId',
       });
     } else if (chat.supergroupId != null) {
-      pending = 3;
+      // Список участников в каналах (broadcast) недоступен обычным подписчикам —
+      // getSupergroupMembers вернёт "Member list is inaccessible".
+      final requestMembers = chat.kind != ChatKind.channel;
+      pending = requestMembers ? 3 : 2;
       _client.send({
         '@type': 'getSupergroup',
         'supergroup_id': chat.supergroupId,
@@ -3492,14 +3578,16 @@ class ChatManager extends ChangeNotifier {
         'supergroup_id': chat.supergroupId,
         '@extra': 'chatInfo_superFull_$chatId',
       });
-      _client.send({
-        '@type': 'getSupergroupMembers',
-        'supergroup_id': chat.supergroupId,
-        'filter': {'@type': 'supergroupMembersFilterRecent'},
-        'offset': 0,
-        'limit': 50,
-        '@extra': 'chatInfo_members_$chatId',
-      });
+      if (requestMembers) {
+        _client.send({
+          '@type': 'getSupergroupMembers',
+          'supergroup_id': chat.supergroupId,
+          'filter': {'@type': 'supergroupMembersFilterRecent'},
+          'offset': 0,
+          'limit': 50,
+          '@extra': 'chatInfo_members_$chatId',
+        });
+      }
     } else if (chat.privateUserId != null) {
       pending = 1;
       _client.send({
@@ -3859,22 +3947,33 @@ class ChatManager extends ChangeNotifier {
         .where(_messageMatchesActiveForumTopic)
         .map(_parseMessage)
         .whereType<ChatMessage>()
-        .toList()
-        .reversed
         .toList();
+    parsed.sort((a, b) => a.id.compareTo(b.id));
 
-    if (parsed.isNotEmpty) {
-      _messages
-        ..clear()
-        ..addAll(parsed);
+    final added = _mergeHistoryMessages(parsed);
+    if (added > 0) {
       _requestMediaDownloads();
     }
+    _historyPagesFetched += 1;
 
-    _messagesLoadTimeout?.cancel();
-    _messagesError = null;
-    _isLoadingMessages = false;
-    if (parsed.isNotEmpty) {
-      _markMessagesRead(chatId, parsed);
+    if (_isLoadingMessages && _messages.isNotEmpty) {
+      _isLoadingMessages = false;
+      _messagesError = null;
+    }
+
+    if (_shouldContinueHistoryLoad(added: added)) {
+      _requestForumTopicHistory(
+        chatId,
+        forumTopicId,
+        fromMessageId: _messages.first.id,
+      );
+    } else {
+      _messagesLoadTimeout?.cancel();
+      _isLoadingMessages = false;
+      _messagesError = null;
+      if (_messages.isNotEmpty) {
+        _markMessagesRead(chatId, _messages);
+      }
     }
     notifyListeners();
   }

@@ -1,3 +1,4 @@
+import '../core/tdlib/tdlib_json.dart';
 /// Состояние звонка TDLib (`CallState`).
 enum CallStateKind {
   pending,
@@ -169,7 +170,7 @@ class CallMessageInfo {
 
     return CallMessageInfo(
       isVideo: content['is_video'] as bool? ?? false,
-      durationSeconds: content['duration'] as int? ?? 0,
+      durationSeconds: tdIntOr(content['duration']),
       discardReason: reason,
       isMissed: reason == CallDiscardReasonKind.missed,
       isDeclined: reason == CallDiscardReasonKind.declined,

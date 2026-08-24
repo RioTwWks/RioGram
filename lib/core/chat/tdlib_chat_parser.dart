@@ -1,6 +1,7 @@
 import '../../models/chat_models.dart';
 import '../../models/group_models.dart';
 import 'tdlib_chat_info_parser.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Данные аватара чата из TDLib chatPhotoInfo.
 class ChatAvatarData {
@@ -22,7 +23,7 @@ class TdlibChatParser {
     int? myUserId,
     Map<int, bool>? botUsers,
   }) {
-    final id = chat['id'] as int?;
+    final id = tdInt(chat['id']);
     final title = chat['title'] as String?;
     if (id == null || title == null) {
       return null;
@@ -34,7 +35,7 @@ class TdlibChatParser {
     if (lastMessage != null) {
       final content = lastMessage['content'] as Map<String, dynamic>? ?? {};
       preview = MessageContent.fromTdlib(content).preview;
-      final dateSeconds = lastMessage['date'] as int? ?? 0;
+      final dateSeconds = tdIntOr(lastMessage['date']);
       date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
     }
 
@@ -54,7 +55,7 @@ class TdlibChatParser {
       title: title,
       lastMessage: preview,
       lastMessageDate: date,
-      unreadCount: chat['unread_count'] as int? ?? 0,
+      unreadCount: tdIntOr(chat['unread_count']),
       avatarFileId: avatar.fileId,
       avatarLocalPath: avatar.localPath,
       kind: typeInfo.kind,
@@ -83,10 +84,10 @@ class TdlibChatParser {
     final messages = update['messages'] as List<dynamic>? ?? [];
     return messages.whereType<Map<String, dynamic>>().map((message) {
       final content = message['content'] as Map<String, dynamic>? ?? {};
-      final dateSeconds = message['date'] as int? ?? 0;
+      final dateSeconds = tdIntOr(message['date']);
       return SearchMessageHit(
-        chatId: message['chat_id'] as int? ?? 0,
-        messageId: message['id'] as int? ?? 0,
+        chatId: tdIntOr(message['chat_id']),
+        messageId: tdIntOr(message['id']),
         preview: MessageContent.fromTdlib(content).preview,
         date: DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000),
       );
@@ -115,7 +116,7 @@ class TdlibChatParser {
       return const ChatAvatarData();
     }
 
-    final fileId = fileInfo['id'] as int?;
+    final fileId = tdInt(fileInfo['id']);
     final local = fileInfo['local'] as Map<String, dynamic>?;
     final localPath = local != null && local['is_downloading_completed'] == true
         ? local['path'] as String?
@@ -163,7 +164,7 @@ class TdlibChatParser {
     if (settings['use_default_mute_for'] as bool? ?? true) {
       return false;
     }
-    final muteFor = settings['mute_for'] as int? ?? 0;
+    final muteFor = tdIntOr(settings['mute_for']);
     return muteFor != 0;
   }
 
@@ -216,18 +217,18 @@ class TdlibChatParser {
     return switch (type['@type']) {
       'chatTypeBasicGroup' => ChatTypeInfo(
           kind: ChatKind.group,
-          basicGroupId: type['basic_group_id'] as int?,
+          basicGroupId: tdInt(type['basic_group_id']),
         ),
       'chatTypeSupergroup' => ChatTypeInfo(
           kind: (type['is_channel'] as bool? ?? false)
               ? ChatKind.channel
               : ChatKind.group,
-          supergroupId: type['supergroup_id'] as int?,
+          supergroupId: tdInt(type['supergroup_id']),
         ),
       'chatTypeSecret' => const ChatTypeInfo(kind: ChatKind.secret),
       'chatTypePrivate' => () {
           final private = _parsePrivateChatType(
-            type['user_id'] as int?,
+            tdInt(type['user_id']),
             myUserId: myUserId,
             botUsers: botUsers,
           );
@@ -272,7 +273,7 @@ class TdlibChatParser {
           final title = name?['text'] as String? ?? 'Папка';
           final icon = folder['icon'] as Map<String, dynamic>?;
           return ChatFolderTab(
-            id: folder['id'] as int? ?? 0,
+            id: tdIntOr(folder['id']),
             name: title,
             iconName: icon?['name'] as String?,
           );

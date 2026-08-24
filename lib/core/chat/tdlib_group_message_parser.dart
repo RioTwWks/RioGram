@@ -1,4 +1,5 @@
 import '../../models/chat_models.dart';
+import '../tdlib/tdlib_json.dart';
 
 /// Резолвер имён пользователей и чатов для групповых сообщений.
 class GroupMessageNameResolver {
@@ -58,8 +59,8 @@ class TdlibGroupMessageParser {
       return (userId: null, chatId: null);
     }
     return switch (senderId['@type']) {
-      'messageSenderUser' => (userId: senderId['user_id'] as int?, chatId: null),
-      'messageSenderChat' => (userId: null, chatId: senderId['chat_id'] as int?),
+      'messageSenderUser' => (userId: tdInt(senderId['user_id']), chatId: null),
+      'messageSenderChat' => (userId: null, chatId: tdInt(senderId['chat_id'])),
       _ => (userId: null, chatId: null),
     };
   }
@@ -73,9 +74,9 @@ class TdlibGroupMessageParser {
     }
     return switch (senderId['@type']) {
       'messageSenderUser' =>
-        resolver.resolveUser(senderId['user_id'] as int? ?? 0),
+        resolver.resolveUser(tdIntOr(senderId['user_id'])),
       'messageSenderChat' =>
-        resolver.resolveChat(senderId['chat_id'] as int? ?? 0),
+        resolver.resolveChat(tdIntOr(senderId['chat_id'])),
       _ => null,
     };
   }
@@ -114,10 +115,10 @@ class TdlibGroupMessageParser {
     return switch (type) {
       'messageChatAddMembers' => _intList(content['member_user_ids']),
       'messageBasicGroupChatCreate' => _intList(content['member_user_ids']),
-      'messageChatDeleteMember' => [content['user_id'] as int? ?? 0],
+      'messageChatDeleteMember' => [tdIntOr(content['user_id'])],
       'messageChatOwnerChanged' ||
       'messageChatOwnerLeft' =>
-        [content['new_owner_user_id'] as int? ?? 0],
+        [tdIntOr(content['new_owner_user_id'])],
       _ => const [],
     };
   }
@@ -182,12 +183,12 @@ class TdlibGroupMessageParser {
               : 'Супергруппа «$title» создана из группы';
         }(),
       'messageChatOwnerChanged' => () {
-          final ownerId = content['new_owner_user_id'] as int? ?? 0;
+          final ownerId = tdIntOr(content['new_owner_user_id']);
           final ownerName = resolver.resolveUser(ownerId);
           return 'Новый владелец — $ownerName';
         }(),
       'messageChatOwnerLeft' => () {
-          final ownerId = content['new_owner_user_id'] as int? ?? 0;
+          final ownerId = tdIntOr(content['new_owner_user_id']);
           final ownerName = resolver.resolveUser(ownerId);
           return '$ownerName назначен(а) владельцем';
         }(),
@@ -232,7 +233,7 @@ class TdlibGroupMessageParser {
     GroupMessageNameResolver resolver, {
     String? senderName,
   }) {
-    final userId = content['user_id'] as int? ?? 0;
+    final userId = tdIntOr(content['user_id']);
     final memberName = resolver.resolveUser(userId);
     if (senderName != null && memberName != senderName) {
       return '$senderName удалил(а) $memberName';
