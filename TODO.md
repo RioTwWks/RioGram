@@ -336,9 +336,9 @@
 #### Голосовые и видеозвонки (VoIP)
 - [x] `createCall` / `acceptCall` / `discardCall` — аудио 1:1
 - [x] Видеозвонки: `createCall(is_video)`, превью камеры, локальный toggle видео
-- [ ] Групповые звонки / конференции (`createGroupCall`, `joinGroupCall`) — низкий приоритет
-- [ ] WebRTC-интеграция, CallKit (iOS), foreground service (Android)
-- [ ] Выбор устройств ввода/вывода на десктопе
+- [x] Групповые звонки / конференции (`createGroupCall`, `joinGroupCall`) — низкий приоритет
+- [x] WebRTC-интеграция, CallKit (iOS), foreground service (Android)
+- [x] Выбор устройств ввода/вывода на десктопе
 - [x] История звонков (`messageCall`)
 
 #### Геолокация

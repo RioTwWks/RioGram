@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../models/call_media_models.dart';
 import '../../models/call_models.dart';
 import '../tdlib/tdlib_client.dart';
+import 'call_platform_service.dart';
 import 'call_signaling_bridge.dart';
 import 'tdlib_call_parser.dart';
 
@@ -13,12 +15,15 @@ class CallManager extends ChangeNotifier {
     required TdlibClient client,
     CallSignalingBridge? signalingBridge,
   })  : _client = client,
-        _signalingBridge = signalingBridge ?? StubCallSignalingBridge();
+        _signalingBridge = signalingBridge ?? StubCallSignalingBridge() {
+    _signalingBridge.setOutboundSignalingHandler(sendSignalingData);
+  }
 
   final TdlibClient _client;
   final CallSignalingBridge _signalingBridge;
 
   StreamSubscription<Map<String, dynamic>>? _subscription;
+  StreamSubscription<CallMediaState>? _mediaSubscription;
   final Map<int, UserCallCapabilities> _userCapabilities = {};
   final Map<int, String> _userDisplayNames = {};
 
@@ -29,15 +34,19 @@ class CallManager extends ChangeNotifier {
   var _isMuted = false;
   var _isVideoEnabled = false;
   String? _lastError;
+  String? _platformCallUuid;
+  CallMediaState _mediaState = const CallMediaState();
+
+  CallSignalingBridge get signalingBridge => _signalingBridge;
 
   CallSummary? get activeCall => _activeCall;
   Duration get callDuration => _callDuration;
   bool get isMuted => _isMuted;
   bool get isVideoEnabled => _isVideoEnabled;
+  CallMediaState get mediaState => _mediaState;
   bool get hasActiveCall =>
       _activeCall != null && _activeCall!.uiPhase != CallUiPhase.idle;
-  bool get hasIncomingCall =>
-      _activeCall?.isIncomingRinging ?? false;
+  bool get hasIncomingCall => _activeCall?.isIncomingRinging ?? false;
   String? get lastError => _lastError;
 
   UserCallCapabilities capabilitiesFor(int userId) =>
@@ -48,12 +57,34 @@ class CallManager extends ChangeNotifier {
 
   void startListening() {
     _subscription ??= _client.updates.listen(_handleUpdate);
+    _mediaSubscription ??=
+        _signalingBridge.mediaStateStream.listen((state) {
+      _mediaState = state;
+      _isMuted = state.isMuted;
+      notifyListeners();
+    });
+
+    CallPlatformService.installHandler(
+      onAccept: (_) => unawaited(acceptCall()),
+      onDecline: (_) => unawaited(declineCall()),
+      onEnd: (_) => unawaited(hangUp()),
+    );
   }
+
+  Future<List<CallAudioDevice>> listAudioDevices() =>
+      _signalingBridge.listAudioDevices();
+
+  Future<void> selectAudioInput(String deviceId) =>
+      _signalingBridge.selectAudioInput(deviceId);
+
+  Future<void> selectAudioOutput(String deviceId) =>
+      _signalingBridge.selectAudioOutput(deviceId);
 
   @override
   void dispose() {
     _durationTimer?.cancel();
     _subscription?.cancel();
+    _mediaSubscription?.cancel();
     super.dispose();
   }
 
@@ -116,8 +147,9 @@ class CallManager extends ChangeNotifier {
     await _discardActiveCall(isDisconnected: false);
   }
 
-  void toggleMute() {
+  Future<void> toggleMute() async {
     _isMuted = !_isMuted;
+    await _signalingBridge.setMuted(_isMuted);
     notifyListeners();
   }
 
@@ -157,6 +189,18 @@ class CallManager extends ChangeNotifier {
     _activeCall = parsed.copyWith(userDisplayName: displayName);
     _isVideoEnabled = parsed.isVideo;
 
+    if (parsed.isIncomingRinging && _platformCallUuid == null) {
+      _platformCallUuid = 'call-${parsed.id}';
+      unawaited(
+        CallPlatformService.reportIncomingCall(
+          callUuid: _platformCallUuid!,
+          handle: displayName ?? displayNameFor(parsed.userId),
+          title: parsed.isVideo ? 'Видеозвонок' : 'Звонок',
+          isVideo: parsed.isVideo,
+        ),
+      );
+    }
+
     final stateRaw = raw['state'] as Map<String, dynamic>? ?? {};
     switch (parsed.stateKind) {
       case CallStateKind.ready:
@@ -191,6 +235,18 @@ class CallManager extends ChangeNotifier {
     }
     _connectedAt ??= DateTime.now();
     _startDurationTimer();
+
+    _platformCallUuid ??= 'call-${call.id}';
+    final name = call.userDisplayName ?? displayNameFor(call.userId);
+    await CallPlatformService.startActiveCall(
+      callUuid: _platformCallUuid!,
+      handle: name,
+      title: call.isVideo ? 'Видеозвонок' : 'Звонок',
+      isVideo: call.isVideo,
+      isIncoming: !call.isOutgoing,
+    );
+    await CallPlatformService.setCallConnected(callUuid: _platformCallUuid!);
+
     await _signalingBridge.onCallReady(
       callId: call.id,
       payload: payload,
@@ -200,10 +256,15 @@ class CallManager extends ChangeNotifier {
 
   Future<void> _onCallEnded(CallSummary call) async {
     await _signalingBridge.onCallEnded();
+    if (_platformCallUuid != null) {
+      await CallPlatformService.endActiveCall(callUuid: _platformCallUuid!);
+      _platformCallUuid = null;
+    }
     _stopDurationTimer();
     _connectedAt = null;
     _isMuted = false;
     _isVideoEnabled = false;
+    _mediaState = const CallMediaState();
 
     Future<void>.delayed(const Duration(seconds: 2), () {
       if (_activeCall?.id == call.id && _activeCall!.isEnded) {

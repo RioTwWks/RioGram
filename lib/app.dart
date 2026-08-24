@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import 'core/auth/auth_manager.dart';
 import 'core/call/call_manager.dart';
+import 'core/call/call_signaling_bridge.dart';
+import 'core/call/group_call_manager.dart';
 import 'core/chat/chat_manager.dart';
 import 'core/config/app_config.dart';
 import 'core/chat/sticker_manager.dart';
@@ -71,6 +73,8 @@ class _AppScopeState extends State<_AppScope> {
   late final MediaCacheManager _mediaCacheManager;
   late final StickerManager _stickerManager;
   late final CallManager _callManager;
+  late final GroupCallManager _groupCallManager;
+  late final CallSignalingBridge _callSignalingBridge;
   late final ChatManager _chatManager;
 
   @override
@@ -84,7 +88,15 @@ class _AppScopeState extends State<_AppScope> {
 
     _mediaCacheManager = MediaCacheManager(client: _client);
     _stickerManager = StickerManager(client: _client);
-    _callManager = CallManager(client: _client);
+    _callSignalingBridge = WebRtcCallSignalingBridge();
+    _callManager = CallManager(
+      client: _client,
+      signalingBridge: _callSignalingBridge,
+    );
+    _groupCallManager = GroupCallManager(
+      client: _client,
+      signalingBridge: _callSignalingBridge,
+    );
 
     _chatManager = ChatManager(
       client: _client,
@@ -100,6 +112,7 @@ class _AppScopeState extends State<_AppScope> {
         _mediaCacheManager.startListening();
         _stickerManager.startListening();
         _callManager.startListening();
+        _groupCallManager.startListening();
         _chatManager.startListening();
         _chatManager.loadChats();
       },
@@ -110,6 +123,7 @@ class _AppScopeState extends State<_AppScope> {
   void dispose() {
     _authManager.dispose();
     _chatManager.dispose();
+    _groupCallManager.dispose();
     _callManager.dispose();
     _stickerManager.dispose();
     _mediaCacheManager.dispose();
@@ -134,6 +148,9 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<CallManager>.value(
           value: _callManager,
+        ),
+        ChangeNotifierProvider<GroupCallManager>.value(
+          value: _groupCallManager,
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),

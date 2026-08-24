@@ -25,6 +25,8 @@ dependencies:
   intl: ^0.20.2
   url_launcher: ^6.3.1
   geolocator: ^13.0.2
+  flutter_webrtc: ^0.12.12
+  permission_handler: ^11.4.0
 
 dev_dependencies:
   flutter_test:
