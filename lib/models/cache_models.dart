@@ -98,9 +98,9 @@ class AutoDownloadSettingsModel {
       isEnabled: json['is_auto_download_enabled'] as bool? ?? true,
       maxPhotoBytes: json['max_photo_file_size'] as int? ?? mb10,
       maxVideoBytes: json['max_video_file_size'] as int? ?? mb10,
-      maxOtherBytes: json['max_other_size'] as int? ?? mb10,
-      preloadNextAudio: json['audio_preload_next'] as bool? ?? true,
-      preloadLargeVideo: json['video_preload_large'] as bool? ?? false,
+      maxOtherBytes: json['max_other_file_size'] as int? ?? mb10,
+      preloadNextAudio: json['preload_next_audio'] as bool? ?? true,
+      preloadLargeVideo: json['preload_large_videos'] as bool? ?? false,
     );
   }
 
@@ -109,12 +109,12 @@ class AutoDownloadSettingsModel {
         'is_auto_download_enabled': isEnabled,
         'max_photo_file_size': maxPhotoBytes,
         'max_video_file_size': maxVideoBytes,
-        'max_other_size': maxOtherBytes,
-        'video_preload_large': preloadLargeVideo,
-        'audio_preload_next': preloadNextAudio,
-        'phonecall_less_data': false,
+        'max_other_file_size': maxOtherBytes,
+        'video_upload_bitrate': 0,
+        'preload_large_videos': preloadLargeVideo,
+        'preload_next_audio': preloadNextAudio,
         'preload_stories': false,
-        'stories_preload_large_media': false,
+        'use_less_data_for_calls': false,
       };
 
   AutoDownloadSettingsModel copyWith({

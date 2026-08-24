@@ -46,8 +46,18 @@ class MediaCacheManager extends ChangeNotifier {
         Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
     unawaited(_refreshFilesDirectory());
     unawaited(_detectInitialNetwork());
-    unawaited(loadAllAutoDownloadSettings());
+    _initializeDefaultSettings();
+    unawaited(loadAutoDownloadPresets());
     unawaited(refreshStorageStatistics());
+  }
+
+  void _initializeDefaultSettings() {
+    for (final type in DownloadNetworkType.values) {
+      _autoDownload.putIfAbsent(
+        type,
+        () => AutoDownloadSettingsModel.defaults(type),
+      );
+    }
   }
 
   @override
@@ -96,18 +106,11 @@ class MediaCacheManager extends ChangeNotifier {
     return DownloadNetworkType.other;
   }
 
-  Future<void> loadAllAutoDownloadSettings() async {
-    for (final type in DownloadNetworkType.values) {
-      await loadAutoDownloadSettings(type);
-    }
-  }
-
-  Future<void> loadAutoDownloadSettings(DownloadNetworkType type) async {
+  Future<void> loadAutoDownloadPresets() async {
     final requestId = ++_requestId;
     _client.send({
-      '@type': 'getAutoDownloadSettings',
-      'network_type': type.toTdlib(),
-      '@extra': 'autoDownloadGet_${type.name}_$requestId',
+      '@type': 'getAutoDownloadSettingsPresets',
+      '@extra': 'autoDownloadPresets_$requestId',
     });
   }
 
@@ -116,7 +119,7 @@ class MediaCacheManager extends ChangeNotifier {
     notifyListeners();
     _client.send({
       '@type': 'setAutoDownloadSettings',
-      'network_type': settings.networkType.toTdlib(),
+      'type': settings.networkType.toTdlib(),
       'settings': settings.toTdlib(),
     });
   }
@@ -252,18 +255,36 @@ class MediaCacheManager extends ChangeNotifier {
     final type = update['@type'] as String?;
     final extra = update['@extra'] as String?;
 
-    if (type == 'autoDownloadSettings' && extra != null && extra.startsWith('autoDownloadGet_')) {
-      final parts = extra.split('_');
-      if (parts.length >= 2) {
-        final networkName = parts[1];
-        final network = DownloadNetworkType.values.firstWhere(
-          (item) => item.name == networkName,
-          orElse: () => DownloadNetworkType.other,
-        );
-        _autoDownload[network] =
-            AutoDownloadSettingsModel.fromTdlib(update, network);
-        notifyListeners();
+    if (type == 'autoDownloadSettingsPresets' &&
+        extra != null &&
+        extra.startsWith('autoDownloadPresets_')) {
+      void applyPreset(
+        Map<String, dynamic>? preset,
+        DownloadNetworkType network,
+      ) {
+        if (preset != null) {
+          _autoDownload[network] =
+              AutoDownloadSettingsModel.fromTdlib(preset, network);
+        }
       }
+
+      applyPreset(
+        update['low'] as Map<String, dynamic>?,
+        DownloadNetworkType.roaming,
+      );
+      applyPreset(
+        update['medium'] as Map<String, dynamic>?,
+        DownloadNetworkType.mobile,
+      );
+      applyPreset(
+        update['high'] as Map<String, dynamic>?,
+        DownloadNetworkType.wifi,
+      );
+      applyPreset(
+        update['high'] as Map<String, dynamic>?,
+        DownloadNetworkType.other,
+      );
+      notifyListeners();
       return;
     }
 
