@@ -9,7 +9,9 @@ import '../../models/chat_info_models.dart';
 import '../../models/forum_models.dart';
 import '../../models/formatted_text.dart';
 import '../../models/group_models.dart';
+import '../../models/location_models.dart';
 import '../../models/message_enrichment.dart';
+import '../location/live_location_tracker.dart';
 import '../media/media_cache_manager.dart';
 import '../notifications/notification_service.dart';
 import '../../models/sticker_models.dart';
@@ -33,6 +35,7 @@ class ChatManager extends ChangeNotifier {
   final TdlibClient _client;
   final NotificationService _notifications;
   final MediaCacheManager? _mediaCache;
+  final LiveLocationTracker _liveLocationTracker = LiveLocationTracker();
 
   final Map<int, ChatSummary> _chatsById = {};
   final Map<int, bool> _botUsers = {};
@@ -94,6 +97,10 @@ class ChatManager extends ChangeNotifier {
 
   MessageReplyDraft? _pendingReply;
   DateTime? _scheduledSendAt;
+  bool _pendingLiveLocationBroadcast = false;
+  LiveLocationMeta? _pendingLiveLocationMeta;
+  int? _activeLiveLocationMessageId;
+  LiveLocationMeta? _activeLiveLocationMeta;
   MessageEditDraft? _editingMessage;
   bool _selectionMode = false;
   final Set<int> _selectedMessageIds = {};
@@ -1484,6 +1491,270 @@ class ChatManager extends ChangeNotifier {
     _clearComposerStateAfterSend();
   }
 
+  bool get isLiveLocationBroadcastActive =>
+      _activeLiveLocationMessageId != null;
+
+  int? get activeLiveLocationMessageId => _activeLiveLocationMessageId;
+
+  Future<LocationPoint?> getCurrentLocation() =>
+      _liveLocationTracker.getCurrentPosition();
+
+  Future<void> sendLocation({
+    required double latitude,
+    required double longitude,
+    double horizontalAccuracy = 0,
+  }) async {
+    final chatId = _activeChatId;
+    if (chatId == null || !canSendInActiveChat) {
+      return;
+    }
+
+    final point = LocationPoint(
+      latitude: latitude,
+      longitude: longitude,
+      horizontalAccuracy: horizontalAccuracy,
+    );
+    if (!point.isValid) {
+      return;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: {
+        '@type': 'inputMessageLocation',
+        'location': point.toTdlib(),
+      },
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendLiveLocation({
+    required double latitude,
+    required double longitude,
+    int livePeriod = 3600,
+    double horizontalAccuracy = 0,
+    int heading = 0,
+    int proximityAlertRadius = 0,
+    bool startBroadcast = false,
+  }) async {
+    final chatId = _activeChatId;
+    if (chatId == null || !canSendInActiveChat) {
+      return;
+    }
+
+    final point = LocationPoint(
+      latitude: latitude,
+      longitude: longitude,
+      horizontalAccuracy: horizontalAccuracy,
+    );
+    if (!point.isValid) {
+      return;
+    }
+
+    final meta = LiveLocationMeta(
+      livePeriod: livePeriod.clamp(60, LiveLocationMeta.permanentPeriod),
+      heading: heading,
+      proximityAlertRadius: proximityAlertRadius,
+    );
+
+    if (startBroadcast) {
+      _pendingLiveLocationBroadcast = true;
+      _pendingLiveLocationMeta = meta;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: {
+        '@type': 'inputMessageLiveLocation',
+        'location': meta.toTdlib(point),
+      },
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendVenue({
+    required double latitude,
+    required double longitude,
+    required String title,
+    required String address,
+    String provider = '',
+    String id = '',
+    String type = '',
+    double horizontalAccuracy = 0,
+  }) async {
+    final chatId = _activeChatId;
+    if (chatId == null || !canSendInActiveChat) {
+      return;
+    }
+
+    final venue = VenueInfo(
+      location: LocationPoint(
+        latitude: latitude,
+        longitude: longitude,
+        horizontalAccuracy: horizontalAccuracy,
+      ),
+      title: title.trim(),
+      address: address.trim(),
+      provider: provider,
+      id: id,
+      type: type,
+    );
+    if (!venue.location.isValid || venue.title.isEmpty) {
+      return;
+    }
+
+    _client.send(_buildSendPayload(
+      chatId: chatId,
+      inputMessageContent: {
+        '@type': 'inputMessageVenue',
+        'venue': venue.toTdlib(),
+      },
+    ));
+    _clearComposerStateAfterSend();
+  }
+
+  Future<void> sendLocationRequest(LocationSendRequest request) async {
+    switch (request.mode) {
+      case LocationSendMode.staticPoint:
+        await sendLocation(
+          latitude: request.point.latitude,
+          longitude: request.point.longitude,
+          horizontalAccuracy: request.point.horizontalAccuracy,
+        );
+      case LocationSendMode.liveLocation:
+        await sendLiveLocation(
+          latitude: request.point.latitude,
+          longitude: request.point.longitude,
+          livePeriod: request.livePeriod,
+          horizontalAccuracy: request.point.horizontalAccuracy,
+          startBroadcast: request.startBroadcast,
+        );
+      case LocationSendMode.venue:
+        await sendVenue(
+          latitude: request.point.latitude,
+          longitude: request.point.longitude,
+          title: request.venueTitle,
+          address: request.venueAddress,
+          horizontalAccuracy: request.point.horizontalAccuracy,
+        );
+    }
+  }
+
+  void editMessageLiveLocation({
+    required int messageId,
+    required LocationPoint point,
+    LiveLocationMeta? meta,
+  }) {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    final payload = <String, dynamic>{
+      '@type': 'editMessageLiveLocation',
+      'chat_id': chatId,
+      'message_id': messageId,
+      'reply_markup': null,
+      'location': meta?.toTdlib(point),
+    };
+    _client.send(payload);
+  }
+
+  void stopLiveLocation(int messageId) {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return;
+    }
+
+    _client.send({
+      '@type': 'editMessageLiveLocation',
+      'chat_id': chatId,
+      'message_id': messageId,
+      'reply_markup': null,
+      'location': null,
+    });
+
+    if (_activeLiveLocationMessageId == messageId) {
+      _liveLocationTracker.stop();
+      _activeLiveLocationMessageId = null;
+      _activeLiveLocationMeta = null;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> startLiveLocationBroadcast(int messageId) async {
+    final chatId = _activeChatId;
+    if (chatId == null) {
+      return false;
+    }
+
+    final message = messageById(messageId);
+    final info = message?.content.locationInfo;
+    if (message == null ||
+        message.content.kind != MessageKind.liveLocation ||
+        info == null ||
+        info.isExpired) {
+      return false;
+    }
+
+    stopLiveLocationBroadcast();
+
+    final meta = info.liveMeta ??
+        LiveLocationMeta(livePeriod: info.expiresIn ?? 3600);
+    _activeLiveLocationMessageId = messageId;
+    _activeLiveLocationMeta = meta;
+
+    final started = await _liveLocationTracker.start((point) {
+      editMessageLiveLocation(
+        messageId: messageId,
+        point: point,
+        meta: _activeLiveLocationMeta,
+      );
+    });
+    if (!started) {
+      _activeLiveLocationMessageId = null;
+      _activeLiveLocationMeta = null;
+      return false;
+    }
+    notifyListeners();
+    return true;
+  }
+
+  void stopLiveLocationBroadcast() {
+    final chatId = _activeChatId;
+    final messageId = _activeLiveLocationMessageId;
+    _liveLocationTracker.stop();
+    _activeLiveLocationMessageId = null;
+    _activeLiveLocationMeta = null;
+    if (messageId != null && chatId != null) {
+      _client.send({
+        '@type': 'editMessageLiveLocation',
+        'chat_id': chatId,
+        'message_id': messageId,
+        'reply_markup': null,
+        'location': null,
+      });
+    }
+    notifyListeners();
+  }
+
+  void _maybeStartPendingLiveBroadcast(ChatMessage message) {
+    if (!_pendingLiveLocationBroadcast || !message.isOutgoing) {
+      return;
+    }
+    if (message.content.kind != MessageKind.liveLocation) {
+      return;
+    }
+
+    _pendingLiveLocationBroadcast = false;
+    final meta = _pendingLiveLocationMeta;
+    _pendingLiveLocationMeta = null;
+    if (meta != null) {
+      _activeLiveLocationMeta = meta;
+    }
+    unawaited(startLiveLocationBroadcast(message.id));
+  }
+
   Future<void> sendGifInlineResult({
     required int queryId,
     required String resultId,
@@ -2766,6 +3037,9 @@ class ChatManager extends ChangeNotifier {
     _insertMessage(message);
     _appendThreadMessage(message);
     _updateChatPreview(message);
+    if (message.chatId == _activeChatId) {
+      _maybeStartPendingLiveBroadcast(message);
+    }
 
     if (message.chatId != _activeChatId) {
       final chatTitle = _chatsById[message.chatId]?.title ?? 'Новое сообщение';
@@ -2789,11 +3063,13 @@ class ChatManager extends ChangeNotifier {
       final pendingIndex = _messages.indexWhere((item) => item.id == oldMessageId);
       if (pendingIndex >= 0) {
         _messages[pendingIndex] = message;
+        _maybeStartPendingLiveBroadcast(message);
         notifyListeners();
         return;
       }
     }
     _replaceMessage(message);
+    _maybeStartPendingLiveBroadcast(message);
   }
 
   void _handleMessageEdited(Map<String, dynamic> update) {
@@ -2830,7 +3106,10 @@ class ChatManager extends ChangeNotifier {
 
     final current = _messages[index];
     _messages[index] = current.copyWith(
-      content: MessageContent.fromTdlib(newContent),
+      content: MessageContent.fromTdlib(
+        newContent,
+        isOutgoing: current.isOutgoing,
+      ),
       mediaFileId:
           MessageContent.parseMediaFileId(newContent) ?? current.mediaFileId,
       coverFileId:
@@ -3602,6 +3881,7 @@ class ChatManager extends ChangeNotifier {
 
   @override
   void dispose() {
+    _liveLocationTracker.stop();
     _messagesLoadTimeout?.cancel();
     _searchDebounce?.cancel();
     _newChatSearchDebounce?.cancel();

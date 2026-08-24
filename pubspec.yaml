@@ -23,6 +23,8 @@ dependencies:
   connectivity_plus: ^6.1.4
   flutter_local_notifications: ^19.0.0
   intl: ^0.20.2
+  url_launcher: ^6.3.1
+  geolocator: ^13.0.2
 
 dev_dependencies:
   flutter_test:

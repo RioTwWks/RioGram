@@ -1,6 +1,7 @@
 import 'audio_models.dart';
 import 'call_models.dart';
 import 'formatted_text.dart';
+import 'location_models.dart';
 import 'media_models.dart';
 import 'message_enrichment.dart';
 
@@ -20,6 +21,9 @@ enum MessageKind {
   poll,
   service,
   call,
+  location,
+  liveLocation,
+  venue,
   unsupported,
 }
 
@@ -148,6 +152,8 @@ class MessageContent {
     this.serviceContentRaw,
     this.serviceUserIds = const [],
     this.callInfo,
+    this.locationInfo,
+    this.venueInfo,
   });
 
   final MessageKind kind;
@@ -168,6 +174,8 @@ class MessageContent {
   final Map<String, dynamic>? serviceContentRaw;
   final List<int> serviceUserIds;
   final CallMessageInfo? callInfo;
+  final LocationMessageInfo? locationInfo;
+  final VenueMessageInfo? venueInfo;
 
   bool get isServiceMessage => kind == MessageKind.service;
 
@@ -293,6 +301,30 @@ class MessageContent {
             kind: MessageKind.call,
             preview: info.preview(isOutgoing: isOutgoing),
             callInfo: info,
+          );
+        }(),
+      'messageLocation' => () {
+          final info = LocationMessageInfo.fromStaticLocation(content);
+          return MessageContent(
+            kind: MessageKind.location,
+            preview: info.preview(),
+            locationInfo: info,
+          );
+        }(),
+      'messageLiveLocation' => () {
+          final info = LocationMessageInfo.fromLiveLocation(content);
+          return MessageContent(
+            kind: MessageKind.liveLocation,
+            preview: info.preview(),
+            locationInfo: info,
+          );
+        }(),
+      'messageVenue' => () {
+          final info = VenueMessageInfo.fromTdlib(content);
+          return MessageContent(
+            kind: MessageKind.venue,
+            preview: info.preview(),
+            venueInfo: info,
           );
         }(),
       _ => MessageContent(

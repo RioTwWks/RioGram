@@ -11,9 +11,11 @@ import '../../models/channel_models.dart';
 import '../../models/chat_models.dart';
 import '../../models/formatted_text.dart';
 import '../../models/media_models.dart';
+import '../../models/location_models.dart';
 import '../../widgets/channel_status_bar.dart';
 import '../../widgets/forward_messages_dialog.dart';
 import '../../widgets/media_attach_sheet.dart';
+import '../../widgets/location_picker_sheet.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
@@ -208,7 +210,24 @@ class _ChatScreenState extends State<ChatScreen> {
         if (audioPath != null) {
           await manager.sendAudio(audioPath);
         }
+      case MediaAttachAction.location:
+        await _sendLocation(LocationSendMode.staticPoint);
+      case MediaAttachAction.liveLocation:
+        await _sendLocation(LocationSendMode.liveLocation);
+      case MediaAttachAction.venue:
+        await _sendLocation(LocationSendMode.venue);
     }
+  }
+
+  Future<void> _sendLocation(LocationSendMode mode) async {
+    final request = await LocationPickerSheet.show(
+      context,
+      initialMode: mode,
+    );
+    if (request == null || !mounted) {
+      return;
+    }
+    await context.read<ChatManager>().sendLocationRequest(request);
   }
 
   Future<void> _openStickerPanel() async {
@@ -315,6 +334,13 @@ class _ChatScreenState extends State<ChatScreen> {
     final canEdit = message.canEditText || message.canEditCaption;
     final hasMedia = message.mediaFileId != null;
     final hasLocalMedia = message.localFilePath != null;
+    final locationInfo = message.content.locationInfo;
+    final isActiveLiveBroadcast =
+        manager.activeLiveLocationMessageId == message.id;
+    final canManageLiveLocation = message.isOutgoing &&
+        message.content.kind == MessageKind.liveLocation &&
+        locationInfo != null &&
+        !locationInfo.isExpired;
 
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -393,6 +419,24 @@ class _ChatScreenState extends State<ChatScreen> {
                 title: const Text('Изменить время отправки'),
                 onTap: () => Navigator.pop(context, 'reschedule'),
               ),
+            if (canManageLiveLocation && !isActiveLiveBroadcast)
+              ListTile(
+                leading: const Icon(Icons.my_location),
+                title: const Text('Транслировать GPS'),
+                onTap: () => Navigator.pop(context, 'live_start'),
+              ),
+            if (canManageLiveLocation && isActiveLiveBroadcast)
+              ListTile(
+                leading: const Icon(Icons.location_disabled),
+                title: const Text('Остановить трансляцию'),
+                onTap: () => Navigator.pop(context, 'live_stop'),
+              ),
+            if (canManageLiveLocation)
+              ListTile(
+                leading: const Icon(Icons.stop_circle_outlined),
+                title: const Text('Прекратить sharing'),
+                onTap: () => Navigator.pop(context, 'live_end'),
+              ),
           ],
         ),
       ),
@@ -437,6 +481,17 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       case 'reschedule':
         await _rescheduleMessage(message);
+      case 'live_start':
+        final started = await manager.startLiveLocationBroadcast(message.id);
+        if (mounted && !started) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Не удалось начать трансляцию GPS')),
+          );
+        }
+      case 'live_stop':
+        manager.stopLiveLocationBroadcast();
+      case 'live_end':
+        manager.stopLiveLocation(message.id);
     }
   }
 
@@ -862,6 +917,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 onCommentsTap: message.canGetMessageThread
                                     ? () => _openComments(message)
                                     : null,
+                                activeLiveLocationMessageId:
+                                    chatManager.activeLiveLocationMessageId,
                               );
                             },
                           ),
