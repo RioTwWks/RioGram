@@ -334,12 +334,12 @@
 ### 6.6. Звонки и геолокация
 
 #### Голосовые и видеозвонки (VoIP)
-- [ ] `createCall` / `acceptCall` / `discardCall` — аудио 1:1
-- [ ] Видеозвонки: `toggleCallVideo`, превью камеры
+- [x] `createCall` / `acceptCall` / `discardCall` — аудио 1:1
+- [x] Видеозвонки: `createCall(is_video)`, превью камеры, локальный toggle видео
 - [ ] Групповые звонки / конференции (`createGroupCall`, `joinGroupCall`) — низкий приоритет
 - [ ] WebRTC-интеграция, CallKit (iOS), foreground service (Android)
 - [ ] Выбор устройств ввода/вывода на десктопе
-- [ ] История звонков (`messageCall`)
+- [x] История звонков (`messageCall`)
 
 #### Геолокация
 - [ ] Отправка точки на карте (`inputMessageLocation`)

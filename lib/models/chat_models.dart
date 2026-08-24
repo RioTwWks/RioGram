@@ -1,4 +1,5 @@
 import 'audio_models.dart';
+import 'call_models.dart';
 import 'formatted_text.dart';
 import 'media_models.dart';
 import 'message_enrichment.dart';
@@ -18,6 +19,7 @@ enum MessageKind {
   animation,
   poll,
   service,
+  call,
   unsupported,
 }
 
@@ -145,6 +147,7 @@ class MessageContent {
     this.animationInfo,
     this.serviceContentRaw,
     this.serviceUserIds = const [],
+    this.callInfo,
   });
 
   final MessageKind kind;
@@ -164,10 +167,14 @@ class MessageContent {
   final AnimationMessageInfo? animationInfo;
   final Map<String, dynamic>? serviceContentRaw;
   final List<int> serviceUserIds;
+  final CallMessageInfo? callInfo;
 
   bool get isServiceMessage => kind == MessageKind.service;
 
-  factory MessageContent.fromTdlib(Map<String, dynamic> content) {
+  factory MessageContent.fromTdlib(
+    Map<String, dynamic> content, {
+    bool isOutgoing = false,
+  }) {
     final type = content['@type'] as String? ?? '';
 
     return switch (type) {
@@ -275,6 +282,17 @@ class MessageContent {
             kind: MessageKind.poll,
             preview: '📊 ${poll.question}',
             poll: poll,
+          );
+        }(),
+      'messageCall' => () {
+          final info = CallMessageInfo.fromTdlib(
+            content,
+            isOutgoing: isOutgoing,
+          );
+          return MessageContent(
+            kind: MessageKind.call,
+            preview: info.preview(isOutgoing: isOutgoing),
+            callInfo: info,
           );
         }(),
       _ => MessageContent(
@@ -814,7 +832,10 @@ class ChatMessage {
     return ChatMessage(
       id: json['id'] as int? ?? 0,
       chatId: json['chat_id'] as int? ?? 0,
-      content: MessageContent.fromTdlib(contentMap),
+      content: MessageContent.fromTdlib(
+        contentMap,
+        isOutgoing: json['is_outgoing'] as bool? ?? false,
+      ),
       date: DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000),
       isOutgoing: json['is_outgoing'] as bool? ?? false,
       mediaFileId: MessageContent.parseMediaFileId(contentMap),

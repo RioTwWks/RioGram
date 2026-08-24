@@ -4,7 +4,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/call/call_manager.dart';
 import '../../core/chat/chat_manager.dart';
+import '../../models/call_models.dart';
 import '../../models/channel_models.dart';
 import '../../models/chat_models.dart';
 import '../../models/formatted_text.dart';
@@ -68,6 +70,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (manager.activeChatId != widget.chatId) {
         manager.openChat(widget.chatId);
       }
+      _loadCallCapabilities(manager);
     });
     _controller.addListener(_onTextChanged);
   }
@@ -83,6 +86,33 @@ class _ChatScreenState extends State<ChatScreen> {
       context.read<ChatManager>().closeChat();
     }
     super.dispose();
+  }
+
+  void _loadCallCapabilities(ChatManager chatManager) {
+    if (widget.forumTopicId != null) {
+      return;
+    }
+    final chat = chatManager.activeChat;
+    final userId = chat?.privateUserId;
+    if (userId == null || chat?.kind != ChatKind.privateChat) {
+      return;
+    }
+    context.read<CallManager>().loadUserCallCapabilities(userId);
+  }
+
+  Future<void> _startCall({required bool isVideo}) async {
+    final chatManager = context.read<ChatManager>();
+    final callManager = context.read<CallManager>();
+    final chat = chatManager.activeChat;
+    final userId = chat?.privateUserId;
+    if (userId == null) {
+      return;
+    }
+    await callManager.startOutgoingCall(
+      userId: userId,
+      isVideo: isVideo,
+      displayName: chat?.title,
+    );
   }
 
   void _onTextChanged() {
@@ -609,6 +639,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final chatManager = context.watch<ChatManager>();
+    final callManager = context.watch<CallManager>();
     final chat = chatManager.activeChat;
     final messages = chatManager.messages;
     final listItems = MediaAlbumGrouper.group(messages);
@@ -627,6 +658,16 @@ class _ChatScreenState extends State<ChatScreen> {
     final showComments = chat?.kind == ChatKind.channel;
     final showSenderName =
         chat?.kind == ChatKind.group || (chat?.isForum ?? false);
+    final privateUserId = chat?.privateUserId;
+    final callCaps = privateUserId != null
+        ? callManager.capabilitiesFor(privateUserId)
+        : UserCallCapabilities.none;
+    final showCallActions =
+        !selectionMode &&
+        widget.forumTopicId == null &&
+        chat?.kind == ChatKind.privateChat &&
+        privateUserId != null &&
+        callCaps.canBeCalled;
 
     if (messages.isNotEmpty) {
       _scrollToBottom();
@@ -682,6 +723,19 @@ class _ChatScreenState extends State<ChatScreen> {
         automaticallyImplyLeading:
             !selectionMode && widget.forumTopicId == null,
         actions: [
+          if (showCallActions) ...[
+            IconButton(
+              tooltip: 'Аудиозвонок',
+              icon: const Icon(Icons.call),
+              onPressed: () => _startCall(isVideo: false),
+            ),
+            if (callCaps.supportsVideoCalls)
+              IconButton(
+                tooltip: 'Видеозвонок',
+                icon: const Icon(Icons.videocam),
+                onPressed: () => _startCall(isVideo: true),
+              ),
+          ],
           if (!selectionMode && widget.forumTopicId == null)
             IconButton(
               tooltip: 'Информация',
