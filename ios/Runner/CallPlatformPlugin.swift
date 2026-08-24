@@ -36,7 +36,7 @@ final class CallPlatformPlugin: NSObject, FlutterPlugin, CXProviderDelegate {
             let uuidString = args["callUuid"] as? String,
             let handle = args["handle"] as? String,
             let uuid = UUID(uuidString: uuidString) else {
-        result.success(nil)
+        result(nil)
         return
       }
       let isIncoming = args["isIncoming"] as? Bool ?? false
@@ -45,14 +45,14 @@ final class CallPlatformPlugin: NSObject, FlutterPlugin, CXProviderDelegate {
         update.remoteHandle = CXHandle(type: .generic, value: handle)
         update.hasVideo = args["isVideo"] as? Bool ?? false
         provider.reportNewIncomingCall(with: uuid, update: update) { _ in
-          result.success(nil)
+          result(nil)
         }
       } else {
         let startAction = CXStartCallAction(call: uuid, handle: CXHandle(type: .generic, value: handle))
         startAction.isVideo = args["isVideo"] as? Bool ?? false
         let transaction = CXTransaction(action: startAction)
         callController.request(transaction) { _ in
-          result.success(nil)
+          result(nil)
         }
       }
       activeCalls[uuid] = uuid
@@ -61,28 +61,28 @@ final class CallPlatformPlugin: NSObject, FlutterPlugin, CXProviderDelegate {
             let uuidString = args["callUuid"] as? String,
             let handle = args["handle"] as? String,
             let uuid = UUID(uuidString: uuidString) else {
-        result.success(nil)
+        result(nil)
         return
       }
       let update = CXCallUpdate()
       update.remoteHandle = CXHandle(type: .generic, value: handle)
       update.hasVideo = args["isVideo"] as? Bool ?? false
       provider.reportNewIncomingCall(with: uuid, update: update) { _ in
-        result.success(nil)
+        result(nil)
       }
       activeCalls[uuid] = uuid
     case "setCallConnected":
-      result.success(nil)
+      result(nil)
     case "endActiveCall":
       guard let args = call.arguments as? [String: Any],
             let uuidString = args["callUuid"] as? String,
             let uuid = UUID(uuidString: uuidString) else {
-        result.success(nil)
+        result(nil)
         return
       }
       provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
       activeCalls.removeValue(forKey: uuid)
-      result.success(nil)
+      result(nil)
     default:
       result(FlutterMethodNotImplemented)
     }
