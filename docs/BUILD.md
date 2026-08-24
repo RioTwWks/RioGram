@@ -29,6 +29,12 @@
 ./scripts/install-linux-build-deps.sh
 ```
 
+Скрипт поддерживает Debian/Ubuntu (`apt`) и Arch Linux (`pacman`). На Arch вручную:
+
+```bash
+sudo pacman -S --needed base-devel cmake ninja gperf zlib openssl clang pkgconf gtk3 libunwind gstreamer gst-plugins-base util-linux xz zip perl php
+```
+
 ### Сборка
 
 ```bash
