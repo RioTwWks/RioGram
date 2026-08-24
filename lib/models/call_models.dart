@@ -189,7 +189,7 @@ class CallMessageInfo {
       final seconds = durationSeconds % 60;
       final duration = minutes > 0
           ? '$minutes:${seconds.toString().padLeft(2, '0')}'
-          : '${seconds}с';
+          : '$secondsс';
       final kind = isVideo ? 'Видеозвонок' : 'Звонок';
       return '$kind ($duration)';
     }
