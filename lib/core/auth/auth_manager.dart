@@ -191,7 +191,10 @@ class AuthManager extends ChangeNotifier {
                 extra.startsWith('openChat_') ||
                 extra.startsWith('getChatHistory_') ||
                 extra.startsWith('getChatHistoryLocal_') ||
-                extra.startsWith('viewMessages_'))) {
+                extra.startsWith('viewMessages_') ||
+                extra.startsWith('autoDownloadPresets_') ||
+                extra.startsWith('storageStats_') ||
+                extra.startsWith('optimizeStorage_'))) {
           break;
         }
 
