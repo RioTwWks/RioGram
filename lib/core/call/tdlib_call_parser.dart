@@ -68,7 +68,7 @@ class TdlibCallParser {
   }
 
   static CallReadyPayload? parseCallReadyPayload(Map<String, dynamic>? state) {
-    if (state?['@type'] != 'callStateReady') {
+    if (state == null || state['@type'] != 'callStateReady') {
       return null;
     }
 
