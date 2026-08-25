@@ -795,7 +795,13 @@ MVP — прочный фундамент. Ниже — направления, 
 | **D5** | Стикеры, звонки, stories UI | §6.4, §6.6, §6.12 |
 
 
-### 9.11. Message bubble pixel parity (P1 #3–4, P2 #7–8)
+### 9.11. Визуальная полировка (pixel parity)
+
+**Цель:** после §9.1–§9.10 довести отступы, размеры и микро-детали до side-by-side паритета с Telegram Desktop 4.x–5.x и Android (до Liquid Glass).  
+**Метод:** сверка с [Telegram UI Kit](https://www.figma.com/community/file/867601279089856700) + скриншоты TG Desktop рядом с RioGram.  
+**Регрессия:** `test/telegram_refinement_test.dart`, `test/date_separator_test.dart`, `test/message_delivery_icon_test.dart`, `test/chat_list_tile_test.dart`, `test/message_bubble_test.dart`, `test/message_bubble_grouping_test.dart`, `test/message_input_bar_test.dart`, `test/telegram_settings_tile_test.dart`, `test/desktop_layout_regression_test.dart`, `test/empty_state_test.dart`, `test/telegram_icons_audit_test.dart` (без Flutter golden — CI headless).
+
+#### Message bubble pixel parity (P1 #3–4, P2 #7–8)
 
 - [x] Inline meta: время + галочки в последней строке текста (float-right spacer)
 - [x] Bezier bubble tail вместо треугольника 6×10
@@ -803,16 +809,6 @@ MVP — прочный фундамент. Ниже — направления, 
 - [x] Service messages: центрированная капсула `#00000033` / `#FFFFFF33`
 - [x] Дата-разделитель: белый текст на `#0000004D` / `#FFFFFF33`
 - [x] Delivered status: двойные серые галочки (`MessageDeliveryStatus.delivered`)
-
-**Критерий готовности §9:** side-by-side скриншот RioGram и Telegram Desktop / Android — визуальное родство без blur/glass; пользователь узнаёт интерфейс за ≤5 секунд.
-
----
-
-### 9.11. Визуальная полировка (pixel parity)
-
-**Цель:** после §9.1–§9.10 довести отступы, размеры и микро-детали до side-by-side паритета с Telegram Desktop 4.x–5.x и Android (до Liquid Glass).  
-**Метод:** сверка с [Telegram UI Kit](https://www.figma.com/community/file/867601279089856700) + скриншоты TG Desktop рядом с RioGram.  
-**Регрессия:** `test/telegram_refinement_test.dart`, `test/date_separator_test.dart`, `test/message_delivery_icon_test.dart`, `test/chat_list_tile_test.dart`, `test/message_bubble_test.dart`, `test/message_bubble_grouping_test.dart`, `test/message_input_bar_test.dart`, `test/telegram_settings_tile_test.dart` (без Flutter golden — CI headless).
 
 #### План внедрения §9.11
 

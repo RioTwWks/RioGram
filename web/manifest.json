@@ -3,7 +3,7 @@
     "short_name": "RioGram",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#060A15",
+    "background_color": "#3390EC",
     "theme_color": "#3390EC",
     "description": "Censorship-resistant cross-platform Telegram client.",
     "orientation": "portrait-primary",
