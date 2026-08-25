@@ -807,6 +807,17 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ---
 
+
+#### 9.11.10. Flat shell (устранение M3-утечек)
+
+- [x] Desktop chat-list header без elevation (`chats_screen.dart`)
+- [x] FAB elevation → 0 (`telegram_theme.dart`)
+- [x] Кнопка «↓ N новых» без elevation (`scroll_to_bottom_button.dart`)
+- [x] `ChatFolderSidebar`: цвета из `telegramTheme`, выделение — левая accent-полоса
+- [x] `MessageReactionsRow`: компактные pill-чипы вместо `ActionChip`
+- [x] `ChoiceChip` / `FilterChip` в chat UI → `TelegramFlatChip`
+
+
 ## ❗ Замечания
 
 - Все изменения в TDLib помечены `// DPI_BYPASS:` — см. [docs/TDLIB_PATCHES.md](docs/TDLIB_PATCHES.md)

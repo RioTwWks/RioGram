@@ -106,12 +106,13 @@ class SearchFilterChips extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         children: SearchMessageFilterKind.values.map((filter) {
+          final isSelected = selected == filter;
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(filter.label),
-              selected: selected == filter,
-              onSelected: (_) => onSelected(filter),
+            child: TelegramFlatChip(
+              label: filter.label,
+              selected: isSelected,
+              onTap: () => onSelected(filter),
             ),
           );
         }).toList(),
