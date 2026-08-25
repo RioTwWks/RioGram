@@ -67,8 +67,8 @@ void main() {
   });
 
   group('TelegramColors date separator §9.11', () {
-    test('capsule opacity как в TG (#00000026)', () {
-      expect(TelegramColors.dateSeparatorBackgroundLight.a, closeTo(0.16, 0.02));
+    test('capsule opacity как в TG (#0000004D)', () {
+      expect(TelegramColors.dateSeparatorBackgroundLight, const Color(0x4D000000));
     });
   });
 

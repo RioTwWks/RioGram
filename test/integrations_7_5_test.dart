@@ -29,12 +29,17 @@ void main() {
   group('LatexParser', () {
     test('parses inline and block formulas', () {
       final segments = LatexParser.parse(r'Inline $a^2+b^2=c^2$ and block $$\int_0^1 x dx$$');
-      expect(segments, hasLength(3));
+      expect(segments, hasLength(4));
       expect(segments[0], isA<LatexTextSegment>());
+      expect((segments[0] as LatexTextSegment).text, 'Inline ');
       expect(segments[1], isA<LatexFormulaSegment>());
       expect((segments[1] as LatexFormulaSegment).isBlock, isFalse);
-      expect(segments[2], isA<LatexFormulaSegment>());
-      expect((segments[2] as LatexFormulaSegment).isBlock, isTrue);
+      expect((segments[1] as LatexFormulaSegment).expression, r'a^2+b^2=c^2');
+      expect(segments[2], isA<LatexTextSegment>());
+      expect((segments[2] as LatexTextSegment).text, ' and block ');
+      expect(segments[3], isA<LatexFormulaSegment>());
+      expect((segments[3] as LatexFormulaSegment).isBlock, isTrue);
+      expect((segments[3] as LatexFormulaSegment).expression, r'\int_0^1 x dx');
     });
 
     test('containsLatex detects delimiters', () {
