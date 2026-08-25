@@ -21,10 +21,13 @@ command: RioGram Web — оглавление §8 (PoC → E2E)
 
 | Команда | Когда использовать |
 |---------|-------------------|
+| [@ci](ci.md) | Локальные проверки CI (Flutter, TDLib, Web E2E) |
 | [@deploy-web-proxy](deploy-web-proxy.md) | §8.3 — WSS reverse proxy на EU |
 | [@deploy-web-infra](deploy-web-infra.md) | §8.4 — RU frontend + EU backend |
 | [@deploy-web-app](deploy-web-app.md) | §8.5 — сборка и деплой Flutter Web |
 | [@e2e-web](e2e-web.md) | §8.6 — автоматический и ручной E2E |
+| [@build-tdlib](build-tdlib.md) | Сборка модифицированного TDLib |
+| [@tdlib-upstream](tdlib-upstream.md) | §7.7 — проверка и merge upstream TDLib |
 
 ## Быстрые команды
 

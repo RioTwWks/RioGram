@@ -37,7 +37,15 @@ CC=gcc CXX=g++ ./scripts/build-tdlib.sh   # LTO=OFF, JOBS по RAM
 
 > Если ПК зависает на ~90%: `JOBS=1 TD_ENABLE_LTO=OFF ./scripts/build-tdlib.sh` — см. [BUILD.md](BUILD.md).
 
-Подробнее по всем платформам: [docs/BUILD.md](docs/BUILD.md)
+Подробнее по всем платформам: [docs/BUILD.md](BUILD.md)
+
+Проверка новой версии upstream TDLib (§7.7):
+
+```bash
+./scripts/check-tdlib-upstream.sh
+```
+
+См. [TDLIB_UPSTREAM_SYNC.md](TDLIB_UPSTREAM_SYNC.md).
 
 Универсальная релизная сборка:
 

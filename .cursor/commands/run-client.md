@@ -4,33 +4,34 @@ command: Запустить клиент в отладочном режиме
 
 # Запуск
 
-1. Убедиться, что прокси-серверы запущены (PhantomProxy и StealthGate).
+1. Заполнить `.env` (`TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, прокси) — [docs/QUICKSTART.md](../../docs/QUICKSTART.md)
 2. Собрать TDLib (если ещё не собран):
    ```bash
-   ./scripts/build-tdlib.sh
-   ./scripts/copy-tdlib.sh linux   # или windows / macos
+   CC=gcc CXX=g++ TD_ENABLE_LTO=OFF ./scripts/build-tdlib.sh
+   ./scripts/copy-tdlib.sh linux   # windows / macos / android / ios
    ```
-3. Из корня проекта:
+3. Запуск:
    ```bash
    flutter pub get
-   flutter run -d linux    # windows / macos / android / ios
+   flutter run -d linux
    ```
-4. Заполните `.env` (`TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, прокси) — см. `docs/QUICKSTART.md`.
 
-## Проверка §6.2 (список чатов)
+Прокси-серверы (PhantomProxy, StealthGate) должны быть доступны для полного теста подключения.
 
-После авторизации:
+## Проверка UI
 
 | Платформа | Что проверить |
 |-----------|----------------|
-| **Desktop** (окно ≥840px) | 3 колонки: папки \| чаты \| переписка |
-| **Desktop** (720–839px) | 2 колонки + горизонтальные вкладки папок |
-| **Mobile** | Список → tap → экран переписки |
+| Desktop ≥840px | 3 колонки: папки \| чаты \| переписка |
+| Desktop 720–839px | 2 колонки + вкладки папок |
+| Mobile | Список → tap → переписка |
 
-**Горячие клавиши (desktop):**
+**Горячие клавиши (desktop):** `Ctrl/Cmd+F` или `K` — поиск; `N` — новый чат; `↑/↓` — навигация по чатам.
 
-- `Ctrl/Cmd+F` или `Ctrl/Cmd+K` — фокус на поиск
-- `Ctrl/Cmd+N` — новый чат
-- `Ctrl/Cmd+↑/↓` — предыдущий / следующий чат
+## Настройки RioGram
 
-Документация: `docs/CHATS.md`.
+- Прокси: Settings → Proxy
+- Плагины: Settings → Plugins ([docs/PLUGINS.md](../../docs/PLUGINS.md))
+- UI-кастомизация §7.3, безопасность §7.4 — в разделе настроек
+
+Документация: [docs/CHATS.md](../../docs/CHATS.md) · Сборка TDLib: [@build-tdlib](build-tdlib.md)

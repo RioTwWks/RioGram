@@ -5,12 +5,28 @@ globs: ["*"]
 
 # Правила проекта
 
-- **Язык кода**: Весь новый код должен быть на Dart (Flutter) или C++ (TDLib).
-- **Стиль кода**: Используйте `flutter format` для Dart, `clang-format` для C++.
-- **Комментарии**: Обязательно комментировать сложные участки (особенно модификации TDLib).
-- **Логирование**: Все сетевые операции должны логироваться с уровнем `debug`.
-- **Обработка ошибок**: Никогда не игнорируйте исключения; всегда предоставляйте пользователю понятное сообщение.
-- **Безопасность**: Никогда не выводите в консоль или логи `api_id`, `api_hash`, токены. Не коммитить их в репозиторий.
-- **CI**: Перед merge в `main` должны проходить jobs из `.github/workflows/ci.yml`. Локально: `./scripts/ci-flutter.sh`. Web: `./scripts/build-web.sh`, `./scripts/run-web-e2e.sh`. Не ломать сборку TDLib (`scripts/build-tdlib.sh`).
-- **Релизы**: Пакеты для всех платформ собираются workflow `release.yml` при публикации GitHub Release. Не коммитить `libtdjson` в `jniLibs/`, `ios/Frameworks/`.
-- **Документация**: при изменении UI чатов (§6.2) обновлять `docs/CHATS.md`, `.cursor/context`, `TODO.md`. При изменении Web (§8) — `docs/WEB*.md`, `.cursor/commands/web.md`, `.cursor/context`.
+- **Язык кода**: Dart (Flutter) или C++ (TDLib).
+- **Стиль**: `flutter format` для Dart, `clang-format` для C++.
+- **Комментарии**: сложные участки, особенно модификации TDLib.
+- **Логирование**: сетевые операции — уровень `debug`; в Dart — `package:logging`, не `print()`.
+- **Ошибки**: не глотать исключения; понятные сообщения пользователю.
+- **Безопасность**: не логировать и не коммитить `api_id`, `api_hash`, токены, прокси-секреты.
+
+## CI и релизы
+
+- Перед merge в `main` — зелёные jobs в `.github/workflows/ci.yml`.
+- Локально: `./scripts/ci-flutter.sh`, `./scripts/build-web.sh`, `./scripts/run-web-e2e.sh`.
+- TDLib: `./scripts/build-tdlib.sh` не должен ломаться после изменений в `td/`.
+- Upstream TDLib: после merge обновлять `td/upstream-base.json` и `test/tdlib_upstream_manifest_test.dart`.
+- Релизы: `release.yml` при GitHub Release; не коммитить `libtdjson` в `jniLibs/`, `ios/Frameworks/`.
+
+## Документация — когда обновлять
+
+| Изменение | Файлы |
+|-----------|--------|
+| UI чатов (§6.2) | `docs/CHATS.md`, `.cursor/context`, `TODO.md` |
+| Web (§8) | `docs/WEB*.md`, `.cursor/commands/web.md`, `.cursor/context` |
+| TDLib патчи / merge | `docs/TDLIB_PATCHES.md`, `docs/TDLIB_UPSTREAM_SYNC.md`, `td/upstream-base.json`, `.cursor/commands/tdlib-upstream.md` |
+| Плагины (§7.6) | `docs/PLUGINS.md`, `.cursor/context` |
+| Дизайн §9 | `lib/core/theme/telegram_theme.dart`, тесты `telegram_*_test.dart` |
+| CI / workflows | `docs/CI.md`, `.cursor/commands/ci.md` |

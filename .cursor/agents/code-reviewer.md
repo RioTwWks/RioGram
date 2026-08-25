@@ -8,27 +8,45 @@ tools: [read_file, search_code]
 
 ## Общее
 
-- Проверь, что все изменения в TDLib помечены комментарием `// DPI_BYPASS:`.
-- Убедись, что нет хардкода `api_id` и `api_hash`.
-- Проверь, что используются правильные методы TDLib для прокси.
-- Если видишь потенциальные уязвимости (например, незащищённое соединение), укажи на это.
-- Оцени производительность: не вызывает ли код лишних задержек.
+- Изменения в TDLib помечены `// DPI_BYPASS:`.
+- Нет хардкода `api_id` / `api_hash`.
+- Прокси через TDLib API (`addProxy`, `pingProxy`), не самописный MTProto.
+- Уязвимости: незащищённые соединения, утечки секретов в логах.
+- Производительность: лишние задержки, блокировка UI.
+
+## TDLib / upstream
+
+- После merge upstream обновлён `td/upstream-base.json`.
+- `td/CMakeLists.txt` version совпадает с manifest.
+- `test/tdlib_upstream_manifest_test.dart` проходит.
+- Патчи перечислены в `docs/TDLIB_PATCHES.md`.
 
 ## Flutter / ChatManager
 
-- Сортировка чатов — через `ChatPositionInfo` / `updateChatPosition`, не по `lastMessageDate` вручную.
-- `loadChats`, не устаревший паттерн «только getChats без positions».
-- TDLib JSON парсится в `TdlibChatParser`, не дублируется в UI.
-- `/api/*` vs `/ui/*` — не относится к RioGram (это Flutter-клиент); API-ответы TDLib обрабатываются в `ChatManager`.
-- Нет `print()` — только `logging` при необходимости.
-- Type hints везде в Dart.
+- Сортировка чатов — `ChatPositionInfo` / `updateChatPosition`.
+- `loadChats`, не устаревший «только getChats».
+- TDLib JSON — в `Tdlib*Parser`, не в UI.
+- Нет `print()`; type hints в Dart.
 
-## UI списка чатов
+## Плагины
 
-- Mobile / 720px / 840px breakpoints согласованы с `docs/CHATS.md`.
-- Long-press и delete — с подтверждением для деструктивных действий.
-- Hotkeys только через `ChatDesktopShortcuts`, не дублировать логику.
+- Плагины не вызывают TDLib напрямую.
+- `PluginManager` persistence через `SharedPreferences` — тесты с mock binding.
+- Display transform сбрасывает TDLib entities — ожидаемое поведение, документировано.
+
+## UI / §9
+
+- Цвета и отступы — `TelegramTheme`, не magic numbers в виджетах.
+- Mobile / 720px / 840px согласованы с `docs/CHATS.md`.
+- Long-press delete — с подтверждением.
+- Hotkeys — `ChatDesktopShortcuts`.
 
 ## Документация
 
-При изменении §6.2 обновлять: `docs/CHATS.md`, `.cursor/context`, `TODO.md`.
+| Область | Обновить |
+|---------|----------|
+| §6.2 чаты | `docs/CHATS.md`, `.cursor/context`, `TODO.md` |
+| §7.6 плагины | `docs/PLUGINS.md` |
+| §7.7 TDLib | `TDLIB_UPSTREAM_SYNC.md`, `td/upstream-base.json` |
+| §8 Web | `docs/WEB*.md`, `.cursor/commands/web.md` |
+| §9 дизайн | `telegram_theme.dart`, `telegram_*_test.dart` |
