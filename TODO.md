@@ -780,7 +780,7 @@ MVP — прочный фундамент. Ниже — направления, 
 
 - [x] Иконки: outline style, 24dp, единый stroke (Material Icons / Lucide — близко к TG)
 - [x] Пустые состояния: иллюстрация + короткий текст («Нет чатов», «Выберите чат»)
-- [x] Иконка приложения RioGram: узнаваемая, но не копия официального логотипа Telegram (юридически) — см. [docs/APP_ICON.md](docs/APP_ICON.md), концепт `assets/icons/riogram_icon_concept.svg`
+- [x] Иконка приложения RioGram: узнаваемая, но не копия официального логотипа Telegram (юридически) — см. [docs/APP_ICON.md](docs/APP_ICON.md), мастер `assets/icons/riogram_icon.png` (`flutter_launcher_icons`)
 
 ---
 
