@@ -21,10 +21,15 @@ if ! command -v emcc >/dev/null 2>&1; then
   fi
 fi
 
-emcc --check 2>&1 | grep -q ' 3.1.1 ' || {
+# Match 3.1.1 in --version (emcc --check does not reliably print the version).
+EMCC_VERSION_LINE="$(emcc --version 2>&1 | head -n 1 || true)"
+if ! grep -qE '(^|[^0-9])3\.1\.1([^0-9]|$)' <<<"${EMCC_VERSION_LINE}"; then
   echo "Требуется emcc 3.1.1 (см. td/example/web/README.md)" >&2
+  echo "Сейчас: ${EMCC_VERSION_LINE:-<empty>}" >&2
+  echo "Проверьте: source ~/emsdk/emsdk_env.sh && emcc --version" >&2
   exit 1
-}
+fi
+echo "==> emcc: ${EMCC_VERSION_LINE}"
 
 # generate-шаг TDLib использует системный cmake/c++ (не emscripten).
 # В окружении с clang по умолчанию нужен g++ (ld: cannot find -lstdc++).

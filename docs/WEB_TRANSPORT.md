@@ -61,7 +61,7 @@ TDLib для браузера собирается через Emscripten (upstre
 
 | Компонент | Версия |
 |-----------|--------|
-| emsdk | **3.1.1** (не системный emscripten) |
+| emsdk | **3.1.1** (`emcc --version`; скрипт проверяет `--version`, не `--check`) |
 | cmake, gperf, perl, php-cli | см. `scripts/install-linux-build-deps.sh` |
 | node/npm | для webpack (`build-tdweb.sh`) |
 

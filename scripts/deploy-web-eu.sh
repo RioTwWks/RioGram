@@ -3,7 +3,9 @@
 #
 # Usage:
 #   sudo ./scripts/deploy-web-eu.sh
-#   SKIP_BUILD=1 sudo ./scripts/deploy-web-eu.sh
+#   sudo env SKIP_BUILD=1 ./scripts/deploy-web-eu.sh
+#   sudo env SKIP_TDWEB_CHECK=1 ./scripts/deploy-web-eu.sh
+# Note: `VAR=1 sudo ./script` does NOT pass VAR — use `sudo env VAR=1 ./script`.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
