@@ -8,6 +8,7 @@ import '../../widgets/notification_settings_section.dart';
 import '../../widgets/telegram_settings_tile.dart';
 import 'password_settings_screen.dart';
 import 'privacy_settings_screen.dart';
+import 'riogram_features_settings_screen.dart';
 
 class NotificationSettingsScreen extends StatelessWidget {
   const NotificationSettingsScreen({super.key});
@@ -81,6 +82,16 @@ class SettingsNavigationSection extends StatelessWidget {
         const TelegramSettingsSectionHeader('Уведомления и приватность'),
         TelegramSettingsGroup(
           children: [
+            TelegramSettingsTile(
+              title: 'Функции RioGram',
+              subtitle: 'Призрачный режим, анти-отзыв, перевод',
+              onTap: () {
+                TelegramRoutes.push(
+                  context,
+                  const RioGramFeaturesSettingsScreen(),
+                );
+              },
+            ),
             TelegramSettingsTile(
               title: 'Уведомления',
               onTap: () {

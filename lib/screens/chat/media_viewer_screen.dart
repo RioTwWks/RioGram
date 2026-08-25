@@ -1,13 +1,16 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/features/riogram_features_manager.dart';
 import '../../core/media/media_file_saver.dart';
 import '../../models/chat_models.dart';
 import '../../models/media_models.dart';
 import '../../widgets/inline_video_player.dart';
 import '../../widgets/video_note_player.dart';
+import '../../widgets/video_playback_speed_controls.dart';
 
 /// Полноэкранный просмотрщик: чёрный фон, свайп между медиа, pinch-zoom.
 class MediaViewerScreen extends StatefulWidget {
@@ -132,11 +135,23 @@ class _MediaPage extends StatefulWidget {
 class _MediaPageState extends State<_MediaPage> {
   VideoPlayerController? _videoController;
   var _videoReady = false;
+  var _playbackSpeed = 1.0;
+  var _speedLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _maybeInitVideo();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_speedLoaded) {
+      _playbackSpeed =
+          context.read<RioGramMediaFeaturesManager>().defaultVideoSpeed;
+      _speedLoaded = true;
+    }
   }
 
   @override
@@ -163,6 +178,7 @@ class _MediaPageState extends State<_MediaPage> {
     _videoController = controller;
     try {
       await controller.initialize();
+      await controller.setPlaybackSpeed(_playbackSpeed);
       if (mounted) {
         setState(() => _videoReady = true);
       }
@@ -197,7 +213,12 @@ class _MediaPageState extends State<_MediaPage> {
         MessageKind.photo => _ZoomableImage(path: item.localPath),
         MessageKind.video => Center(
             child: _videoReady && _videoController != null
-                ? _ZoomableVideo(controller: _videoController!)
+                ? _ZoomableVideo(
+                    controller: _videoController!,
+                    playbackSpeed: _playbackSpeed,
+                    onSpeedChanged: (value) =>
+                        setState(() => _playbackSpeed = value),
+                  )
                 : InlineVideoPlayer(filePath: item.localPath),
           ),
         MessageKind.videoNote => Center(
@@ -242,9 +263,15 @@ class _ZoomableImage extends StatelessWidget {
 }
 
 class _ZoomableVideo extends StatefulWidget {
-  const _ZoomableVideo({required this.controller});
+  const _ZoomableVideo({
+    required this.controller,
+    required this.playbackSpeed,
+    required this.onSpeedChanged,
+  });
 
   final VideoPlayerController controller;
+  final double playbackSpeed;
+  final ValueChanged<double> onSpeedChanged;
 
   @override
   State<_ZoomableVideo> createState() => _ZoomableVideoState();
@@ -292,6 +319,16 @@ class _ZoomableVideoState extends State<_ZoomableVideo> {
                 onPressed: () => controller.play(),
                 icon: const Icon(Icons.play_circle),
               ),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: VideoPlaybackSpeedControls(
+                controller: controller,
+                speed: widget.playbackSpeed,
+                compact: true,
+                onSpeedChanged: widget.onSpeedChanged,
+              ),
+            ),
           ],
         ),
       ),
