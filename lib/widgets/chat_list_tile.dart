@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../core/theme/telegram_theme.dart';
 import '../models/chat_models.dart';
 import 'chat_avatar.dart';
 
@@ -39,6 +40,47 @@ String formatChatListTime(DateTime dateTime) {
   return DateFormat('dd.MM.yy').format(dateTime);
 }
 
+/// Разбор preview: иконка статуса + текст без emoji-префикса.
+@visibleForTesting
+({IconData? icon, String text, bool isDraft}) parseChatPreviewParts(
+  String? previewText, {
+  required bool hasDraft,
+}) {
+  if (previewText == null || previewText.isEmpty) {
+    return (icon: null, text: '', isDraft: false);
+  }
+
+  if (hasDraft) {
+    final text = previewText.startsWith('Черновик: ')
+        ? previewText.substring('Черновик: '.length)
+        : previewText;
+    return (icon: Icons.edit_outlined, text: text, isDraft: true);
+  }
+
+  const mediaPrefixes = <String, IconData>{
+    '📷 ': Icons.photo_camera_outlined,
+    '🎤 ': Icons.mic,
+    '🎬 ': Icons.videocam_outlined,
+    '⭕ ': Icons.videocam_outlined,
+    '📎 ': Icons.attach_file,
+    '🎵 ': Icons.music_note_outlined,
+    '🎞 ': Icons.gif_box_outlined,
+    '📊 ': Icons.poll_outlined,
+  };
+
+  for (final entry in mediaPrefixes.entries) {
+    if (previewText.startsWith(entry.key)) {
+      return (
+        icon: entry.value,
+        text: previewText.substring(entry.key.length),
+        isDraft: false,
+      );
+    }
+  }
+
+  return (icon: null, text: previewText, isDraft: false);
+}
+
 /// Строка чата в списке с иконками типа, mute, pin и badge непрочитанных.
 class ChatListTile extends StatelessWidget {
   const ChatListTile({
@@ -53,6 +95,7 @@ class ChatListTile extends StatelessWidget {
     this.onClearHistory,
     this.onDeleteChat,
     this.onDeleteForAll,
+    this.showDivider = false,
   });
 
   final ChatSummary chat;
@@ -65,113 +108,142 @@ class ChatListTile extends StatelessWidget {
   final VoidCallback? onClearHistory;
   final VoidCallback? onDeleteChat;
   final VoidCallback? onDeleteForAll;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tg = context.telegramTheme;
     final isPinned = chat.isPinnedIn(activeList);
     final preview = chat.previewText;
     final hasDraft = chat.draftPreview != null && chat.draftPreview!.isNotEmpty;
+    final previewParts = parseChatPreviewParts(preview, hasDraft: hasDraft);
     final time = chat.lastMessageDate != null
         ? formatChatListTime(chat.lastMessageDate!)
         : null;
 
+    final previewOpacity = chat.isMuted ? 0.45 : 1.0;
     final previewStyle = theme.textTheme.bodyMedium?.copyWith(
       color: hasDraft
-          ? theme.colorScheme.error
-          : chat.isMuted
-              ? theme.colorScheme.onSurface.withValues(alpha: 0.45)
-              : theme.colorScheme.onSurface.withValues(alpha: 0.65),
+          ? theme.colorScheme.error.withValues(alpha: previewOpacity)
+          : tg.textSecondary.withValues(alpha: previewOpacity),
       fontWeight: chat.showsUnreadIndicator ? FontWeight.w600 : FontWeight.normal,
     );
 
     final titleStyle = theme.textTheme.titleMedium?.copyWith(
-      fontWeight: chat.showsUnreadIndicator ? FontWeight.w700 : FontWeight.w600,
+      fontWeight: FontWeight.w600,
+      color: tg.textPrimary,
     );
 
-    return Material(
-      color: selected
-          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.35)
-          : null,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: () => _showActions(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ChatAvatar(
-                title: chat.title,
-                localPath: chat.avatarLocalPath,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+    final timeStyle = theme.textTheme.labelSmall?.copyWith(
+      color: chat.showsUnreadIndicator ? tg.accent : tg.textTime,
+      fontWeight: chat.showsUnreadIndicator ? FontWeight.w600 : FontWeight.w400,
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: selected ? tg.accent.withValues(alpha: 0.08) : tg.chatListBackground,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: () => _showActions(context),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ChatAvatar(
+                    title: chat.title,
+                    localPath: chat.avatarLocalPath,
+                    radius: TelegramRadii.avatarList,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          chatKindIcon(chat.kind),
-                          size: 16,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                chat.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: titleStyle,
+                              ),
+                            ),
+                            if (isPinned) ...[
+                              Icon(
+                                Icons.push_pin,
+                                size: 14,
+                                color: tg.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            if (chat.isMuted) ...[
+                              _MutedBellIcon(color: tg.textSecondary),
+                              const SizedBox(width: 4),
+                            ],
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            chat.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: titleStyle,
+                        if (previewParts.text.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              if (previewParts.icon != null) ...[
+                                Icon(
+                                  previewParts.icon,
+                                  size: 16,
+                                  color: previewStyle?.color,
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  previewParts.text,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: previewStyle,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        if (isPinned) ...[
-                          Icon(
-                            Icons.push_pin,
-                            size: 14,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
-                          ),
-                          const SizedBox(width: 4),
                         ],
-                        if (chat.isMuted) ...[
-                          Icon(
-                            Icons.notifications_off_outlined,
-                            size: 14,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
-                          ),
-                          const SizedBox(width: 4),
-                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 52,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
                         if (time != null)
                           Text(
                             time,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-                              fontWeight: chat.showsUnreadIndicator
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: timeStyle,
                           ),
+                        const SizedBox(height: 6),
+                        _UnreadIndicator(chat: chat),
                       ],
                     ),
-                    if (preview != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        preview,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: previewStyle,
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              _UnreadIndicator(chat: chat),
-            ],
+            ),
           ),
         ),
-      ),
+        if (showDivider)
+          Divider(
+            height: 1,
+            thickness: 1,
+            indent: TelegramSpacing.chatListDividerInset,
+            color: tg.chatListDivider,
+          ),
+      ],
     );
   }
 
@@ -305,6 +377,34 @@ class ChatListTile extends StatelessWidget {
   }
 }
 
+class _MutedBellIcon extends StatelessWidget {
+  const _MutedBellIcon({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 14,
+      height: 14,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.notifications_off_outlined, size: 14, color: color),
+          Transform.rotate(
+            angle: -0.7,
+            child: Container(
+              width: 16,
+              height: 1,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _UnreadIndicator extends StatelessWidget {
   const _UnreadIndicator({required this.chat});
 
@@ -316,16 +416,20 @@ class _UnreadIndicator extends StatelessWidget {
       return _UnreadBadge(count: chat.unreadCount, muted: chat.isMuted);
     }
     if (chat.isMarkedAsUnread) {
+      final tg = context.telegramTheme;
       return Container(
         width: 12,
         height: 12,
-        decoration: const BoxDecoration(
-          color: Color(0xFF3390EC),
+        decoration: BoxDecoration(
+          color: tg.unreadBadgeBackground,
           shape: BoxShape.circle,
         ),
       );
     }
-    return const SizedBox.shrink();
+    return const SizedBox(
+      width: TelegramSpacing.unreadBadgeMinWidth,
+      height: TelegramSpacing.unreadBadgeMinHeight,
+    );
   }
 }
 
@@ -340,23 +444,27 @@ class _UnreadBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
     final label = count > 99 ? '99+' : '$count';
-    final color = muted
-        ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35)
-        : const Color(0xFF3390EC);
+    final backgroundColor = muted
+        ? tg.textSecondary.withValues(alpha: 0.35)
+        : tg.unreadBadgeBackground;
 
     return Container(
-      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+      constraints: const BoxConstraints(
+        minWidth: TelegramSpacing.unreadBadgeMinWidth,
+        minHeight: TelegramSpacing.unreadBadgeMinHeight,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(10),
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(TelegramRadii.unreadBadge),
       ),
       alignment: Alignment.center,
       child: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: tg.unreadBadgeText,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -430,6 +538,7 @@ class ChatListTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
     final tabs = <({ChatListKey list, String label})>[
       (list: const ChatListMain(), label: 'Все'),
       ...folders.map((folder) => (list: folder.listKey, label: folder.name)),
@@ -449,6 +558,12 @@ class ChatListTabs extends StatelessWidget {
           return ChoiceChip(
             label: Text(tab.label),
             selected: selected,
+            selectedColor: tg.accent.withValues(alpha: 0.12),
+            labelStyle: TextStyle(
+              color: selected ? tg.accent : tg.textSecondary,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            ),
+            side: BorderSide.none,
             onSelected: (_) => onSelected(tab.list),
           );
         },

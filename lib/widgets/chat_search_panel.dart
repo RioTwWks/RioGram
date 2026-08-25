@@ -46,25 +46,43 @@ class _ChatSearchBarState extends State<ChatSearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: SearchBar(
-        controller: widget.controller,
-        focusNode: widget.focusNode,
-        hintText: 'Поиск',
-        leading: const Icon(Icons.search_outlined),
-        trailing: widget.controller.text.isNotEmpty
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.close_outlined),
-                  onPressed: () {
-                    widget.controller.clear();
-                    widget.onClear();
-                  },
-                ),
-              ]
-            : null,
-        onChanged: widget.onChanged,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tg.searchFieldBackground,
+          borderRadius: BorderRadius.circular(TelegramRadii.searchField),
+        ),
+        child: TextField(
+          controller: widget.controller,
+          focusNode: widget.focusNode,
+          onChanged: widget.onChanged,
+          style: TextStyle(
+            color: tg.textPrimary,
+            fontSize: TelegramFontSizes.preview,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Поиск',
+            hintStyle: TextStyle(color: tg.textSecondary),
+            prefixIcon: Icon(Icons.search, color: tg.textSecondary, size: 20),
+            suffixIcon: widget.controller.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(Icons.close, color: tg.textSecondary, size: 20),
+                    onPressed: () {
+                      widget.controller.clear();
+                      widget.onClear();
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            isDense: true,
+          ),
+        ),
       ),
     );
   }
