@@ -120,6 +120,11 @@ web/tdweb/
 # Go binaries (собираются локально / CI)
 bin/riogram-wss-proxy
 
+# E2E
+e2e/web/node_modules/
+e2e/web/test-results/
+e2e/web/playwright-report/
+
 # TDLib native libs (собираются локально / в CI, не коммитить)
 linux/runner/libtdjson.so
 windows/runner/tdjson.dll
