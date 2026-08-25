@@ -13,6 +13,7 @@ import '../../core/user/profile_manager.dart';
 import '../../core/secret/secret_chat_manager.dart';
 import '../../core/theme/ui_customization_manager.dart';
 import '../../widgets/message_swipe_wrapper.dart';
+import '../../widgets/chat_wallpaper.dart';
 import '../../widgets/scroll_to_bottom_button.dart';
 import '../../widgets/message_bubble_grouping.dart';
 import '../../widgets/date_separator.dart';
@@ -1052,21 +1053,26 @@ class _ChatScreenState extends State<ChatScreen> {
               onSubscribe: () => _subscribeToChannel(chatManager, chat),
             ),
           Expanded(
-            child: chatManager.isLoadingMessages
-                ? const Center(child: CircularProgressIndicator())
-                : chatManager.messagesError != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            chatManager.messagesError!,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                    : listEntries.isEmpty
-                        ? const Center(child: Text('Нет сообщений'))
-                        : Stack(children: [ListView.builder(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const ChatWallpaper(),
+                if (chatManager.isLoadingMessages)
+                  const Center(child: CircularProgressIndicator())
+                else if (chatManager.messagesError != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        chatManager.messagesError!,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                else if (listEntries.isEmpty)
+                  const Center(child: Text('Нет сообщений'))
+                else
+                  Stack(children: [ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             itemCount: listEntries.length,
@@ -1161,6 +1167,8 @@ class _ChatScreenState extends State<ChatScreen> {
                               );
                             },
                           ), if (_newMessagesBelow > 0) Positioned(bottom: 12, left: 0, right: 0, child: Center(child: ScrollToBottomButton(newMessageCount: _newMessagesBelow, onPressed: () => _scrollToBottom()))), ],),
+              ],
+            ),
           ),
           if (!selectionMode) ...[
             if (showReadOnlyBar)
