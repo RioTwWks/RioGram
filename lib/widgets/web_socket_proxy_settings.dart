@@ -76,7 +76,7 @@ class _WebSocketProxySettingsState extends State<WebSocketProxySettings> {
             enabled: manager.config.enabled,
             decoration: InputDecoration(
               labelText: 'Адрес WSS-прокси',
-              hintText: 'wss://your-domain.ru',
+              hintText: 'wss://your-domain.ru:16443',
               filled: true,
               fillColor: tg.inputFieldBackground,
               border: OutlineInputBorder(

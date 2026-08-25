@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riogram/core/navigation/telegram_routes.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
-import 'package:riogram/widgets/voice_waveform.dart';
 
 void main() {
   group('TelegramDesignConstraints §9.11', () {
@@ -26,6 +25,11 @@ void main() {
       expect(TelegramSpacing.chatAppBarHeight, 56);
       expect(TelegramSpacing.settingsRowHeight, 48);
       expect(TelegramSpacing.chatListHorizontalPadding, 12);
+      expect(TelegramSpacing.profileScreenAvatarRadius, 60);
+      expect(TelegramSpacing.settingsSectionHeaderTopPadding, 24);
+      expect(TelegramSpacing.settingsSectionHeaderBottomPadding, 8);
+      expect(TelegramSpacing.settingsDividerInset, 16);
+      expect(TelegramSpacing.settingsDividerInsetWithLeading, 56);
       expect(TelegramSpacing.folderSidebarWidth, 68);
       expect(TelegramSpacing.callControlSpacing, 24);
     });

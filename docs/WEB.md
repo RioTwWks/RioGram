@@ -16,7 +16,7 @@
 ## Архитектура (production)
 
 ```
-Browser → https://your-domain.ru (RU Nginx)
+Browser → https://your-domain.ru[:PORT] (RU Nginx; default :443, e.g. :16443)
        → SSH tunnel → EU nginx :8080
             ├─ /opt/riogram/web/     Flutter static (SPA)
             └─ /venus.web.telegram.org/apiws → wss-proxy :5001 → Telegram
@@ -99,9 +99,9 @@ rsync -avz build/web/ user@eu-vps:/opt/riogram/web/
 
 1. EU: `./scripts/verify-web-deploy.sh`
 2. RU: `./scripts/verify-web-tunnel.sh`
-3. Снаружи: `curl -s https://your-domain.ru/ | grep flutter`
+3. Снаружи: `curl -s https://your-domain.ru[:PORT]/ | grep flutter` (порт из `RIOGRAM_HTTPS_PORT`)
 4. Браузер: DevTools → Network → документ `index.html`, `main.dart.js`
-5. WSS: включить прокси в настройках клиента → WS на `your-domain.ru/venus.web.telegram.org/apiws`
+5. WSS: в настройках указать `wss://your-domain.ru[:PORT]` → WS на `…/venus.web.telegram.org/apiws`
 
 ---
 

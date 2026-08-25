@@ -11,7 +11,7 @@
 ```
 ┌─────────────┐  HTTPS/WSS   ┌──────────────────┐   SSH -R    ┌────────────────────────────┐
 │   Browser   │ ───────────► │  RU VPS          │ ──────────► │  EU VPS (127.0.0.1 only)   │
-│  RioGram Web│  domain.ru   │  Nginx :443      │  :8080      │  nginx :8080 (aggregator)  │
+│  RioGram Web│  domain.ru   │  Nginx :443*     │  :8080      │  nginx :8080 (aggregator)  │
 └─────────────┘              │  LE certificate  │             │    ├─ :5001 wss-proxy      │
                              └──────────────────┘             │    └─ /opt/riogram/web static │
                                                               └─────────────┬──────────────┘
@@ -19,6 +19,8 @@
                                                                             ▼
                                                              venus/pluto.web.telegram.org
 ```
+
+\* По умолчанию `:443`. Если порт занят — `RIOGRAM_HTTPS_PORT=16443` (URL с явным портом).
 
 ### Порты (согласованная схема)
 
@@ -28,7 +30,7 @@
 | EU | `127.0.0.1:8080` | `riogram-eu-backend` nginx — static + WSS |
 | EU | `/opt/riogram/web` | Flutter Web static (§8.5) |
 | RU | `127.0.0.1:8080` | SSH reverse tunnel → EU `:8080` |
-| RU | `:443` | Nginx TLS → `127.0.0.1:8080` |
+| RU | `:443` или `RIOGRAM_HTTPS_PORT` | Nginx TLS → `127.0.0.1:8080` |
 
 ---
 
@@ -55,15 +57,19 @@ sudo ./deploy/ufw/riogram-eu.sh
 ### 2. RU frontend
 
 ```bash
-# На RU VPS
+# На RU VPS (HTTPS :443 по умолчанию)
 sudo RIOGRAM_DOMAIN=your-domain.ru ./scripts/setup-web-infra-ru.sh
+
+# Если :443 занят — другой публичный порт, например 16443:
+sudo RIOGRAM_DOMAIN=your-domain.ru RIOGRAM_HTTPS_PORT=16443 ./scripts/setup-web-infra-ru.sh
 
 # authorized_keys для user tunnel
 sudo nano /var/lib/riogram-tunnel/.ssh/authorized_keys
 
-# DNS + SSL
-sudo certbot --nginx -d your-domain.ru
-sudo ./deploy/ufw/riogram-ru.sh
+# DNS + SSL (webroot — работает при любом HTTPS listen-порту)
+sudo certbot certonly --webroot -w /var/www/certbot -d your-domain.ru
+sudo nginx -t && sudo systemctl reload nginx
+sudo ./deploy/ufw/riogram-ru.sh   # читает RIOGRAM_HTTPS_PORT из /etc/riogram/web.env
 ```
 
 ### 3. Проверка туннеля (RU VPS)
@@ -76,9 +82,14 @@ curl -s http://127.0.0.1:8080/health | jq .
 ### 4. Проверка снаружи
 
 ```bash
+# :443
 curl -s https://your-domain.ru/health | jq .
-# WSS (после включения прокси в клиенте):
+# нестандартный порт:
+curl -s https://your-domain.ru:16443/health | jq .
+
+# WSS (в настройках клиента указать базу с портом при необходимости):
 # wss://your-domain.ru/venus.web.telegram.org/apiws
+# wss://your-domain.ru:16443/venus.web.telegram.org/apiws
 ```
 
 ---
@@ -90,12 +101,16 @@ curl -s https://your-domain.ru/health | jq .
 | Переменная | Описание |
 |------------|----------|
 | `RIOGRAM_DOMAIN` | Домен RU frontend |
+| `RIOGRAM_HTTPS_PORT` | Публичный HTTPS на RU Nginx (по умолчанию `443`; например `16443`) |
 | `TUNNEL_SSH_USER` | SSH-пользователь на RU (рекомендуется `tunnel`) |
 | `TUNNEL_RU_HOST` | IP RU VPS |
 | `TUNNEL_RU_PORT` | Порт на RU localhost (8080) |
 | `TUNNEL_EU_PORT` | Порт EU backend aggregator (8080) |
 | `TUNNEL_RU_BIND` | `127.0.0.1` — туннель только на localhost RU |
 | `EU_UFW_ALLOW_SSH_FROM` | Ограничить SSH на EU IP RU VPS |
+
+При `RIOGRAM_HTTPS_PORT≠443` браузер и WSS-база должны включать порт:
+`https://domain:16443/`, в настройках клиента — `wss://domain:16443`.
 
 ---
 
@@ -153,9 +168,9 @@ proxy_buffering off;
 ## Безопасность
 
 1. **EU**: приложения только на `127.0.0.1`; UFW — только SSH (желательно с IP RU).
-2. **RU**: UFW — SSH + 80/443; публичная точка входа.
+2. **RU**: UFW — SSH + 80 + `RIOGRAM_HTTPS_PORT` (по умолчанию 443); публичная точка входа.
 3. **Tunnel user** на RU: без shell, только `authorized_keys` + `AllowTcpForwarding remote`.
-4. **Let's Encrypt** на RU — браузер видит валидный HTTPS к `.ru` домену.
+4. **Let's Encrypt** на RU (`certbot certonly --webroot`) — валидный HTTPS; при нестандартном порте URL с `:PORT`.
 
 ---
 
@@ -178,6 +193,7 @@ proxy_buffering off;
 | **WebSocket closes immediately** | Nginx: `Upgrade` + `Connection` + `proxy_http_version 1.1` |
 | **WS drops after ~60s** | Увеличить `proxy_read_timeout` (86400 в шаблоне) |
 | **Tunnel keeps dying** | autossh `Restart=always`; `ServerAliveInterval=30` |
+| **apt lock held** (`Could not get lock … apt-get`) | На сервере идёт другой apt (часто unattended-upgrades). Подождать или: `while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do sleep 5; done` — setup-скрипты сами ждут до `APT_WAIT_SECONDS` (600). **Не** удалять lock-файлы. |
 
 ---
 

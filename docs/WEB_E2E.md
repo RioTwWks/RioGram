@@ -69,8 +69,9 @@ WSS_URL=wss://your-domain.ru/venus.web.telegram.org/apiws \
   WSS_STABILITY_SECONDS=65 \
   ./scripts/e2e-wss-stability.sh
 
-# UI через HTTPS
+# UI через HTTPS (при нестандартном порте — с :PORT)
 E2E_BASE_URL=https://your-domain.ru ./scripts/e2e-web-ui.sh
+# E2E_BASE_URL=https://your-domain.ru:16443 ./scripts/e2e-web-ui.sh
 ```
 
 ---
@@ -79,10 +80,10 @@ E2E_BASE_URL=https://your-domain.ru ./scripts/e2e-web-ui.sh
 
 > Требует реальный номер телефона и рабочий tdweb + WSS path.
 
-- [ ] Открыть `https://your-domain.ru` (без VPN на устройстве в РФ)
+- [ ] Открыть `https://your-domain.ru` или `https://your-domain.ru:16443` (без VPN в РФ)
 - [ ] DevTools → Console: нет fatal errors при загрузке
 - [ ] Экран **«Вход в RioGram»** виден
-- [ ] **Настройки → WSS-прокси**: включить, указать `wss://your-domain.ru`
+- [ ] **Настройки → WSS-прокси**: включить, указать `wss://your-domain.ru` (или `:16443`)
 - [ ] DevTools → Application → Local Storage → `riogram_wss_proxy_config` с `enabled: true`
 - [ ] Ввести номер телефона → **Продолжить**
 - [ ] DevTools → Network → **WS**: URL содержит `your-domain.ru/...web.telegram.org/apiws`
