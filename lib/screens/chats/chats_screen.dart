@@ -6,6 +6,7 @@ import '../../core/user/contact_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../core/search/search_manager.dart';
 import '../../models/chat_models.dart';
+import '../../widgets/stories_strip.dart';
 import '../../widgets/chat_desktop_shortcuts.dart';
 import '../../widgets/chat_folder_sidebar.dart';
 import '../../widgets/chat_list_tile.dart';
@@ -329,6 +330,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
           ),
           const Divider(height: 1),
         ],
+        if (!searchManager.isGlobalSearchActive)
+          const StoriesStrip(),
+        if (!searchManager.isGlobalSearchActive)
+          const Divider(height: 1),
         Expanded(
           child: searchManager.isGlobalSearchActive
               ? ChatSearchResults(

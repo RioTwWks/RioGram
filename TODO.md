@@ -199,7 +199,7 @@
 #### Базовая авторизация (частично в MVP)
 - [x] Вход по номеру телефона + SMS-код
 - [x] Облачный пароль (2FA)
-- [ ] Сохранение сессии после перезапуска (`authorizationStateReady` без повторного входа)
+- [x] Сохранение сессии после перезапуска (`authorizationStateReady` без повторного входа) — TDLib SQLite + `AuthManager`
 - [ ] QR-вход (`requestQrCodeAuthentication` / сканирование с другого устройства)
 - [ ] Регистрация нового аккаунта (`registerUser`) — имя, фамилия
 - [ ] Смена номера (`changePhoneNumber`) и подтверждение email (`setAuthenticationEmailAddress`)
@@ -355,7 +355,7 @@
 - [x] Список контактов (`getContacts`, `searchContacts`)
 - [x] Импорт из адресной книги (`importContacts`, `flutter_contacts`)
 - [x] Добавление / удаление контакта (`addContact`, `removeContacts`)
-- [ ] «Люди рядом» (`searchNearbyUsers`) — опционально, API недоступен в текущем td_api.tl
+- [ ] «Люди рядом» (`searchNearbyUsers`) — N/A, API отсутствует в td_api.tl
 
 #### Профиль пользователя
 - [x] Свой профиль: имя, bio, username, аватар (`setProfilePhoto`, `setBio`, `setName`, `setUsername`)
@@ -391,7 +391,7 @@
 
 #### Данные и хранилище
 - [x] Использование памяти: разбивка по типам, очистка
-- [ ] Экспорт чата (не поддерживается TDLib API — `exportChat` отсутствует)
+- [ ] Экспорт чата — N/A, `exportChat` отсутствует в TDLib API
 - [x] Язык интерфейса (`setOption` / локализация приложения)
 
 #### Прокси (уже в MVP, §3)
@@ -423,10 +423,10 @@
 
 ### 6.12. Stories (истории)
 
-- [ ] Лента историй контактов (`getStoryAvailableList`, `getChatActiveStories`)
-- [ ] Просмотр истории (`openStory`, `closeStory`)
-- [ ] Публикация фото/видео-истории (`postStory`) — если аккаунт поддерживает
-- [ ] Реакции и ответы на истории
+- [x] Лента историй контактов (`loadActiveStories`, `getChatActiveStories`, `updateChatActiveStories`)
+- [x] Просмотр истории (`openStory`, `closeStory`, `getStory`)
+- [x] Публикация фото/видео-истории (`postStory`, `canPostStory`) — если аккаунт поддерживает
+- [x] Реакции и ответы на истории (`setStoryReaction`, `sendMessage` + `inputMessageReplyToStory`)
 
 ---
 
