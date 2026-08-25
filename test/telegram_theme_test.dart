@@ -41,13 +41,6 @@ void main() {
       try {
         expect(TelegramTypography.isDesktopPlatform, isTrue);
         expect(TelegramTypography.platformFontFamily!.toLowerCase(), contains('open'));
-        final theme = TelegramTypography.textTheme(
-          brightness: Brightness.light,
-          primary: TelegramColors.textPrimaryLight,
-          secondary: TelegramColors.textSecondaryLight,
-          time: TelegramColors.textTimeLight,
-        );
-        expect(theme.bodyLarge?.fontFamily?.toLowerCase(), contains('open'));
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

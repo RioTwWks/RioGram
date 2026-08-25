@@ -797,6 +797,12 @@ MVP — прочный фундамент. Ниже — направления, 
 - [x] **#1** Doodle/wallpaper фон переписки (как TG Android `#E6EBEE` + полупрозрачный паттерн; desktop — белый/лёгкий узор)
 - [ ] Настройка пользовательского wallpaper в информации о чате
 
+#### 9.11.11. Типографика, аватары, polish настроек (P2 #11, P3 #18–19)
+
+- [x] **Open Sans на Desktop** — `google_fonts`, `TelegramTypography.platformFontFamily` (Windows/Linux/macOS)
+- [x] **Цветные placeholder-аватары** — `ChatAvatar` + `TelegramAvatarColors`
+- [x] **Настройки desktop** — плоские группы на широких экранах (`telegram_settings_tile.dart`)
+
 ---
 
 ## ❗ Замечания
