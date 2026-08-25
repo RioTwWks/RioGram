@@ -749,11 +749,11 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 9.6. Экраны настроек и профиля
 
-- [ ] Группы настроек в `ListView` с секционными заголовками (uppercase 12sp secondary)
-- [ ] Строка настройки: title слева, value/chevron справа, divider inset
-- [ ] Профиль сверху: большой аватар, имя, @username, телефон — как TG Settings
-- [ ] Переключатели: классический Material/Cupertino Switch, accent `#3390EC`
-- [ ] Экран прокси RioGram: встроить в стиль TG, не выбиваться визуально (см. §3)
+- [x] Группы настроек в `ListView` с секционными заголовками (uppercase 12sp secondary)
+- [x] Строка настройки: title слева, value/chevron справа, divider inset
+- [x] Профиль сверху: большой аватар, имя, @username, телефон — как TG Settings
+- [x] Переключатели: классический Material/Cupertino Switch, accent `#3390EC`
+- [x] Экран прокси RioGram: встроить в стиль TG, не выбиваться визуально (см. §3)
 
 ---
 

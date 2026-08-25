@@ -6,11 +6,12 @@ import '../../core/media/media_cache_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../core/theme/theme_manager.dart';
 import '../../core/theme/theme_preferences.dart';
+import '../../core/theme/telegram_theme.dart';
 import '../../core/user/profile_manager.dart';
 import '../../models/proxy_models.dart';
-import '../../widgets/chat_avatar.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../../widgets/storage_settings_section.dart';
+import '../../widgets/telegram_settings_tile.dart';
 import '../profile/own_profile_screen.dart';
 import 'accounts_screen.dart';
 import 'active_sessions_screen.dart';
@@ -31,122 +32,132 @@ class SettingsScreen extends StatelessWidget {
     final themeManager = context.watch<ThemeManager>();
     final mediaCache = context.watch<MediaCacheManager?>();
     final profile = context.watch<ProfileManager>();
+    final auth = context.watch<AuthManager>();
 
-    final body = ListView(
-      padding: const EdgeInsets.all(16),
+    final user = profile.ownUser;
+    final draft = profile.ownProfile;
+    final displayName = user?.displayName ?? 'Мой профиль';
+    final username = draft?.username.isNotEmpty == true
+        ? draft!.username
+        : user?.username;
+    final phone = auth.phoneNumber?.isNotEmpty == true
+        ? auth.phoneNumber
+        : user?.phoneNumber;
+
+    final body = TelegramSettingsListView(
       children: [
-        _ProfileHeader(profile: profile),
-        const SizedBox(height: 16),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.block),
-          title: const Text('Заблокированные пользователи'),
-          trailing: const Icon(Icons.chevron_right),
+        TelegramSettingsProfileHeader(
+          displayName: displayName,
+          username: username,
+          phone: phone,
+          avatarLocalPath: user?.avatarLocalPath,
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => const BlockedUsersScreen(),
+                builder: (_) => const OwnProfileScreen(),
               ),
             );
           },
         ),
-        const Divider(height: 32),
-        const SettingsNavigationSection(),
-        const Divider(height: 32),
-        Text('Внешний вид', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        _ThemeModeSelector(themeManager: themeManager),
-        const SizedBox(height: 16),
-        Text('Акцентный цвет', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
-        _AccentColorPicker(themeManager: themeManager),
-        const SizedBox(height: 24),
-        if (mediaCache != null) ...[
-          StorageSettingsSection(),
-          const SizedBox(height: 24),
-        ],
-        Text('Прокси', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        if (proxyManager == null)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Прокси не настроены.\nЗаполните PROXY_* в файле .env',
-              ),
+        const TelegramSettingsSectionHeader('Конфиденциальность'),
+        TelegramSettingsGroup(
+          children: [
+            TelegramSettingsTile(
+              title: 'Заблокированные пользователи',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const BlockedUsersScreen(),
+                  ),
+                );
+              },
+              showDivider: false,
             ),
+          ],
+        ),
+        const SettingsNavigationSection(),
+        const TelegramSettingsSectionHeader('Внешний вид'),
+        TelegramSettingsGroup(
+          children: [
+            _ThemeModeTile(themeManager: themeManager),
+            _AccentColorTile(themeManager: themeManager),
+          ],
+        ),
+        if (mediaCache != null) const StorageSettingsSection(),
+        const TelegramSettingsSectionHeader('Прокси'),
+        if (proxyManager == null)
+          TelegramSettingsGroup(
+            children: const [
+              TelegramSettingsTile(
+                title: 'Прокси не настроены',
+                subtitle: 'Заполните PROXY_* в файле .env',
+                showChevron: false,
+                showDivider: false,
+              ),
+            ],
           )
         else
           _ProxySettings(proxyManager: proxyManager),
+        const TelegramSettingsSectionHeader('Аккаунт'),
+        TelegramSettingsGroup(
+          children: [
+            TelegramSettingsTile(
+              title: 'Аккаунты',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AccountsScreen()),
+              ),
+            ),
+            TelegramSettingsTile(
+              title: 'Активные сессии',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ActiveSessionsScreen(),
+                ),
+              ),
+            ),
+            TelegramSettingsTile(
+              title: 'Смена номера',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ChangePhoneScreen(),
+                ),
+              ),
+            ),
+            TelegramSettingsTile(
+              title: 'Блокировка приложения',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AppLockSettingsScreen(),
+                ),
+              ),
+              showDivider: false,
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
-        Text('Аккаунт', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.switch_account_outlined),
-          title: const Text('Аккаунты'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const AccountsScreen(),
-              ),
-            );
-          },
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.devices_other_outlined),
-          title: const Text('Активные сессии'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const ActiveSessionsScreen(),
-              ),
-            );
-          },
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.phone_android_outlined),
-          title: const Text('Смена номера'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const ChangePhoneScreen(),
-              ),
-            );
-          },
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.lock_clock_outlined),
-          title: const Text('Блокировка приложения'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const AppLockSettingsScreen(),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () => _confirmLogout(context),
-          icon: const Icon(Icons.logout),
-          label: const Text('Выйти из аккаунта'),
+        TelegramSettingsGroup(
+          children: [
+            TelegramSettingsTile(
+              title: 'Выйти из аккаунта',
+              showChevron: false,
+              destructive: true,
+              onTap: () => _confirmLogout(context),
+              showDivider: false,
+            ),
+          ],
         ),
       ],
     );
 
     if (embedded) {
-      return body;
+      return ColoredBox(
+        color: telegramSettingsPageBackground(context),
+        child: body,
+      );
     }
 
     return Scaffold(
+      backgroundColor: telegramSettingsPageBackground(context),
       appBar: AppBar(title: const Text('Настройки')),
       body: body,
     );
@@ -180,86 +191,88 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.profile});
-
-  final ProfileManager profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final user = profile.ownUser;
-    final draft = profile.ownProfile;
-
-    return Card(
-      child: ListTile(
-        leading: ChatAvatar(
-          title: user?.displayName ?? 'Профиль',
-          localPath: user?.avatarLocalPath,
-          radius: 24,
-        ),
-        title: Text(user?.displayName ?? 'Мой профиль'),
-        subtitle: Text(
-          draft?.username.isNotEmpty == true
-              ? '@${draft!.username}'
-              : user?.username != null
-                  ? '@${user!.username}'
-                  : 'Имя, bio, username, фото',
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const OwnProfileScreen(),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ThemeModeSelector extends StatelessWidget {
-  const _ThemeModeSelector({required this.themeManager});
+class _ThemeModeTile extends StatelessWidget {
+  const _ThemeModeTile({required this.themeManager});
 
   final ThemeManager themeManager;
 
+  String _label(ThemeMode mode) => switch (mode) {
+        ThemeMode.system => 'Системная',
+        ThemeMode.light => 'Светлая',
+        ThemeMode.dark => 'Тёмная',
+      };
+
   @override
   Widget build(BuildContext context) {
-    return SegmentedButton<ThemeMode>(
-      segments: const [
-        ButtonSegment(value: ThemeMode.system, label: Text('Система')),
-        ButtonSegment(value: ThemeMode.light, label: Text('Светлая')),
-        ButtonSegment(value: ThemeMode.dark, label: Text('Тёмная')),
-      ],
-      selected: {themeManager.themeMode},
-      onSelectionChanged: (selection) {
-        themeManager.setThemeMode(selection.first);
+    return TelegramSettingsTile(
+      title: 'Тема',
+      value: _label(themeManager.themeMode),
+      onTap: () async {
+        await showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: context.telegramTheme.elevatedSurface,
+          builder: (context) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: ThemeMode.values.map((mode) {
+                return RadioListTile<ThemeMode>(
+                  title: Text(_label(mode)),
+                  value: mode,
+                  groupValue: themeManager.themeMode,
+                  onChanged: (value) {
+                    if (value != null) {
+                      themeManager.setThemeMode(value);
+                      Navigator.pop(context);
+                    }
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        );
       },
     );
   }
 }
 
-class _AccentColorPicker extends StatelessWidget {
-  const _AccentColorPicker({required this.themeManager});
+class _AccentColorTile extends StatelessWidget {
+  const _AccentColorTile({required this.themeManager});
 
   final ThemeManager themeManager;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      children: ThemePreferences.accentOptions.map((color) {
-        final selected =
-            themeManager.accentColor.toARGB32() == color.toARGB32();
-        return GestureDetector(
-          onTap: () => themeManager.setAccentColor(color),
-          child: CircleAvatar(
-            radius: 18,
-            backgroundColor: color,
-            child: selected ? const Icon(Icons.check, color: Colors.white) : null,
-          ),
-        );
-      }).toList(),
+    return TelegramSettingsTile(
+      title: 'Акцентный цвет',
+      showChevron: false,
+      showDivider: false,
+      trailing: Wrap(
+        spacing: 8,
+        children: ThemePreferences.accentOptions.map((color) {
+          final selected =
+              themeManager.accentColor.toARGB32() == color.toARGB32();
+          return GestureDetector(
+            onTap: () => themeManager.setAccentColor(color),
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: selected
+                    ? Border.all(
+                        color: context.telegramTheme.textPrimary,
+                        width: 2,
+                      )
+                    : null,
+              ),
+              child: selected
+                  ? const Icon(Icons.check, color: Colors.white, size: 16)
+                  : null,
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -271,74 +284,97 @@ class _ProxySettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
     return Column(
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Текущий статус', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 12),
-                ProxyStatusIndicator(
-                  status: proxyManager.status,
-                  proxyName: proxyManager.activeProxyName,
-                ),
-                if (proxyManager.lastError != null) ...[
-                  const SizedBox(height: 8),
+        TelegramSettingsGroup(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    proxyManager.lastError!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    'Текущий статус',
+                    style: TextStyle(
+                      fontSize: TelegramFontSizes.chatSubtitle,
+                      fontWeight: FontWeight.w600,
+                      color: tg.textSecondary,
+                    ),
                   ),
+                  const SizedBox(height: 8),
+                  ProxyStatusIndicator(
+                    status: proxyManager.status,
+                    proxyName: proxyManager.activeProxyName,
+                  ),
+                  if (proxyManager.lastError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      proxyManager.lastError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ),
-        ),
-        SwitchListTile(
-          title: const Text('Автоматическое переключение'),
-          subtitle: const Text(
-            'Failover PhantomProxy → StealthGate → системный',
-          ),
-          value: proxyManager.autoFailoverEnabled,
-          onChanged: proxyManager.setAutoFailoverEnabled,
-        ),
-        ...proxyManager.proxies.map(
-          (proxy) => _ProxyTile(
-            proxy: proxy,
-            onTest: () => _showTestResult(context, proxyManager, proxy.id),
-            onActivate: () => proxyManager.activateProxy(proxy.id),
-          ),
-        ),
-        if (proxyManager.userProxies.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Пользовательские прокси',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          ...proxyManager.userProxies.map(
-            (proxy) => ListTile(
-              dense: true,
-              leading: Icon(
-                proxy.type == UserProxyType.socks5
-                    ? Icons.vpn_lock
-                    : Icons.http,
               ),
-              title: Text(proxy.name),
-              subtitle: Text('${proxy.host}:${proxy.port}'),
             ),
-          ),
-        ],
-        OutlinedButton.icon(
-          onPressed: () => _showAddUserProxyDialog(context, proxyManager),
-          icon: const Icon(Icons.add),
-          label: const Text('Добавить SOCKS5 / HTTP'),
+            const TelegramSettingsDivider(),
+            TelegramSettingsSwitchTile(
+              title: 'Автоматическое переключение',
+              subtitle: 'Failover PhantomProxy → StealthGate → системный',
+              value: proxyManager.autoFailoverEnabled,
+              onChanged: proxyManager.setAutoFailoverEnabled,
+              showDivider: proxyManager.proxies.isNotEmpty ||
+                  proxyManager.userProxies.isNotEmpty,
+            ),
+            ...proxyManager.proxies.asMap().entries.map((entry) {
+              final proxy = entry.value;
+              final isLast = entry.key == proxyManager.proxies.length - 1 &&
+                  proxyManager.userProxies.isEmpty;
+              return _ProxyTile(
+                proxy: proxy,
+                showDivider: !isLast,
+                onTest: () => _showTestResult(context, proxyManager, proxy.id),
+                onActivate: () => proxyManager.activateProxy(proxy.id),
+              );
+            }),
+            ...proxyManager.userProxies.asMap().entries.map((entry) {
+              final proxy = entry.value;
+              final isLast = entry.key == proxyManager.userProxies.length - 1;
+              return TelegramSettingsTile(
+                title: proxy.name,
+                subtitle: '${proxy.host}:${proxy.port}',
+                leading: Icon(
+                  proxy.type == UserProxyType.socks5
+                      ? Icons.vpn_lock_outlined
+                      : Icons.http_outlined,
+                  color: tg.textSecondary,
+                ),
+                showChevron: false,
+                showDivider: !isLast,
+              );
+            }),
+          ],
         ),
-        FilledButton.icon(
-          onPressed: proxyManager.switchToNextProxy,
-          icon: const Icon(Icons.swap_horiz),
-          label: const Text('Следующий прокси'),
+        const SizedBox(height: 12),
+        TelegramSettingsGroup(
+          children: [
+            TelegramSettingsTile(
+              title: 'Добавить SOCKS5 / HTTP',
+              leading: Icon(Icons.add, color: tg.accent),
+              showChevron: false,
+              onTap: () => _showAddUserProxyDialog(context, proxyManager),
+            ),
+            TelegramSettingsTile(
+              title: 'Следующий прокси',
+              leading: Icon(Icons.swap_horiz, color: tg.accent),
+              showChevron: false,
+              showDivider: false,
+              onTap: proxyManager.switchToNextProxy,
+            ),
+          ],
         ),
       ],
     );
@@ -391,9 +427,7 @@ class _ProxySettings extends StatelessWidget {
                     ),
                   ],
                   onChanged: (value) {
-                    if (value != null) {
-                      setState(() => type = value);
-                    }
+                    if (value != null) setState(() => type = value);
                   },
                 ),
                 TextField(
@@ -447,11 +481,6 @@ class _ProxySettings extends StatelessWidget {
             password: passController.text,
           ),
         );
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Прокси добавлен')),
-          );
-        }
       }
     }
 
@@ -469,15 +498,14 @@ class _ProxySettings extends StatelessWidget {
   ) async {
     final messenger = ScaffoldMessenger.of(context);
     final proxy = manager.proxies.firstWhere((item) => item.id == proxyId);
-
     messenger.showSnackBar(SnackBar(content: Text('Проверка ${proxy.name}...')));
     final ok = await manager.testProxy(proxyId);
-    if (!context.mounted) {
-      return;
-    }
+    if (!context.mounted) return;
     messenger.showSnackBar(
       SnackBar(
-        content: Text(ok ? '${proxy.name}: доступен' : '${proxy.name}: недоступен'),
+        content: Text(
+          ok ? '${proxy.name}: доступен' : '${proxy.name}: недоступен',
+        ),
       ),
     );
   }
@@ -488,61 +516,73 @@ class _ProxyTile extends StatelessWidget {
     required this.proxy,
     required this.onTest,
     required this.onActivate,
+    this.showDivider = true,
   });
 
   final ProxyEntry proxy;
   final VoidCallback onTest;
   final VoidCallback onActivate;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
     final healthLabel = switch (proxy.health) {
       ProxyHealth.ok => 'Доступен',
       ProxyHealth.failed => 'Недоступен',
       ProxyHealth.checking => 'Проверка...',
       ProxyHealth.unknown => 'Не проверен',
     };
-
     final healthColor = switch (proxy.health) {
       ProxyHealth.ok => Colors.green,
       ProxyHealth.failed => Colors.red,
       ProxyHealth.checking => Colors.amber,
-      ProxyHealth.unknown => Colors.grey,
+      ProxyHealth.unknown => tg.textSecondary,
     };
+    final isSystemTransport = proxy.name == ProxyManager.transportProxyName;
+    final subtitle = isSystemTransport
+        ? '$healthLabel • ${proxy.displayAddress} • транспорт + fallback'
+        : '$healthLabel • ${proxy.displayAddress}';
 
-    final isSystemTransport =
-        proxy.name == ProxyManager.transportProxyName;
-
-    return Card(
-      child: ListTile(
-        leading: Icon(
-          proxy.isActive ? Icons.check_circle : Icons.radio_button_unchecked,
-          color: proxy.isActive ? Theme.of(context).colorScheme.primary : null,
-        ),
-        title: Text(proxy.name),
-        subtitle: Text(
-          isSystemTransport
-              ? '$healthLabel • ${proxy.displayAddress} • транспорт + fallback'
-              : '$healthLabel • ${proxy.displayAddress}',
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.circle, size: 10, color: healthColor),
-            IconButton(
-              tooltip: 'Тест',
-              onPressed: onTest,
-              icon: const Icon(Icons.network_check),
-            ),
-            if (!proxy.isActive)
-              IconButton(
-                tooltip: 'Включить',
-                onPressed: onActivate,
-                icon: const Icon(Icons.play_arrow),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                proxy.isActive ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: proxy.isActive ? tg.accent : tg.textSecondary,
+                size: 22,
               ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(proxy.name, style: TextStyle(fontSize: TelegramFontSizes.chatTitle, color: tg.textPrimary)),
+                    Text(subtitle, style: TextStyle(fontSize: TelegramFontSizes.chatSubtitle, color: tg.textSecondary)),
+                  ],
+                ),
+              ),
+              Icon(Icons.circle, size: 8, color: healthColor),
+              IconButton(
+                tooltip: 'Тест',
+                onPressed: onTest,
+                icon: Icon(Icons.network_check, color: tg.accent),
+              ),
+              if (!proxy.isActive)
+                IconButton(
+                  tooltip: 'Включить',
+                  onPressed: onActivate,
+                  icon: Icon(Icons.play_arrow, color: tg.accent),
+                ),
+            ],
+          ),
         ),
-      ),
+        if (showDivider) const TelegramSettingsDivider(inset: 56),
+      ],
     );
   }
 }
