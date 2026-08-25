@@ -268,6 +268,17 @@ class AuthManager extends ChangeNotifier {
       'joinInvite_',
       'createPrivateChat_',
       'createForumTopic_',
+      'story_load_',
+      'story_active_',
+      'story_get_',
+      'story_open_',
+      'story_close_',
+      'story_post_',
+      'story_reaction_',
+      'story_reply_',
+      'story_chat_',
+      'story_reactions',
+      'story_can_post_',
     ];
     for (final prefix in nonAuthPrefixes) {
       if (extra.startsWith(prefix)) {

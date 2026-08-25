@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/auth/auth_manager.dart';
 import 'core/bot/bot_manager.dart';
+import 'core/stories/story_manager.dart';
 import 'core/secret/secret_chat_manager.dart';
 import 'core/call/call_manager.dart';
 import 'core/call/call_signaling_bridge.dart';
@@ -93,6 +94,7 @@ class _AppScopeState extends State<_AppScope> {
   late final AppLocaleManager _appLocaleManager;
   late final BotManager _botManager;
   late final SecretChatManager _secretChatManager;
+  late final StoryManager _storyManager;
   late final ChatManager _chatManager;
 
   @override
@@ -129,6 +131,10 @@ class _AppScopeState extends State<_AppScope> {
     _appLocaleManager = AppLocaleManager(client: _client)..load();
     _botManager = BotManager(client: _client);
     _secretChatManager = SecretChatManager(client: _client);
+    _storyManager = StoryManager(
+      client: _client,
+      mediaCache: _mediaCacheManager,
+    );
 
     _chatManager = ChatManager(
       client: _client,
@@ -155,6 +161,9 @@ class _AppScopeState extends State<_AppScope> {
         _securitySettingsManager.startListening();
         _botManager.startListening();
         _secretChatManager.startListening();
+        _storyManager.startListening();
+        _storyManager.setSavedMessagesChatId(_chatManager.savedMessagesChatId);
+        _storyManager.loadMainStoryList();
         _profileManager.loadOwnProfile();
         _contactManager.loadContacts();
         _chatManager.startListening();
@@ -178,6 +187,7 @@ class _AppScopeState extends State<_AppScope> {
     _appLocaleManager.dispose();
     _botManager.dispose();
     _secretChatManager.dispose();
+    _storyManager.dispose();
     _stickerManager.dispose();
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
@@ -231,6 +241,9 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<SecretChatManager>.value(
           value: _secretChatManager,
+        ),
+        ChangeNotifierProvider<StoryManager>.value(
+          value: _storyManager,
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),

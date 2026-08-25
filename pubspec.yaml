@@ -1,7 +1,7 @@
 name: riogram
 description: RioGram — censorship-resistant cross-platform Telegram client.
 publish_to: 'none'
-version: 0.10.0+64
+version: 0.11.0+65
 
 environment:
   sdk: ^3.12.2
