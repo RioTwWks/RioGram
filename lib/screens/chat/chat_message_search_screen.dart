@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
 import '../../core/search/search_manager.dart';
-import '../../models/search_models.dart';
 import '../../widgets/chat_search_panel.dart';
 
 /// Поиск сообщений внутри одного чата.
