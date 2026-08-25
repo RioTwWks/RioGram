@@ -22,7 +22,11 @@ class DocumentMessageBody extends StatelessWidget {
     final sizeLabel = documentInfo?.sizeLabel;
 
     return Container(
-      constraints: const BoxConstraints(minWidth: 200, maxWidth: 280),
+      constraints: const BoxConstraints(
+        minWidth: 200,
+        maxWidth: 280,
+        minHeight: TelegramMediaSpacing.documentCardMinHeight,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: tg.elevatedSurface.withValues(alpha: 0.45),

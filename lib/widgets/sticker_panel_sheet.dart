@@ -13,7 +13,7 @@ class StickerPanelPanel extends StatefulWidget {
     super.key,
     required this.chatId,
     this.onStickerSent,
-    this.height = 280,
+    this.height = TelegramSpacing.stickerPanelHeight,
   });
 
   final int chatId;
