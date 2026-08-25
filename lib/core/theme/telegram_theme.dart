@@ -159,10 +159,19 @@ abstract final class TelegramSpacing {
 
 /// Платформенный шрифт как у Telegram.
 abstract final class TelegramTypography {
+  static bool get isDesktopPlatform {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.windows || TargetPlatform.linux || TargetPlatform.macOS => true,
+      _ => false,
+    };
+  }
+
   static String? get platformFontFamily {
     return switch (defaultTargetPlatform) {
-      TargetPlatform.iOS || TargetPlatform.macOS => '.AppleSystemUIFont',
+      TargetPlatform.iOS => '.AppleSystemUIFont',
       TargetPlatform.android => 'Roboto',
+      TargetPlatform.macOS || TargetPlatform.windows || TargetPlatform.linux =>
+        GoogleFonts.openSans().fontFamily,
       _ => null,
     };
   }
