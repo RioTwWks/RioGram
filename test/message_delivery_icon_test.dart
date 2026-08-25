@@ -34,7 +34,8 @@ void main() {
         ),
       );
 
-      final icon = tester.widget<Icon>(find.byIcon(TelegramIcons.deliveryDelivered));
+      final icon =
+          tester.widget<Icon>(find.byIcon(TelegramIcons.deliveryDelivered));
       expect(icon.color, gray);
     });
 
@@ -49,7 +50,8 @@ void main() {
         ),
       );
 
-      final icon = tester.widget<Icon>(find.byIcon(TelegramIcons.deliveryDelivered));
+      final icon =
+          tester.widget<Icon>(find.byIcon(TelegramIcons.deliveryDelivered));
       expect(icon.color, blue);
     });
 
@@ -67,6 +69,37 @@ void main() {
       );
 
       expect(find.byIcon(TelegramIcons.deliveryFailed), findsOneWidget);
+    });
+
+    testWidgets('поддерживает кастомный size', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          const MessageDeliveryIcon(
+            status: MessageDeliveryStatus.sent,
+            size: 11,
+          ),
+        ),
+      );
+
+      final icon = tester.widget<Icon>(find.byIcon(TelegramIcons.deliverySent));
+      expect(icon.size, 11);
+    });
+  });
+
+  group('MessageViewCountLabel', () {
+    testWidgets('скрывается при viewCount <= 0', (tester) async {
+      await tester.pumpWidget(
+        wrap(const MessageViewCountLabel(viewCount: 0)),
+      );
+      expect(find.byType(MessageViewCountLabel), findsOneWidget);
+      expect(find.byIcon(TelegramIcons.visibility), findsNothing);
+    });
+
+    testWidgets('форматирует тысячи', (tester) async {
+      await tester.pumpWidget(
+        wrap(const MessageViewCountLabel(viewCount: 1500)),
+      );
+      expect(find.text('1.5K'), findsOneWidget);
     });
   });
 }
