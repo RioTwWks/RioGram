@@ -1,0 +1,16 @@
+[Unit]
+Description=RioGram reverse SSH tunnel to RU frontend (§8.4)
+After=network-online.target riogram-wss-proxy.service riogram-eu-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=riogram
+Group=riogram
+EnvironmentFile=/etc/riogram/web.env
+ExecStart=/opt/riogram/bin/autossh-riogram-tunnel.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

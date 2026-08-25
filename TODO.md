@@ -566,36 +566,29 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 8.4.1. Подготовка серверов
 
-- [ ] Арендовать (или выделить) VPS в РФ для frontend
-- [ ] Подготовить EU-сервер: приложение слушает `127.0.0.1:5000` (или выбранный порт)
-- [ ] Обновить системы на обоих серверах (`apt update && apt upgrade`)
+- [ ] Арендовать (или выделить) VPS в РФ для frontend — **ручной шаг ops**
+- [x] Подготовить EU-сервер: приложение слушает `127.0.0.1` — `setup-web-infra-eu.sh`, порты 5000/5001/8080
+- [x] Обновить системы на обоих серверах — `apt-get` в setup-скриптах
 
 #### 8.4.2. SSH-туннель (EU → RU)
 
-- [ ] Настроить reverse SSH-туннель с EU на RU VPS:
-  ```bash
-  ssh -R 8080:localhost:5000 -N -f user@ru_vps_ip
-  ```
-- [ ] Установить `autossh` на EU-сервере для автоматического переподключения
-- [ ] Создать systemd-службу `autossh-riogram-tunnel.service` с автозапуском
-- [ ] Проверить туннель с RU VPS: `curl http://127.0.0.1:8080`
+- [x] Reverse SSH-туннель EU→RU — `scripts/autossh-riogram-tunnel.sh`, `autossh-riogram-tunnel.service`
+- [x] `autossh` на EU — устанавливается `setup-web-infra-eu.sh`
+- [x] systemd `autossh-riogram-tunnel.service` — `deploy/systemd/`
+- [x] Проверка туннеля с RU — `./scripts/verify-web-tunnel.sh`
 
 #### 8.4.3. Nginx на RU VPS (reverse proxy + WSS)
 
-- [ ] Установить Nginx и Certbot на Rоссийском VPS
-- [ ] Создать конфиг `/etc/nginx/sites-available/riogram`:
-  - [ ] `proxy_pass` на `127.0.0.1:8080` (порт туннеля)
-  - [ ] Заголовки `Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`
-  - [ ] Отдельный `location` для WebSocket с `proxy_http_version 1.1`, `Upgrade`, `Connection "upgrade"`
-  - [ ] `proxy_read_timeout 86400` для долгих WSS-соединений
-- [ ] Активировать конфиг, проверить `nginx -t`, перезагрузить Nginx
+- [x] Nginx + Certbot — `setup-web-infra-ru.sh`
+- [x] Конфиг `riogram-ru.conf.template` — proxy_pass, Upgrade, timeouts
+- [x] Активация sites-available — в setup-скрипте
 
 #### 8.4.4. SSL и брандмауэр
 
-- [ ] Выпустить Let's Encrypt сертификат: `certbot --nginx -d your-domain.ru`
-- [ ] RU VPS (UFW): открыть только SSH (22) и Nginx (80/443)
-- [ ] EU-сервер (UFW): открыть только SSH; **не** открывать порт приложения наружу
-- [ ] Ограничить доступ к EU-серверу только с IP российского VPS (или только через туннель)
+- [x] Let's Encrypt инструкция — certbot в setup + `WEB_INFRA.md`
+- [x] UFW RU (22, 80/443) — `deploy/ufw/riogram-ru.sh`
+- [x] UFW EU (SSH only) — `deploy/ufw/riogram-eu.sh`
+- [x] Ограничение EU SSH по IP RU — `EU_UFW_ALLOW_SSH_FROM` в web.env
 
 ### 8.5. Сборка и деплой Flutter Web
 
@@ -616,10 +609,10 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 8.7. Устранение неполадок (чеклист)
 
-- [ ] **502 Bad Gateway** — проверить активность SSH-туннеля (`ps aux | grep ssh`)
-- [ ] **WebSocket сразу закрывается** — проверить `proxy_http_version 1.1` и заголовки Upgrade в Nginx
-- [ ] **WebSocket падает через минуту** — увеличить `proxy_read_timeout`
-- [ ] **Туннель рвётся** — проверить `autossh` и systemd-службу
+- [x] **502 Bad Gateway** — `./scripts/verify-web-tunnel.sh`, `docs/WEB_INFRA.md`
+- [x] **WebSocket сразу закрывается** — nginx template + troubleshooting
+- [x] **WebSocket падает через минуту** — `proxy_read_timeout 86400s`
+- [x] **Туннель рвётся** — autossh systemd + `Restart=always`
 
 ### 8.8. Документация
 

@@ -116,9 +116,11 @@ npx wscat -c ws://127.0.0.1:5001/venus.web.telegram.org/apiws -s binary
 
 ---
 
-## Nginx на RU VPS (preview §8.4)
+## Nginx на RU VPS
 
-Пример фрагмента для проксирования WSS через SSH-туннель (`127.0.0.1:8080` → EU `5001`):
+Полная инфраструктура §8.4: [WEB_INFRA.md](WEB_INFRA.md) (autossh, Let's Encrypt, UFW, setup-скрипты).
+
+Краткий фрагмент RU nginx → SSH tunnel (`127.0.0.1:8080` → EU aggregator):
 
 ```nginx
 location / {
@@ -134,7 +136,7 @@ location / {
 }
 ```
 
-Полная инфраструктура (autossh, Let's Encrypt, UFW) — §8.4 в [TODO.md](../TODO.md).
+Полная инфраструктура §8.4: [WEB_INFRA.md](WEB_INFRA.md) (autossh, Let's Encrypt, UFW).
 
 ---
 
@@ -171,5 +173,5 @@ location / {
 
 ## Следующие шаги
 
-- **§8.4** — SSH reverse tunnel RU↔EU + Nginx + Let's Encrypt
+- **§8.4** — SSH reverse tunnel RU↔EU + Nginx + Let's Encrypt — см. [WEB_INFRA.md](WEB_INFRA.md)
 - **§8.6** — E2E авторизация через WSS из браузера в РФ
