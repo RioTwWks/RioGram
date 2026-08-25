@@ -12,7 +12,6 @@ import '../../core/theme/theme_preferences.dart';
 import '../../core/theme/telegram_theme.dart';
 import '../../core/user/profile_manager.dart';
 import '../../models/proxy_models.dart';
-import '../../widgets/connection_status_indicator.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../../widgets/storage_settings_section.dart';
 import '../../widgets/telegram_settings_tile.dart';
