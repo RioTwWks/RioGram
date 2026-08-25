@@ -1,0 +1,22 @@
+[Unit]
+Description=RioGram WSS reverse proxy (Telegram Web §8.3)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=riogram
+Group=riogram
+Environment=WSS_PROXY_LISTEN=127.0.0.1:5001
+# Optional: WSS_PROXY_TOKEN=change-me
+ExecStart=/opt/riogram/bin/riogram-wss-proxy
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/log/riogram
+
+[Install]
+WantedBy=multi-user.target

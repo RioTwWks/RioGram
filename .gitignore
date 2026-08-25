@@ -117,6 +117,9 @@ unlinked_spec.ds
 # tdweb WASM (собирается ./scripts/build-tdweb.sh, не коммитить)
 web/tdweb/
 
+# Go binaries (собираются локально / CI)
+bin/riogram-wss-proxy
+
 # TDLib native libs (собираются локально / в CI, не коммитить)
 linux/runner/libtdjson.so
 windows/runner/tdjson.dll
