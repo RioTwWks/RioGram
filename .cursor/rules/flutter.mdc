@@ -41,3 +41,14 @@ Desktop hotkeys — `ChatDesktopShortcuts` (Ctrl+F/K, Ctrl+N, Ctrl+↑/↓).
 - `NewChatDialog` — диалог нового чата
 
 Подробнее: `docs/CHATS.md`.
+
+## Web-платформа (§8)
+
+- **Conditional imports**: `tdlib_client.dart` → native FFI / `tdlib_client_web.dart` для браузера.
+- **kIsWeb**: не использовать `dart:ffi`, нативные плагины; прокси — `WebProxyManager`, не `ProxyManager`.
+- **WSS**: URL rewrite в `web/js/wss_proxy_hook.js`; настройки — `WebSocketProxyPreferences`.
+- **tdweb**: собрать `./scripts/build-tdweb.sh && ./scripts/copy-tdweb.sh` перед `flutter build web`.
+- **Сборка**: `./scripts/build-web.sh` (production), `./scripts/build-web-poc.sh` (UI без TDLib).
+- **E2E**: `./scripts/run-web-e2e.sh`; CanvasKit — Playwright проверяет `flutter-view`, не текст UI.
+
+Подробнее: `docs/WEB.md`, `docs/WEB_TRANSPORT.md`.

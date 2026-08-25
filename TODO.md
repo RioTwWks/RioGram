@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** §7.6 Экосистема плагинов и децентрализация.
+**Последнее обновление:** §8 Web (PoC → E2E), актуализация `.cursor/` и docs.
 
 ---
 
@@ -529,7 +529,7 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 8.1. Исследование и проверка концепции (PoC)
 
-- [x] Собрать текущий Flutter-проект для Web: `flutter build web` — **падает** (dart:ffi/TDLib); UI PoC: `./scripts/build-web-poc.sh`
+- [x] Собрать текущий Flutter-проект для Web: `flutter build web --release` — `./scripts/build-web.sh` (tdweb + `lib/main.dart`); UI PoC: `./scripts/build-web-poc.sh`
 - [x] Задеплоить статику на тестовый хостинг, убедиться что UI работает без подключения к Telegram — `build/web/` + `python3 -m http.server`
 - [x] Зафиксировать несовместимости Web-платформы (FFI/TDLib, `dart:ffi`, нативные плагины) — см. [docs/WEB_POC.md](docs/WEB_POC.md)
 - [x] Изучить готовые решения:
@@ -567,7 +567,7 @@ MVP — прочный фундамент. Ниже — направления, 
 #### 8.4.1. Подготовка серверов
 
 - [ ] Арендовать (или выделить) VPS в РФ для frontend — **ручной шаг ops**
-- [x] Подготовить EU-сервер: приложение слушает `127.0.0.1` — `setup-web-infra-eu.sh`, порты 5000/5001/8080
+- [x] Подготовить EU-сервер: приложение слушает `127.0.0.1` — `setup-web-infra-eu.sh`, порты 5001/8080, static `/opt/riogram/web`
 - [x] Обновить системы на обоих серверах — `apt-get` в setup-скриптах
 
 #### 8.4.2. SSH-туннель (EU → RU)
@@ -618,7 +618,8 @@ MVP — прочный фундамент. Ниже — направления, 
 
 - [x] Создать `docs/WEB.md`: архитектура, сборка, деплой, настройка прокси
 - [x] Описать схему RU Frontend → EU Backend в `docs/PROXY.md` (раздел Web)
-- [x] Добавить команды деплоя в `.cursor/commands/` — `deploy-web-app.md`, `deploy-web-infra.md`, `deploy-web-proxy.md`
+- [x] Добавить команды деплоя в `.cursor/commands/` — `web.md`, `deploy-web-app.md`, `deploy-web-infra.md`, `deploy-web-proxy.md`, `e2e-web.md`
+- [x] Актуализировать `.cursor/context`, `.cursor/rules/`, `docs/CI.md`, `docs/QUICKSTART.md`
 
 ---
 

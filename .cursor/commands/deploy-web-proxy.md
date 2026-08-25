@@ -42,11 +42,18 @@ curl http://127.0.0.1:5001/health
 ./scripts/test-wss-proxy.sh
 ```
 
-## 5. §8.4 — SSH-туннель на RU VPS
+## 5. §8.4 — SSH-туннель (EU → RU)
+
+Туннель пробрасывает **EU nginx aggregator** (`127.0.0.1:8080`), а не wss-proxy напрямую:
 
 ```bash
-# На EU (autossh → RU):
-autossh -M 0 -N -R 8080:127.0.0.1:5001 user@ru_vps
+# /etc/riogram/web.env
+TUNNEL_RU_PORT=8080
+TUNNEL_EU_PORT=8080
+
+sudo systemctl enable --now autossh-riogram-tunnel
 ```
 
-Nginx на RU проксирует `wss://your-domain.ru/*` → `127.0.0.1:8080`.
+Nginx на RU: `https://your-domain.ru` → `127.0.0.1:8080` (static + WSS routes).
+
+Полная инфра: [@deploy-web-infra](deploy-web-infra.md) · [docs/WEB_INFRA.md](../../docs/WEB_INFRA.md)

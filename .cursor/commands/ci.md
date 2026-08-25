@@ -27,6 +27,19 @@ CC=gcc CXX=g++ TD_ENABLE_LTO=OFF ./scripts/build-tdlib.sh
 test -f td/build/install/lib/libtdjson.so && echo OK
 ```
 
-Подробнее: [docs/CI.md](../../docs/CI.md)
+## Flutter Web (job flutter-web)
 
-Релизные сборки: [@release](release.md)
+```bash
+./scripts/build-tdweb.sh && ./scripts/copy-tdweb.sh
+./scripts/build-web.sh
+```
+
+## Web E2E (job web-e2e)
+
+```bash
+WSS_STABILITY_SECONDS=30 ./scripts/run-web-e2e.sh
+```
+
+Подробнее: [docs/CI.md](../../docs/CI.md), [docs/WEB_E2E.md](../../docs/WEB_E2E.md)
+
+Web-деплой: [@web](web.md) · Релизные сборки: [@release](release.md)

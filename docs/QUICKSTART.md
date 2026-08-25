@@ -67,6 +67,24 @@ flutter run -d linux    # windows / macos / android
 
 Подробнее: [CHATS.md](CHATS.md)
 
+## 7. RioGram Web (браузер)
+
+Сборка и локальный просмотр:
+
+```bash
+./scripts/build-tdweb.sh && ./scripts/copy-tdweb.sh   # один раз
+./scripts/build-web.sh
+cd build/web && python3 -m http.server 8080
+```
+
+E2E (локальный stack):
+
+```bash
+./scripts/run-web-e2e.sh
+```
+
+Production-деплой: RU frontend + EU backend — см. [WEB.md](WEB.md), [WEB_INFRA.md](WEB_INFRA.md).
+
 ## Устранение неполадок
 
 | Проблема | Решение |
@@ -75,3 +93,5 @@ flutter run -d linux    # windows / macos / android
 | `api_id/api_hash` | Заполните `.env` |
 | Прокси недоступен | `./scripts/verify-proxy.sh`, порт 15443/14443, секрет с доменом |
 | Все прокси красные | Проверьте StealthGate Front/Back связку |
+| Web: `tdweb` не найден | `./scripts/build-tdweb.sh && ./scripts/copy-tdweb.sh` |
+| Web: 502 Bad Gateway | `./scripts/verify-web-tunnel.sh`, см. [WEB_INFRA.md](WEB_INFRA.md) |
