@@ -13,7 +13,9 @@ class AuthManager extends ChangeNotifier {
     required TdlibClient client,
     required AppConfig config,
     ProxyManager? proxyManager,
+    this.accountDirectorySuffix,
     this.onAuthorized,
+    this.onLoggedOut,
   })  : _client = client,
         _config = config,
         _proxyManager = proxyManager;
@@ -24,11 +26,16 @@ class AuthManager extends ChangeNotifier {
   final TdlibClient _client;
   final AppConfig _config;
   final ProxyManager? _proxyManager;
+  final String? accountDirectorySuffix;
   final VoidCallback? onAuthorized;
+  final VoidCallback? onLoggedOut;
 
   AuthPhase _phase = AuthPhase.initializing;
   String? _errorMessage;
   String? _phoneNumber;
+  String? _qrConfirmationLink;
+  RegistrationTerms? _registrationTerms;
+  String? _pendingEmailAddress;
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
   bool _isInitializing = false;
@@ -39,6 +46,9 @@ class AuthManager extends ChangeNotifier {
   AuthPhase get phase => _phase;
   String? get errorMessage => _errorMessage;
   String? get phoneNumber => _phoneNumber;
+  String? get qrConfirmationLink => _qrConfirmationLink;
+  RegistrationTerms? get registrationTerms => _registrationTerms;
+  String? get pendingEmailAddress => _pendingEmailAddress;
   bool get isAuthRequestInProgress => _isAuthRequestInProgress;
 
   TdlibClient get client => _client;
@@ -55,7 +65,6 @@ class AuthManager extends ChangeNotifier {
 
     try {
       if (_initialized) {
-        // Повтор после ложной ошибки: не пересоздаём клиент, а синхронизируем фазу.
         _client.send({
           '@type': 'getAuthorizationState',
           '@extra': 'auth_getState',
@@ -66,14 +75,14 @@ class AuthManager extends ChangeNotifier {
       await _client.ensureClient();
       _subscription?.cancel();
       _subscription = _client.updates.listen(_handleUpdate);
-      await _client.configure(_config);
+      await _client.configure(
+        _config,
+        accountDirectorySuffix: accountDirectorySuffix,
+      );
 
       final proxyManager = _proxyManager;
       if (proxyManager != null) {
         await proxyManager.setupProxies();
-        // Нет активного прокси только если setup полностью провалился
-        // (нет MTProto в .env и нет системного). Отсутствие системного —
-        // штатная ситуация, не блокируем авторизацию.
         if (!proxyManager.hasActiveProxy && proxyManager.proxies.isEmpty) {
           throw StateError(
             proxyManager.lastError ??
@@ -90,12 +99,7 @@ class AuthManager extends ChangeNotifier {
         timeout: initTimeout,
       );
 
-      // Состояние могло прийти во время setupProxies — тогда _phase уже обновлён.
-      final isReady = _phase == AuthPhase.waitPhoneNumber ||
-          _phase == AuthPhase.waitCode ||
-          _phase == AuthPhase.waitPassword ||
-          _phase == AuthPhase.ready ||
-          await authReady;
+      final isReady = _isInteractiveAuthPhase(_phase) || await authReady;
       if (!isReady && _phase == AuthPhase.initializing) {
         throw StateError(
           'TDLib не готов к авторизации. Проверьте API-ключи и прокси.',
@@ -110,6 +114,21 @@ class AuthManager extends ChangeNotifier {
     } finally {
       _isInitializing = false;
     }
+  }
+
+  bool _isInteractiveAuthPhase(AuthPhase phase) {
+    return switch (phase) {
+      AuthPhase.waitPhoneNumber ||
+      AuthPhase.waitCode ||
+      AuthPhase.waitPassword ||
+      AuthPhase.waitQrConfirmation ||
+      AuthPhase.waitRegistration ||
+      AuthPhase.waitEmailAddress ||
+      AuthPhase.waitEmailCode ||
+      AuthPhase.ready =>
+        true,
+      _ => false,
+    };
   }
 
   void submitPhoneNumber(String phoneNumber) {
@@ -135,12 +154,37 @@ class AuthManager extends ChangeNotifier {
     });
   }
 
-  void submitCode(String code) {
-    if (_isAuthRequestInProgress || _phase != AuthPhase.waitCode) {
+  void requestQrCodeAuthentication() {
+    if (_isAuthRequestInProgress || _phase != AuthPhase.waitPhoneNumber) {
       return;
     }
 
     _beginAuthRequest();
+    _client.send({
+      '@type': 'requestQrCodeAuthentication',
+      'other_user_ids': <int>[],
+      '@extra': 'auth_qr_request',
+    });
+  }
+
+  void submitCode(String code) {
+    if (_isAuthRequestInProgress ||
+        (_phase != AuthPhase.waitCode && _phase != AuthPhase.waitEmailCode)) {
+      return;
+    }
+
+    _beginAuthRequest();
+    if (_phase == AuthPhase.waitEmailCode) {
+      _client.send({
+        '@type': 'checkAuthenticationEmailCode',
+        'code': {
+          '@type': 'emailAddressAuthenticationCode',
+          'code': code.trim(),
+        },
+      });
+      return;
+    }
+
     _client.send({
       '@type': 'checkAuthenticationCode',
       'code': code.trim(),
@@ -156,6 +200,47 @@ class AuthManager extends ChangeNotifier {
     _client.send({
       '@type': 'checkAuthenticationPassword',
       'password': password,
+    });
+  }
+
+  void submitEmailAddress(String email) {
+    if (_isAuthRequestInProgress || _phase != AuthPhase.waitEmailAddress) {
+      return;
+    }
+
+    _beginAuthRequest();
+    _pendingEmailAddress = email.trim();
+    _client.send({
+      '@type': 'setAuthenticationEmailAddress',
+      'email_address': _pendingEmailAddress,
+    });
+  }
+
+  void registerUser({
+    required String firstName,
+    required String lastName,
+    bool disableNotification = false,
+  }) {
+    if (_isAuthRequestInProgress || _phase != AuthPhase.waitRegistration) {
+      return;
+    }
+
+    _beginAuthRequest();
+    _client.send({
+      '@type': 'registerUser',
+      'first_name': firstName.trim(),
+      'last_name': lastName.trim(),
+      'disable_notification': disableNotification,
+    });
+  }
+
+  void resendAuthenticationCode() {
+    if (_isAuthRequestInProgress) {
+      return;
+    }
+    _client.send({
+      '@type': 'resendAuthenticationCode',
+      'reason': null,
     });
   }
 
@@ -206,7 +291,6 @@ class AuthManager extends ChangeNotifier {
       case 'authorizationStateReady':
       case 'authorizationStateClosing':
       case 'authorizationStateClosed':
-        // Ответ getAuthorizationState (retry после ложной ошибки).
         if (update['@extra'] == 'auth_getState') {
           _handleAuthorizationState(update);
         }
@@ -229,7 +313,6 @@ class AuthManager extends ChangeNotifier {
     }
   }
 
-  /// Ошибки чатов/прокси/медиа не должны выкидывать из авторизованной сессии.
   bool _shouldTreatAsAuthError(String? extra) {
     if (_phase == AuthPhase.ready) {
       return false;
@@ -237,7 +320,7 @@ class AuthManager extends ChangeNotifier {
     if (extra == null) {
       return true;
     }
-    if (extra == 'auth_getState') {
+    if (extra == 'auth_getState' || extra == 'auth_qr_request') {
       return true;
     }
     const nonAuthPrefixes = [
@@ -279,6 +362,8 @@ class AuthManager extends ChangeNotifier {
       'story_chat_',
       'story_reactions',
       'story_can_post_',
+      'sessions_',
+      'phone_change_',
     ];
     for (final prefix in nonAuthPrefixes) {
       if (extra.startsWith(prefix)) {
@@ -300,30 +385,35 @@ class AuthManager extends ChangeNotifier {
     switch (state['@type']) {
       case 'authorizationStateWaitPhoneNumber':
         _phase = AuthPhase.waitPhoneNumber;
+        _qrConfirmationLink = null;
       case 'authorizationStateWaitCode':
         _phase = AuthPhase.waitCode;
       case 'authorizationStateWaitPassword':
         _phase = AuthPhase.waitPassword;
       case 'authorizationStateWaitOtherDeviceConfirmation':
-        _phase = AuthPhase.waitCode;
-        _errorMessage =
-            'Код отправлен в Telegram на другом устройстве. '
-            'Откройте официальный клиент или дождитесь SMS.';
+        _phase = AuthPhase.waitQrConfirmation;
+        _qrConfirmationLink = state['link'] as String?;
       case 'authorizationStateWaitEmailAddress':
+        _phase = AuthPhase.waitEmailAddress;
       case 'authorizationStateWaitEmailCode':
-        _phase = AuthPhase.error;
-        _errorMessage =
-            'Telegram запросил e-mail для входа. '
-            'Пока поддерживается только вход по номеру телефона.';
+        _phase = AuthPhase.waitEmailCode;
       case 'authorizationStateWaitRegistration':
-        _phase = AuthPhase.error;
-        _errorMessage = 'Требуется регистрация нового аккаунта в Telegram.';
+        _phase = AuthPhase.waitRegistration;
+        _registrationTerms = RegistrationTerms.fromTdlib(
+          state['terms_of_service'] as Map<String, dynamic>?,
+        );
       case 'authorizationStateReady':
         _phase = AuthPhase.ready;
+        _qrConfirmationLink = null;
         onAuthorized?.call();
       case 'authorizationStateClosing':
+        _phase = AuthPhase.waitPhoneNumber;
       case 'authorizationStateClosed':
         _phase = AuthPhase.waitPhoneNumber;
+        _qrConfirmationLink = null;
+        _registrationTerms = null;
+        _pendingEmailAddress = null;
+        onLoggedOut?.call();
     }
     notifyListeners();
   }

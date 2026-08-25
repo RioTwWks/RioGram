@@ -58,6 +58,16 @@ class _PhoneScreenState extends State<PhoneScreen> {
                 },
               ),
               const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: auth.isAuthRequestInProgress
+                    ? null
+                    : () {
+                        auth.requestQrCodeAuthentication();
+                      },
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Войти по QR-коду'),
+              ),
+              const SizedBox(height: 12),
               FilledButton(
                 onPressed: auth.isAuthRequestInProgress
                     ? null

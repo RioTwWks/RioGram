@@ -200,21 +200,22 @@
 - [x] Вход по номеру телефона + SMS-код
 - [x] Облачный пароль (2FA)
 - [x] Сохранение сессии после перезапуска (`authorizationStateReady` без повторного входа) — TDLib SQLite + `AuthManager`
-- [ ] QR-вход (`requestQrCodeAuthentication` / сканирование с другого устройства)
-- [ ] Регистрация нового аккаунта (`registerUser`) — имя, фамилия
-- [ ] Смена номера (`changePhoneNumber`) и подтверждение email (`setAuthenticationEmailAddress`)
+- [x] QR-вход (`requestQrCodeAuthentication`, `authorizationStateWaitOtherDeviceConfirmation`)
+- [x] Регистрация нового аккаунта (`registerUser`) — имя, фамилия, terms of service
+- [x] Смена номера (`sendPhoneNumberCode` + `phoneNumberCodeTypeChange`, `checkPhoneNumberCode`)
+- [x] Подтверждение email при входе (`setAuthenticationEmailAddress`, `checkAuthenticationEmailCode`)
 
 #### Множественные аккаунты
-- [ ] Модель `AccountSession`: отдельные `database_directory` / `files_directory` на аккаунт
-- [ ] Добавление второго и последующих аккаунтов без выхода из первого
-- [ ] Переключение аккаунта без смешивания чатов и уведомлений
-- [ ] `logOut` / удаление аккаунта с устройства
-- [ ] Общие или per-account настройки прокси (зафиксировать в дизайне)
+- [x] Модель `AccountSession`: отдельные `database_directory` / `files_directory` на аккаунт
+- [x] Добавление второго и последующих аккаунтов без выхода из первого
+- [x] Переключение аккаунта без смешивания чатов и уведомлений
+- [x] `logOut` / удаление аккаунта с устройства
+- [x] Общие или per-account настройки прокси (`.env` общий; SOCKS5/HTTP per-account — политика в настройках)
 
 #### Безопасность сессии
-- [ ] Активные сессии: `getActiveSessions`, завершение (`terminateSession` / `terminateAllOtherSessions`)
-- [ ] Passcode / биометрия на уровне приложения (локальная блокировка UI)
-- [ ] Автоблокировка по таймауту неактивности
+- [x] Активные сессии: `getActiveSessions`, завершение (`terminateSession` / `terminateAllOtherSessions`)
+- [x] Passcode / биометрия на уровне приложения (локальная блокировка UI)
+- [x] Автоблокировка по таймауту неактивности
 
 ---
 

@@ -59,7 +59,10 @@ class TdlibClient {
   }
 
   /// Отправляет параметры TDLib. Вызывать после подписки на [updates].
-  Future<void> configure(AppConfig config) async {
+  Future<void> configure(
+    AppConfig config, {
+    String? accountDirectorySuffix,
+  }) async {
     if (_client == null) {
       throw TdlibException('TDLib клиент не создан');
     }
@@ -78,7 +81,9 @@ class TdlibClient {
       debugPrint('[Tdlib] log verbosity set to 2 (debug build)');
     }
 
-    final directories = await _resolveDirectories();
+    final directories = await _resolveDirectories(
+      accountSuffix: accountDirectorySuffix,
+    );
     send({
       '@type': 'setTdlibParameters',
       'use_test_dc': false,
@@ -93,14 +98,20 @@ class TdlibClient {
       'system_language_code': 'ru',
       'device_model': 'RioGram',
       'system_version': Platform.operatingSystemVersion,
-      'application_version': '0.11.0',
+      'application_version': '0.12.0',
     });
   }
 
   /// Создаёт клиент и отправляет параметры (удобно для простых сценариев).
-  Future<void> init(AppConfig config) async {
+  Future<void> init(
+    AppConfig config, {
+    String? accountDirectorySuffix,
+  }) async {
     await ensureClient();
-    await configure(config);
+    await configure(
+      config,
+      accountDirectorySuffix: accountDirectorySuffix,
+    );
   }
 
   /// Отправка команды в TDLib.
@@ -189,10 +200,15 @@ class TdlibClient {
     }
   }
 
-  Future<({String database, String files})> _resolveDirectories() async {
+  Future<({String database, String files})> _resolveDirectories({
+    String? accountSuffix,
+  }) async {
     final appDir = await getApplicationSupportDirectory();
-    final database = '${appDir.path}/tdlib_db';
-    final files = '${appDir.path}/tdlib_files';
+    final suffix = accountSuffix != null && accountSuffix.isNotEmpty
+        ? '/account_$accountSuffix'
+        : '';
+    final database = '${appDir.path}/tdlib_db$suffix';
+    final files = '${appDir.path}/tdlib_files$suffix';
     await Directory(database).create(recursive: true);
     await Directory(files).create(recursive: true);
     return (database: database, files: files);
