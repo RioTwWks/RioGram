@@ -11,7 +11,8 @@ import '../core/navigation/telegram_routes.dart';
 
 /// Горизонтальная лента историй над списком чатов.
 class StoriesStrip extends StatefulWidget {
-  const StoriesStrip({super.key});
+  const StoriesStrip({super.key, this.classicMode=false});
+  final bool classicMode;
 
   @override
   State<StoriesStrip> createState() => _StoriesStripState();
@@ -22,6 +23,7 @@ class _StoriesStripState extends State<StoriesStrip> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.classicMode) return const SizedBox.shrink();
     final storyManager = context.watch<StoryManager>();
     final chatManager = context.watch<ChatManager>();
     final savedMessagesChatId = chatManager.savedMessagesChatId;
@@ -50,10 +52,10 @@ class _StoriesStripState extends State<StoriesStrip> {
     }
 
     return SizedBox(
-      height: 108,
+      height: 100,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
         children: [
           _MyStoryTile(
             onTap: () => _openPostStory(context),

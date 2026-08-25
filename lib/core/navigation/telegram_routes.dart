@@ -4,6 +4,8 @@ abstract final class TelegramLayoutBreakpoints {
   static const double mobile = 800;
   static const double threeColumn = 840;
   static const double chatListWidth = 340;
+  static const double chatListWidthMin = 280;
+  static const double chatListWidthMax = 480;
 }
 
 abstract final class TelegramNavigationDurations {
