@@ -592,11 +592,11 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 8.5. Сборка и деплой Flutter Web
 
-- [ ] Добавить Web в `flutter build` pipeline (CI / release workflow)
-- [ ] Настроить `web/index.html` (base href, meta, service worker при необходимости)
-- [ ] Собрать production-билд: `flutter build web --release`
-- [ ] Развернуть `build/web/` на EU-сервере (слушает localhost, доступ через туннель)
-- [ ] Проверить загрузку приложения по `https://your-domain.ru` из браузера в РФ
+- [x] Добавить Web в `flutter build` pipeline (CI / release workflow) — job `flutter-web` в `.github/workflows/ci.yml`
+- [x] Настроить `web/index.html` (base href, meta, service worker) — см. [docs/WEB.md](docs/WEB.md)
+- [x] Собрать production-билд: `flutter build web --release` — `./scripts/build-web.sh`
+- [x] Развернуть `build/web/` на EU-сервере — `./scripts/deploy-web-eu.sh` → `/opt/riogram/web`
+- [ ] Проверить загрузку приложения по `https://your-domain.ru` из браузера в РФ — **ручной E2E (§8.6)**
 
 ### 8.6. Тестирование
 
@@ -616,9 +616,9 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 8.8. Документация
 
-- [ ] Создать `docs/WEB.md`: архитектура, сборка, деплой, настройка прокси
-- [ ] Описать схему RU Frontend → EU Backend в `docs/PROXY.md` (раздел Web)
-- [ ] Добавить команды деплоя в `.cursor/commands/` (по аналогии с `deploy-proxy.md`)
+- [x] Создать `docs/WEB.md`: архитектура, сборка, деплой, настройка прокси
+- [x] Описать схему RU Frontend → EU Backend в `docs/PROXY.md` (раздел Web)
+- [x] Добавить команды деплоя в `.cursor/commands/` — `deploy-web-app.md`, `deploy-web-infra.md`, `deploy-web-proxy.md`
 
 ---
 

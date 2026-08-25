@@ -25,8 +25,8 @@
 | Где | Порт | Сервис |
 |-----|------|--------|
 | EU | `127.0.0.1:5001` | `riogram-wss-proxy` (§8.3) |
-| EU | `127.0.0.1:5000` | Flutter static / placeholder (§8.5) |
-| EU | `127.0.0.1:8080` | `riogram-eu-backend` nginx — маршрутизация |
+| EU | `127.0.0.1:8080` | `riogram-eu-backend` nginx — static + WSS |
+| EU | `/opt/riogram/web` | Flutter Web static (§8.5) |
 | RU | `127.0.0.1:8080` | SSH reverse tunnel → EU `:8080` |
 | RU | `:443` | Nginx TLS → `127.0.0.1:8080` |
 
@@ -182,5 +182,5 @@ proxy_buffering off;
 
 ## Следующие шаги
 
-- **§8.5** — деплой `flutter build web` в `/opt/riogram/web`
+- **§8.5** — деплой Flutter Web — см. [WEB.md](WEB.md)
 - **§8.6** — E2E авторизация через WSS из РФ

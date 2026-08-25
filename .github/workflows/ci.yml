@@ -80,6 +80,41 @@ jobs:
           path: td/build/install/lib/libtdjson.so
           retention-days: 7
 
+  flutter-web:
+    name: Flutter build (Web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare .env
+        run: ./scripts/generate-env.sh
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web
+        run: flutter build web --release --no-wasm-dry-run
+
+      - name: Verify Web bundle
+        run: |
+          test -f build/web/index.html
+          test -f build/web/main.dart.js
+          test -f build/web/js/wss_proxy_hook.js
+
+      - name: Upload Web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: riogram-web
+          path: build/web/
+          retention-days: 7
+
   flutter-linux:
     name: Flutter build (Linux)
     needs: tdlib-linux

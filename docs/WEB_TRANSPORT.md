@@ -158,7 +158,7 @@ flutter test test/wss_url_rewriter_test.dart
 ./scripts/build-web-poc.sh
 
 # Полный Web (после tdweb)
-flutter build web --release --no-wasm-dry-run
+./scripts/build-web.sh
 ```
 
 ### Локальная проверка hook
@@ -186,4 +186,4 @@ cd build/web && python3 -m http.server 8765
 
 - **§8.3** — server-side WSS reverse proxy на EU — см. [WEB_PROXY.md](WEB_PROXY.md)
 - **§8.4** — RU Nginx + SSH-туннель
-- **§8.5** — CI `flutter build web` для production
+- **§8.5** — CI `flutter build web` для production — см. [WEB.md](WEB.md)
