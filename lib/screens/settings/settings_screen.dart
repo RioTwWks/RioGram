@@ -553,52 +553,45 @@ class _ProxyTile extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              Icon(
-                proxy.isActive ? Icons.check_circle : Icons.radio_button_unchecked,
-                color: proxy.isActive ? tg.accent : tg.textSecondary,
-                size: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      proxy.name,
-                      style: TextStyle(
-                        fontSize: TelegramFontSizes.chatTitle,
-                        color: tg.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: TelegramFontSizes.chatSubtitle,
-                        color: tg.textSecondary,
-                      ),
-                    ),
-                  ],
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: TelegramSpacing.settingsRowHeight),
+            child: Row(
+              children: [
+                Icon(
+                  proxy.isActive ? Icons.check_circle : Icons.radio_button_unchecked,
+                  color: proxy.isActive ? tg.accent : tg.textSecondary,
+                  size: 22,
                 ),
-              ),
-              Icon(Icons.circle, size: 8, color: healthColor),
-              IconButton(
-                tooltip: 'Тест',
-                onPressed: onTest,
-                icon: Icon(Icons.network_check, color: tg.accent),
-              ),
-              if (!proxy.isActive)
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(proxy.name, style: Theme.of(context).textTheme.titleMedium),
+                      Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                Icon(Icons.circle, size: 8, color: healthColor),
                 IconButton(
-                  tooltip: 'Включить',
-                  onPressed: onActivate,
-                  icon: Icon(Icons.play_arrow, color: tg.accent),
+                  tooltip: 'Тест',
+                  onPressed: onTest,
+                  icon: Icon(Icons.network_check, color: tg.accent),
                 ),
-            ],
+                if (!proxy.isActive)
+                  IconButton(
+                    tooltip: 'Включить',
+                    onPressed: onActivate,
+                    icon: Icon(Icons.play_arrow, color: tg.accent),
+                  ),
+              ],
+            ),
           ),
         ),
-        if (showDivider) const TelegramSettingsDivider(inset: 56),
+        if (showDivider)
+          const TelegramSettingsDivider(inset: TelegramSpacing.settingsDividerInsetWithLeading),
       ],
     );
   }

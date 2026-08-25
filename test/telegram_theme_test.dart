@@ -50,6 +50,22 @@ void main() {
       }
     });
 
+    test('desktop textTheme применяет Open Sans', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        final textTheme = TelegramTypography.textTheme(
+          brightness: Brightness.light,
+          primary: TelegramColors.textPrimaryLight,
+          secondary: TelegramColors.textSecondaryLight,
+          time: TelegramColors.textTimeLight,
+          fontFamily: TelegramTypography.desktopFontFamily,
+        );
+        expect(textTheme.titleMedium?.fontFamily, TelegramTypography.desktopFontFamily);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
     test('textTheme использует semibold для заголовка чата', () {
       final theme = TelegramTypography.textTheme(
         brightness: Brightness.light,

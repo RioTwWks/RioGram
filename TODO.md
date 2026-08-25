@@ -829,7 +829,7 @@ MVP — прочный фундамент. Ниже — направления, 
 - [ ] Open Sans на Desktop (см. §9.1)
 - [x] Константа `TelegramSpacing.chatListRowHeight` = 72px и применение в `ChatListTile`
 - [ ] Константа высоты AppBar переписки 56px (mobile)
-- [ ] Константа высоты строки настроек 48px
+- [x] Константа высоты строки настроек 48px (`TelegramSpacing.settingsRowHeight` + `TelegramSettingsTile`)
 - [ ] Единый `TelegramSpacing.chatListHorizontalPadding` = 12px (сверка с TG)
 
 #### 9.11.2. Список чатов (доп. к §9.2)
@@ -867,9 +867,9 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 9.11.6. Настройки и профиль (доп. к §9.6)
 
-- [ ] Строка настройки min-height 48px
-- [ ] Секционный заголовок: top padding 24px, bottom 8px
-- [ ] Profile header avatar 120px на экране профиля
+- [x] Строка настройки min-height 48px (`TelegramSettingsTile`, `TelegramSettingsSwitchTile`)
+- [x] Секционный заголовок: top padding 24px, bottom 8px (`TelegramSettingsSectionHeader`)
+- [x] Profile header avatar 120px на экране профиля (`TelegramSpacing.profileScreenAvatarRadius`)
 
 #### 9.11.7. Медиа и спец-сообщения (доп. к §9.7)
 

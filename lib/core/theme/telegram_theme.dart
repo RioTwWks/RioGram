@@ -160,6 +160,18 @@ abstract final class TelegramSpacing {
   static const double settingsRowHeight = 48;
   static const double chatListHorizontalPadding = 12;
 
+  /// §9.11.6 — аватар на экране профиля (диаметр 120px).
+  static const double profileScreenAvatarRadius = 60;
+
+  /// §9.11.6 — секционный заголовок настроек.
+  static const double settingsSectionHeaderTopPadding = 24;
+  static const double settingsSectionHeaderBottomPadding = 8;
+  static const double settingsSectionHeaderHorizontalPadding = 16;
+
+  /// §9.11.6 — inset разделителя строки настроек.
+  static const double settingsDividerInset = 16;
+  static const double settingsDividerInsetWithLeading = 56;
+
   static const double folderSidebarWidth = 68;
   static const double tabBarLabelFontSize = 10;
   static const double tabBarIconSize = 24;
@@ -588,8 +600,7 @@ abstract final class TelegramTheme {
         surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
-          return TextStyle(
-            fontSize: TelegramFontSizes.time,
+          return textTheme.labelSmall?.copyWith(
             color: selected ? telegram.accent : telegram.textSecondary,
           );
         }),
@@ -676,6 +687,8 @@ abstract final class TelegramTheme {
         backgroundColor: telegram.chatListBackground,
         selectedItemColor: telegram.accent,
         unselectedItemColor: telegram.textSecondary,
+        selectedLabelStyle: textTheme.labelSmall,
+        unselectedLabelStyle: textTheme.labelSmall,
         type: BottomNavigationBarType.fixed,
       ),
       tabBarTheme: TabBarThemeData(
