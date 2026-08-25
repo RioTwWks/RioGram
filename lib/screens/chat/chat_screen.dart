@@ -9,6 +9,7 @@ import '../../core/call/call_manager.dart';
 import '../../core/call/group_call_manager.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../core/features/riogram_features_manager.dart';
+import '../../core/user/profile_manager.dart';
 import '../../core/secret/secret_chat_manager.dart';
 import '../../core/theme/ui_customization_manager.dart';
 import '../../widgets/message_swipe_wrapper.dart';

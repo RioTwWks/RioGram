@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
+import '../../core/search/search_manager.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../core/notifications/notification_settings_manager.dart';

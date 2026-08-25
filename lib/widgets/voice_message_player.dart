@@ -76,11 +76,36 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
     return (_position.inMilliseconds / (total * 1000)).clamp(0.0, 1.0);
   }
 
+  ({Color button, Color icon, Color waveform}) _voiceColors(
+    TelegramThemeData tg,
+    Brightness brightness,
+  ) {
+    if (!widget.isOutgoing) {
+      return (
+        button: tg.accent,
+        icon: Colors.white,
+        waveform: tg.accent,
+      );
+    }
+
+    if (brightness == Brightness.light) {
+      const green = TelegramColors.callAcceptGreen;
+      return (button: green, icon: Colors.white, waveform: green);
+    }
+
+    final button = Color.lerp(tg.bubbleOutgoing, Colors.white, 0.45)!;
+    return (
+      button: button,
+      icon: Colors.white,
+      waveform: tg.accent,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tg = context.telegramTheme;
-    final accent = tg.accent;
+    final colors = _voiceColors(tg, theme.brightness);
     final textColor =
         widget.isOutgoing ? tg.bubbleOutgoingText : tg.textPrimary;
 
@@ -89,7 +114,7 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
       child: Row(
         children: [
           Material(
-            color: accent,
+            color: colors.button,
             shape: const CircleBorder(),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -99,7 +124,7 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
                 height: 40,
                 child: Icon(
                   _isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
+                  color: colors.icon,
                   size: 22,
                 ),
               ),
@@ -113,7 +138,7 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
                 VoiceWaveform(
                   heights: widget.voiceInfo.normalizedWaveform,
                   progress: _playbackProgress,
-                  activeColor: accent,
+                  activeColor: colors.waveform,
                   inactiveColor: textColor.withValues(alpha: 0.35),
                 ),
                 const SizedBox(height: 4),
