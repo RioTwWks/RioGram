@@ -7,20 +7,30 @@ class MessageDeliveryIcon extends StatelessWidget {
   const MessageDeliveryIcon({
     super.key,
     required this.status,
+    this.size = 14,
+    this.defaultColor,
+    this.readColor,
   });
 
   final MessageDeliveryStatus status;
+  final double size;
+  final Color? defaultColor;
+  final Color? readColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurfaceVariant;
+    final color = defaultColor ?? theme.colorScheme.onSurfaceVariant;
+    final read = readColor ?? theme.colorScheme.primary;
 
     return switch (status) {
-      MessageDeliveryStatus.sending => Icon(Icons.access_time, size: 14, color: color),
-      MessageDeliveryStatus.failed => Icon(Icons.error_outline, size: 14, color: theme.colorScheme.error),
-      MessageDeliveryStatus.sent => Icon(Icons.check, size: 14, color: color),
-      MessageDeliveryStatus.read => Icon(Icons.done_all, size: 14, color: theme.colorScheme.primary),
+      MessageDeliveryStatus.sending =>
+        Icon(Icons.access_time, size: size, color: color),
+      MessageDeliveryStatus.failed =>
+        Icon(Icons.error_outline, size: size, color: theme.colorScheme.error),
+      MessageDeliveryStatus.sent => Icon(Icons.check, size: size, color: color),
+      MessageDeliveryStatus.read =>
+        Icon(Icons.done_all, size: size, color: read),
     };
   }
 }

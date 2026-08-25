@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
+import '../../core/theme/telegram_theme.dart';
+import '../../widgets/date_separator.dart';
 import '../../widgets/message_bubble.dart';
+import '../../widgets/message_bubble_grouping.dart';
 import '../../widgets/message_input_bar.dart';
 
 /// Комментарии к посту канала (связанная группа-обсуждение).
@@ -25,6 +28,7 @@ class MessageThreadScreen extends StatefulWidget {
 class _MessageThreadScreenState extends State<MessageThreadScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  int _lastMessageCount = 0;
 
   @override
   void initState() {
@@ -77,19 +81,36 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     final channelTitle =
         manager.chatById(widget.channelChatId)?.title ?? 'Канал';
 
-    if (messages.isNotEmpty) {
+    if (messages.isNotEmpty && messages.length != _lastMessageCount) {
+      _lastMessageCount = messages.length;
       _scrollToBottom();
     }
 
+    final tg = context.telegramTheme;
+    final listEntries = MessageBubbleGrouping.buildListEntries(
+      messages: messages,
+      showSenderNamesInGroups: true,
+    );
+
     return Scaffold(
+      backgroundColor: tg.chatBackground,
       appBar: AppBar(
+        backgroundColor: tg.chatListBackground,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: tg.textPrimary,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Комментарии'),
+            Text('Комментарии',
+                style: TextStyle(
+                    fontSize: TelegramFontSizes.chatTitle,
+                    fontWeight: FontWeight.w600,
+                    color: tg.textPrimary)),
             Text(
               channelTitle,
-              style: Theme.of(context).textTheme.labelSmall,
+              style: TextStyle(
+                  fontSize: TelegramFontSizes.chatSubtitle,
+                  color: tg.textSecondary),
             ),
           ],
         ),
@@ -141,12 +162,18 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                         : ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: messages.length,
+                            itemCount: listEntries.length,
                             itemBuilder: (context, index) {
-                              final message = messages[index];
+                              final entry = listEntries[index];
+                              if (entry is ChatListDateEntry) {
+                                return DateSeparator(date: entry.date);
+                              }
+                              final msgEntry = entry as ChatListMessageEntry;
+                              final message = msgEntry.message;
                               return MessageBubble(
                                 message: message,
-                                showSenderName: true,
+                                showSenderName: msgEntry.showSenderName,
+                                groupPosition: msgEntry.groupPosition,
                                 replyPreview:
                                     manager.replyPreviewFor(message),
                               );
