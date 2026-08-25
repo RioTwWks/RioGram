@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../core/features/riogram_features_manager.dart';
 import '../../widgets/telegram_settings_tile.dart';
+
+/// Настройки уникальных функций RioGram (§7.2).
+class RioGramFeaturesSettingsScreen extends StatelessWidget {
   const RioGramFeaturesSettingsScreen({super.key});
 
   @override
