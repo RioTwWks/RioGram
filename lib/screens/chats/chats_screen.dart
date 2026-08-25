@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
+import '../../core/user/contact_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/chat_desktop_shortcuts.dart';
@@ -12,6 +13,7 @@ import '../../widgets/new_chat_dialog.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../chat/chat_screen.dart';
 import '../chat/forum_topics_screen.dart';
+import '../contacts/contacts_screen.dart';
 import '../settings/settings_screen.dart';
 
 /// Адаптивный экран чатов: mobile / master-detail / три колонки (desktop).
@@ -26,6 +28,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   int? _selectedChatId;
   int? _selectedForumTopicId;
   String? _selectedForumTopicName;
+  int _mobileTabIndex = 0;
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
@@ -87,11 +90,71 @@ class _ChatsScreenState extends State<ChatsScreen> {
     ProxyManager? proxy,
   ) {
     return Scaffold(
-      appBar: _buildAppBar(context, chatManager, proxy, showBack: false),
-      body: _buildChatListPanel(
-        context,
-        chatManager,
-        showFolderTabs: true,
+      appBar: _mobileTabIndex == 0
+          ? _buildAppBar(context, chatManager, proxy, showBack: false)
+          : _mobileTabIndex == 1
+              ? AppBar(
+                  title: const Text('Контакты'),
+                  actions: [
+                    IconButton(
+                      tooltip: 'Импорт из адресной книги',
+                      onPressed: () {
+                        final manager = context.read<ContactManager>();
+                        manager.importFromPhoneBook().then((result) {
+                          if (!context.mounted) {
+                            return;
+                          }
+                          if (result != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Импортировано: ${result.importedCount}',
+                                ),
+                              ),
+                            );
+                          } else if (manager.lastError != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(manager.lastError!)),
+                            );
+                          }
+                        });
+                      },
+                      icon: const Icon(Icons.contact_phone_outlined),
+                    ),
+                  ],
+                )
+              : AppBar(title: const Text('Настройки')),
+      body: switch (_mobileTabIndex) {
+        1 => const ContactsScreen(embedded: true),
+        2 => const SettingsScreen(embedded: true),
+        _ => _buildChatListPanel(
+            context,
+            chatManager,
+            showFolderTabs: true,
+          ),
+      },
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _mobileTabIndex,
+        onDestinationSelected: (index) {
+          setState(() => _mobileTabIndex = index);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'Чаты',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.contacts_outlined),
+            selectedIcon: Icon(Icons.contacts),
+            label: 'Контакты',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Настройки',
+          ),
+        ],
       ),
     );
   }
@@ -211,6 +274,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
             tooltip: 'Новый чат (Ctrl+N)',
             onPressed: () => _openNewChatDialog(context, chatManager),
             icon: const Icon(Icons.edit_outlined),
+          ),
+          IconButton(
+            tooltip: 'Контакты',
+            onPressed: () => _openContacts(context),
+            icon: const Icon(Icons.contacts_outlined),
           ),
           IconButton(
             tooltip: 'Настройки',
@@ -434,6 +502,14 @@ class _ChatsScreenState extends State<ChatsScreen> {
     );
   }
 
+  void _openContacts(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const ContactsScreen(),
+      ),
+    );
+  }
+
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
     ChatManager chatManager,
@@ -481,6 +557,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
             ),
           ),
         ),
+      IconButton(
+        tooltip: 'Контакты',
+        onPressed: () => _openContacts(context),
+        icon: const Icon(Icons.contacts_outlined),
+      ),
       IconButton(
         tooltip: 'Настройки',
         onPressed: () => _openSettings(context),

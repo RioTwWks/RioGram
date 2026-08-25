@@ -6,8 +6,10 @@ import 'core/call/call_manager.dart';
 import 'core/call/call_signaling_bridge.dart';
 import 'core/call/group_call_manager.dart';
 import 'core/chat/chat_manager.dart';
-import 'core/config/app_config.dart';
 import 'core/chat/sticker_manager.dart';
+import 'core/config/app_config.dart';
+import 'core/user/contact_manager.dart';
+import 'core/user/profile_manager.dart';
 import 'core/media/media_cache_manager.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/proxy/proxy_manager.dart';
@@ -75,6 +77,8 @@ class _AppScopeState extends State<_AppScope> {
   late final CallManager _callManager;
   late final GroupCallManager _groupCallManager;
   late final CallSignalingBridge _callSignalingBridge;
+  late final ContactManager _contactManager;
+  late final ProfileManager _profileManager;
   late final ChatManager _chatManager;
 
   @override
@@ -97,6 +101,8 @@ class _AppScopeState extends State<_AppScope> {
       client: _client,
       signalingBridge: _callSignalingBridge,
     );
+    _contactManager = ContactManager(client: _client);
+    _profileManager = ProfileManager(client: _client);
 
     _chatManager = ChatManager(
       client: _client,
@@ -113,6 +119,10 @@ class _AppScopeState extends State<_AppScope> {
         _stickerManager.startListening();
         _callManager.startListening();
         _groupCallManager.startListening();
+        _contactManager.startListening();
+        _profileManager.startListening();
+        _profileManager.loadOwnProfile();
+        _contactManager.loadContacts();
         _chatManager.startListening();
         _chatManager.loadChats();
       },
@@ -125,6 +135,8 @@ class _AppScopeState extends State<_AppScope> {
     _chatManager.dispose();
     _groupCallManager.dispose();
     _callManager.dispose();
+    _contactManager.dispose();
+    _profileManager.dispose();
     _stickerManager.dispose();
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
@@ -151,6 +163,12 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<GroupCallManager>.value(
           value: _groupCallManager,
+        ),
+        ChangeNotifierProvider<ContactManager>.value(
+          value: _contactManager,
+        ),
+        ChangeNotifierProvider<ProfileManager>.value(
+          value: _profileManager,
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),

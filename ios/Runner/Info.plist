@@ -72,6 +72,8 @@
 	<string>RioGram использует микрофон для звонков и голосовых сообщений.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>RioGram использует камеру для видеозвонков.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>RioGram использует контакты устройства для импорта в Telegram.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

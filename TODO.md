@@ -352,16 +352,16 @@
 ### 6.7. Контакты и профили
 
 #### Контакты
-- [ ] Список контактов (`getContacts`, `searchContacts`)
-- [ ] Импорт из адресной книги (`importContacts`, `flutter_contacts`)
-- [ ] Добавление / удаление контакта (`addContact`, `removeContacts`)
-- [ ] «Люди рядом» (`searchNearbyUsers`) — опционально
+- [x] Список контактов (`getContacts`, `searchContacts`)
+- [x] Импорт из адресной книги (`importContacts`, `flutter_contacts`)
+- [x] Добавление / удаление контакта (`addContact`, `removeContacts`)
+- [ ] «Люди рядом» (`searchNearbyUsers`) — опционально, API недоступен в текущем td_api.tl
 
 #### Профиль пользователя
-- [ ] Свой профиль: имя, bio, username, аватар (`setProfilePhoto`, `setBio`)
-- [ ] Просмотр чужого профиля: `getUserFullInfo`, общие чаты
-- [ ] Блокировка (`blockMessageSenderFromReplies`, `setMessageSenderBlockList`)
-- [ ] Статусы онлайн / «был(а) недавно» (`userStatusOnline`, `userStatusOffline`)
+- [x] Свой профиль: имя, bio, username, аватар (`setProfilePhoto`, `setBio`, `setName`, `setUsername`)
+- [x] Просмотр чужого профиля: `getUserFullInfo`, общие чаты
+- [x] Блокировка (`blockMessageSenderFromReplies`, `setMessageSenderBlockList`)
+- [x] Статусы онлайн / «был(а) недавно» (`userStatusOnline`, `userStatusOffline`)
 
 ---
 
