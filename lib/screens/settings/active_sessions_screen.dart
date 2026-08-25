@@ -137,7 +137,8 @@ class _SessionTile extends StatelessWidget {
             ],
           ),
         ),
-        if (showDivider) const TelegramSettingsDivider(inset: 56),
+        if (showDivider)
+          const TelegramSettingsDivider(inset: TelegramSpacing.settingsDividerInsetWithLeading),
       ],
     );
   }

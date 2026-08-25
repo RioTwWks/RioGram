@@ -779,8 +779,8 @@ MVP — прочный фундамент. Ниже — направления, 
 ### 9.9. Иконография и иллюстрации
 
 - [x] Иконки: outline style, 24dp, единый stroke (Material Icons / Lucide — близко к TG)
-- [x] Пустые состояния: иллюстрация + короткий текст («Нет чатов», «Выберите чат»)
-- [x] Иконка приложения RioGram: узнаваемая, но не копия официального логотипа Telegram (юридически) — см. [docs/APP_ICON.md](docs/APP_ICON.md), мастер `assets/icons/riogram_icon.png` (`flutter_launcher_icons`)
+- [x] Пустые состояния: SVG-иллюстрации (`assets/illustrations/`, `empty_state.dart`) («Нет чатов», «Выберите чат»)
+- [x] Иконка приложения RioGram: `#3390EC` launcher — [docs/APP_ICON.md](docs/APP_ICON.md), мастер `assets/icons/app_icon_1024.png` (`flutter_launcher_icons`)
 
 ---
 
@@ -829,7 +829,7 @@ MVP — прочный фундамент. Ниже — направления, 
 - [x] Open Sans на Desktop (см. §9.1, §9.11.11)
 - [x] Константа `TelegramSpacing.chatListRowHeight` = 72px и применение в `ChatListTile`
 - [x] Константа высоты AppBar переписки 56px (`TelegramSpacing.chatAppBarHeight`)
-- [x] Константа высоты строки настроек 48px (`TelegramSpacing.settingsRowHeight`)
+- [x] Константа высоты строки настроек 48px (`TelegramSpacing.settingsRowHeight` + `TelegramSettingsTile`)
 - [x] Единый `TelegramSpacing.chatListHorizontalPadding` = 12px (применён в `ChatListTile`)
 
 #### 9.11.2. Список чатов (доп. к §9.2)
@@ -867,9 +867,9 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 9.11.6. Настройки и профиль (доп. к §9.6)
 
-- [ ] Строка настройки min-height 48px
-- [ ] Секционный заголовок: top padding 24px, bottom 8px
-- [ ] Profile header avatar 120px на экране профиля
+- [x] Строка настройки min-height 48px (`TelegramSettingsTile`, `TelegramSettingsSwitchTile`)
+- [x] Секционный заголовок: top padding 24px, bottom 8px (`TelegramSettingsSectionHeader`)
+- [x] Profile header avatar 120px на экране профиля (`TelegramSpacing.profileScreenAvatarRadius`)
 
 #### 9.11.7. Медиа и спец-сообщения (доп. к §9.7)
 
@@ -887,9 +887,9 @@ MVP — прочный фундамент. Ниже — направления, 
 
 - [x] Unit/widget тесты констант и виджетов §9.11 (`telegram_refinement_test`, `date_separator_test`, `message_delivery_icon_test`)
 - [x] Widget regression: chat list row (`chat_list_tile_test`), bubble group (`message_bubble_test`, `message_bubble_grouping_test`), input bar (`message_input_bar_test`), settings tile (`telegram_settings_tile_test`) — без golden (CI headless)
-- [ ] Ручной side-by-side чеклист: список чатов | переписка | ввод | настройки | звонок
-- [ ] Тёмная тема: второй проход pixel parity
-- [ ] Desktop 800px / 840px breakpoints — без layout overflow
+- [ ] Ручной side-by-side чеклист: список чатов | переписка | ввод | настройки | звонок — [docs/SIDE_BY_SIDE_CHECKLIST.md](docs/SIDE_BY_SIDE_CHECKLIST.md)
+- [x] Тёмная тема: второй проход pixel parity — widget-тесты
+- [x] Desktop 800px / 840px breakpoints — `desktop_layout_regression_test.dart`
 
 #### 9.11.10. Flat shell (устранение M3-утечек)
 

@@ -26,6 +26,11 @@ void main() {
       expect(TelegramSpacing.chatAppBarHeight, 56);
       expect(TelegramSpacing.settingsRowHeight, 48);
       expect(TelegramSpacing.chatListHorizontalPadding, 12);
+      expect(TelegramSpacing.profileScreenAvatarRadius, 60);
+      expect(TelegramSpacing.settingsSectionHeaderTopPadding, 24);
+      expect(TelegramSpacing.settingsSectionHeaderBottomPadding, 8);
+      expect(TelegramSpacing.settingsDividerInset, 16);
+      expect(TelegramSpacing.settingsDividerInsetWithLeading, 56);
       expect(TelegramSpacing.folderSidebarWidth, 68);
       expect(TelegramSpacing.callControlSpacing, 24);
     });
@@ -96,8 +101,15 @@ void main() {
     });
   });
   group('TelegramTheme flat surfaces §9.11', () {
-    test('AppBar и карточки без elevation', () {
+    test('AppBar и карточки без elevation (светлая)', () {
       final theme = TelegramTheme.build(brightness: Brightness.light);
+      expect(theme.appBarTheme.elevation, 0);
+      expect(theme.cardTheme.elevation, 0);
+      expect(theme.cardTheme.shadowColor, Colors.transparent);
+    });
+
+    test('AppBar и карточки без elevation (тёмная)', () {
+      final theme = TelegramTheme.build(brightness: Brightness.dark);
       expect(theme.appBarTheme.elevation, 0);
       expect(theme.cardTheme.elevation, 0);
       expect(theme.cardTheme.shadowColor, Colors.transparent);

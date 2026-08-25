@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 import '../models/message_enrichment.dart';
 
@@ -37,7 +38,7 @@ class MessageReactionsRow extends StatelessWidget {
         ),
         if (onAddReaction != null)
           _ReactionPill(
-            icon: Icons.add_reaction_outlined,
+            icon: TelegramIcons.addReaction,
             onTap: onAddReaction,
           ),
       ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 
 class ScrollToBottomButton extends StatelessWidget {
@@ -29,7 +30,7 @@ class ScrollToBottomButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.arrow_downward, size: 16, color: tg.accent),
+              Icon(TelegramIcons.arrowDown, size: 16, color: tg.accent),
               const SizedBox(width: 6),
               Text(label,
                   style: TextStyle(

@@ -95,7 +95,7 @@ class _OwnProfileScreenState extends State<OwnProfileScreen> {
       ),
       body: TelegramSettingsListView(
         children: [
-          TelegramProfileHeader(displayName: displayName, username: username, avatarLocalPath: user?.avatarLocalPath, avatarRadius: 40),
+          TelegramProfileHeader(displayName: displayName, username: username, avatarLocalPath: user?.avatarLocalPath),
           TelegramSettingsGroup(
             children: [
               TelegramSettingsTile(

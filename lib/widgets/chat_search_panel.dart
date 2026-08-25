@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/chat/chat_manager.dart';
 import '../core/search/search_manager.dart';
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 import '../models/chat_models.dart';
 import '../models/search_models.dart';
@@ -66,10 +67,10 @@ class _ChatSearchBarState extends State<ChatSearchBar> {
           decoration: InputDecoration(
             hintText: 'Поиск',
             hintStyle: TextStyle(color: tg.textSecondary),
-            prefixIcon: Icon(Icons.search, color: tg.textSecondary, size: 20),
+            prefixIcon: Icon(TelegramIcons.search, color: tg.textSecondary, size: 20),
             suffixIcon: widget.controller.text.isNotEmpty
                 ? IconButton(
-                    icon: Icon(Icons.close, color: tg.textSecondary, size: 20),
+                    icon: Icon(TelegramIcons.close, color: tg.textSecondary, size: 20),
                     onPressed: () {
                       widget.controller.clear();
                       widget.onClear();
@@ -165,7 +166,7 @@ class ChatSearchResults extends StatelessWidget {
         messages.isEmpty &&
         user == null) {
       return const EmptyStateWidget(
-        icon: Icons.search_off_outlined,
+        illustration: EmptyStateIllustration.searchNoResults,
         title: 'Ничего не найдено',
         subtitle: 'Попробуйте другой запрос',
       );
@@ -176,7 +177,7 @@ class ChatSearchResults extends StatelessWidget {
         if (user != null) ...[
           const _SectionHeader(title: 'Пользователь'),
           ListTile(
-            leading: const Icon(Icons.person_outline),
+            leading: const Icon(TelegramIcons.privateChat),
             title: Text(user.displayName),
             subtitle: user.username != null ? Text('@${user.username}') : null,
             onTap: () => onUserTap(user.userId),
@@ -208,7 +209,7 @@ class ChatSearchResults extends StatelessWidget {
           const _SectionHeader(title: 'Сообщения'),
           ...messages.map(
             (hit) => ListTile(
-              leading: const Icon(Icons.message_outlined),
+              leading: const Icon(TelegramIcons.message),
               title: Text(
                 hit.chatTitle ??
                     searchManager.chatTitleFor(hit.chatId) ??
@@ -275,7 +276,7 @@ class ChatMessageSearchResults extends StatelessWidget {
 
     if (!state.isActive) {
       return const EmptyStateWidget(
-        icon: Icons.search_outlined,
+        illustration: EmptyStateIllustration.search,
         title: 'Введите запрос',
         subtitle: 'Поиск по сообщениям в этом чате',
       );
@@ -283,7 +284,7 @@ class ChatMessageSearchResults extends StatelessWidget {
 
     if (state.results.isEmpty) {
       return const EmptyStateWidget(
-        icon: Icons.search_off_outlined,
+        illustration: EmptyStateIllustration.searchNoResults,
         title: 'Сообщения не найдены',
         subtitle: 'Попробуйте другой запрос',
       );
@@ -310,7 +311,7 @@ class ChatMessageSearchResults extends StatelessWidget {
 
         final hit = state.results[index];
         return ListTile(
-          leading: const Icon(Icons.message_outlined),
+          leading: const Icon(TelegramIcons.message),
           title: Text(
             hit.preview,
             maxLines: 2,
@@ -362,7 +363,7 @@ class SavedMessagesShortcut extends StatelessWidget {
       leading: CircleAvatar(
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         child: Icon(
-          Icons.bookmark_outline,
+          TelegramIcons.bookmark,
           color: Theme.of(context).colorScheme.onPrimaryContainer,
         ),
       ),
