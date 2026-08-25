@@ -28,7 +28,6 @@ import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
 import '../../widgets/poll_message_body.dart';
-import '../../widgets/sticker_panel_sheet.dart';
 import '../../widgets/user_status_subtitle.dart';
 import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
@@ -379,11 +378,13 @@ class _ChatScreenState extends State<ChatScreen> {
     await context.read<ChatManager>().sendLocationRequest(request);
   }
 
-  Future<void> _openStickerPanel() async {
+  void _onStickerPanelChanged(bool open) {
     final chatManager = context.read<ChatManager>();
-    chatManager.sendChatAction(OutgoingChatAction.choosingSticker);
-    await StickerPanelSheet.show(context, chatId: widget.chatId);
-    chatManager.sendChatAction(OutgoingChatAction.cancel);
+    if (open) {
+      chatManager.sendChatAction(OutgoingChatAction.choosingSticker);
+    } else {
+      chatManager.sendChatAction(OutgoingChatAction.cancel);
+    }
   }
 
   Future<void> _recordVoice() async {
@@ -1156,8 +1157,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     );
                   },
                 ),
-              const Divider(height: 1),
               MessageInputBar(
+              chatId: widget.chatId,
               controller: _controller,
               onSend: _sendMessage,
               onAttach: _attachMedia,
@@ -1181,7 +1182,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onFormatLink: () =>
                   ComposerFormatting.insertLink(context, _controller),
               onVoiceAction: _recordVoice,
-              onStickerAction: _openStickerPanel,
+              onStickerPanelChanged: _onStickerPanelChanged,
             ),
             ],
           ],

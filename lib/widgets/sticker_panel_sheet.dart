@@ -3,32 +3,28 @@ import 'package:provider/provider.dart';
 
 import '../core/chat/chat_manager.dart';
 import '../core/chat/sticker_manager.dart';
+import '../core/theme/telegram_theme.dart';
 import '../models/sticker_models.dart';
 import 'sticker_file_image.dart';
 
-/// Панель стикеров и GIF-поиска.
-class StickerPanelSheet extends StatefulWidget {
-  const StickerPanelSheet({
+/// Встроенная панель стикеров и GIF (выезжает под полем ввода).
+class StickerPanelPanel extends StatefulWidget {
+  const StickerPanelPanel({
     super.key,
     required this.chatId,
+    this.onStickerSent,
+    this.height = 280,
   });
 
   final int chatId;
-
-  static Future<void> show(BuildContext context, {required int chatId}) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => StickerPanelSheet(chatId: chatId),
-    );
-  }
+  final VoidCallback? onStickerSent;
+  final double height;
 
   @override
-  State<StickerPanelSheet> createState() => _StickerPanelSheetState();
+  State<StickerPanelPanel> createState() => _StickerPanelPanelState();
 }
 
-class _StickerPanelSheetState extends State<StickerPanelSheet>
+class _StickerPanelPanelState extends State<StickerPanelPanel>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
   final _searchController = TextEditingController();
@@ -72,9 +68,7 @@ class _StickerPanelSheetState extends State<StickerPanelSheet>
 
   Future<void> _sendSticker(StickerModel sticker) async {
     await context.read<ChatManager>().sendSticker(sticker);
-    if (mounted) {
-      Navigator.pop(context);
-    }
+    widget.onStickerSent?.call();
   }
 
   Future<void> _sendGif(GifSearchResult result) async {
@@ -82,16 +76,12 @@ class _StickerPanelSheetState extends State<StickerPanelSheet>
           queryId: result.queryId,
           resultId: result.resultId,
         );
-    if (mounted) {
-      Navigator.pop(context);
-    }
+    widget.onStickerSent?.call();
   }
 
   Future<void> _sendAnimation(AnimationModel animation) async {
     await context.read<ChatManager>().sendAnimation(animation);
-    if (mounted) {
-      Navigator.pop(context);
-    }
+    widget.onStickerSent?.call();
   }
 
   Future<void> _showInstallSetDialog() async {
@@ -164,126 +154,183 @@ class _StickerPanelSheetState extends State<StickerPanelSheet>
 
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height * 0.45;
+    final tg = context.telegramTheme;
 
     return SizedBox(
-      height: height,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TabBar(
-                    controller: _tabs,
-                    isScrollable: true,
-                    tabs: const [
-                      Tab(text: 'Наборы'),
-                      Tab(icon: Icon(Icons.star_outline, size: 20)),
-                      Tab(icon: Icon(Icons.history, size: 20)),
-                      Tab(icon: Icon(Icons.search, size: 20)),
-                      Tab(text: 'GIF'),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Просмотр набора',
-                  onPressed: _showViewSetDialog,
-                  icon: const Icon(Icons.visibility_outlined),
-                ),
-                IconButton(
-                  tooltip: 'Установить набор',
-                  onPressed: _showInstallSetDialog,
-                  icon: const Icon(Icons.add_box_outlined),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Consumer<StickerManager>(
-              builder: (context, stickers, _) {
-                if (stickers.lastError != null) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(stickers.lastError!),
-                    ),
-                  );
-                }
-
-                return TabBarView(
-                  controller: _tabs,
+      height: widget.height,
+      child: ColoredBox(
+        color: tg.chatListBackground,
+        child: Column(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: tg.chatListDivider)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Row(
                   children: [
-                    _StickerSetsTab(
-                      manager: stickers,
-                      onStickerTap: _sendSticker,
+                    Expanded(
+                      child: TabBar(
+                        controller: _tabs,
+                        isScrollable: true,
+                        dividerHeight: 0,
+                        indicatorColor: tg.accent,
+                        labelColor: tg.accent,
+                        unselectedLabelColor: tg.textSecondary,
+                        tabAlignment: TabAlignment.start,
+                        tabs: const [
+                          Tab(text: 'Наборы'),
+                          Tab(icon: Icon(Icons.star_outline, size: 20)),
+                          Tab(icon: Icon(Icons.history, size: 20)),
+                          Tab(icon: Icon(Icons.search, size: 20)),
+                          Tab(text: 'GIF'),
+                        ],
+                      ),
                     ),
-                    _StickerGridTab(
-                      stickers: stickers.favoriteStickers,
-                      emptyLabel: 'Нет избранных стикеров',
-                      onStickerTap: _sendSticker,
+                    IconButton(
+                      tooltip: 'Просмотр набора',
+                      onPressed: _showViewSetDialog,
+                      icon: Icon(Icons.visibility_outlined, color: tg.textSecondary),
                     ),
-                    _StickerGridTab(
-                      stickers: stickers.recentStickers,
-                      emptyLabel: 'Нет недавних стикеров',
-                      onStickerTap: _sendSticker,
-                    ),
-                    Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: const InputDecoration(
-                              hintText: 'Поиск стикеров…',
-                              prefixIcon: Icon(Icons.search),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: stickers.isSearching
-                              ? const Center(child: CircularProgressIndicator())
-                              : _StickerGridTab(
-                                  stickers: stickers.searchResults,
-                                  emptyLabel: 'Введите запрос для поиска',
-                                  onStickerTap: _sendSticker,
-                                ),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: TextField(
-                            controller: _gifController,
-                            decoration: const InputDecoration(
-                              hintText: 'Поиск GIF…',
-                              prefixIcon: Icon(Icons.gif_box_outlined),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: stickers.isSearchingGifs
-                              ? const Center(child: CircularProgressIndicator())
-                              : _GifGridTab(
-                                  results: stickers.gifResults,
-                                  onGifTap: _sendGif,
-                                  onAnimationTap: _sendAnimation,
-                                ),
-                        ),
-                      ],
+                    IconButton(
+                      tooltip: 'Установить набор',
+                      onPressed: _showInstallSetDialog,
+                      icon: Icon(Icons.add_box_outlined, color: tg.textSecondary),
                     ),
                   ],
-                );
-              },
+                ),
+              ),
             ),
-          ),
-        ],
+            Expanded(
+              child: Consumer<StickerManager>(
+                builder: (context, stickers, _) {
+                  if (stickers.lastError != null) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          stickers.lastError!,
+                          style: TextStyle(color: tg.textSecondary),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  }
+
+                  return TabBarView(
+                    controller: _tabs,
+                    children: [
+                      _StickerSetsTab(
+                        manager: stickers,
+                        onStickerTap: _sendSticker,
+                      ),
+                      _StickerGridTab(
+                        stickers: stickers.favoriteStickers,
+                        emptyLabel: 'Нет избранных стикеров',
+                        onStickerTap: _sendSticker,
+                      ),
+                      _StickerGridTab(
+                        stickers: stickers.recentStickers,
+                        emptyLabel: 'Нет недавних стикеров',
+                        onStickerTap: _sendSticker,
+                      ),
+                      Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: const InputDecoration(
+                                hintText: 'Поиск стикеров…',
+                                prefixIcon: Icon(Icons.search),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: stickers.isSearching
+                                ? Center(
+                                    child: CircularProgressIndicator(
+                                      color: tg.accent,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : _StickerGridTab(
+                                    stickers: stickers.searchResults,
+                                    emptyLabel: 'Введите запрос для поиска',
+                                    onStickerTap: _sendSticker,
+                                  ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: TextField(
+                              controller: _gifController,
+                              decoration: const InputDecoration(
+                                hintText: 'Поиск GIF…',
+                                prefixIcon: Icon(Icons.gif_box_outlined),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: stickers.isSearchingGifs
+                                ? Center(
+                                    child: CircularProgressIndicator(
+                                      color: tg.accent,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : _GifGridTab(
+                                    results: stickers.gifResults,
+                                    onGifTap: _sendGif,
+                                    onAnimationTap: _sendAnimation,
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// Модальный bottom sheet с панелью стикеров (legacy).
+class StickerPanelSheet extends StatelessWidget {
+  const StickerPanelSheet({
+    super.key,
+    required this.chatId,
+  });
+
+  final int chatId;
+
+  static Future<void> show(BuildContext context, {required int chatId}) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: context.telegramTheme.chatListBackground,
+      builder: (_) => StickerPanelSheet(chatId: chatId),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height * 0.45;
+    return StickerPanelPanel(
+      chatId: chatId,
+      height: height,
+      onStickerSent: () => Navigator.maybePop(context),
     );
   }
 }
@@ -299,12 +346,21 @@ class _StickerSetsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
     if (manager.isLoadingSets && manager.installedSets.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(color: tg.accent, strokeWidth: 2),
+      );
     }
 
     if (manager.installedSets.isEmpty) {
-      return const Center(child: Text('Нет установленных наборов'));
+      return Center(
+        child: Text(
+          'Нет установленных наборов',
+          style: TextStyle(color: tg.textSecondary),
+        ),
+      );
     }
 
     return Column(
@@ -320,8 +376,20 @@ class _StickerSetsTab extends StatelessWidget {
               final set = manager.installedSets[index];
               final selected = manager.selectedSet?.id == set.id;
               return ChoiceChip(
-                label: Text(set.title, overflow: TextOverflow.ellipsis),
+                label: Text(
+                  set.title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? tg.accent : tg.textPrimary,
+                    fontSize: TelegramFontSizes.preview,
+                  ),
+                ),
                 selected: selected,
+                selectedColor: tg.accent.withValues(alpha: 0.12),
+                backgroundColor: tg.inputFieldBackground,
+                side: BorderSide(
+                  color: selected ? tg.accent : tg.chatListDivider,
+                ),
                 onSelected: (_) => manager.selectStickerSet(set),
               );
             },
@@ -335,7 +403,10 @@ class _StickerSetsTab extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Набор: ${manager.viewingSet!.title}',
-                    style: Theme.of(context).textTheme.labelMedium,
+                    style: TextStyle(
+                      color: tg.textSecondary,
+                      fontSize: TelegramFontSizes.preview,
+                    ),
                   ),
                 ),
                 if (!manager.viewingSet!.isInstalled)
@@ -349,7 +420,12 @@ class _StickerSetsTab extends StatelessWidget {
           ),
         Expanded(
           child: manager.isLoadingStickers
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: tg.accent,
+                    strokeWidth: 2,
+                  ),
+                )
               : _StickerGridTab(
                   stickers: manager.currentSetStickers,
                   emptyLabel: 'Набор пуст',
@@ -374,8 +450,15 @@ class _StickerGridTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
     if (stickers.isEmpty) {
-      return Center(child: Text(emptyLabel));
+      return Center(
+        child: Text(
+          emptyLabel,
+          style: TextStyle(color: tg.textSecondary),
+        ),
+      );
     }
 
     return GridView.builder(
@@ -388,11 +471,14 @@ class _StickerGridTab extends StatelessWidget {
       itemCount: stickers.length,
       itemBuilder: (context, index) {
         final sticker = stickers[index];
-        return InkWell(
-          onTap: () => onStickerTap(sticker),
-          child: StickerFileImage(
-            fileId: sticker.fileId,
-            emoji: sticker.emoji,
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => onStickerTap(sticker),
+            child: StickerFileImage(
+              fileId: sticker.fileId,
+              emoji: sticker.emoji,
+            ),
           ),
         );
       },
@@ -413,43 +499,56 @@ class _GifGridTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
     if (results.isEmpty) {
-      return const Center(child: Text('Введите запрос для поиска GIF'));
+      return Center(
+        child: Text(
+          'Введите запрос для поиска GIF',
+          style: TextStyle(color: tg.textSecondary),
+        ),
+      );
     }
 
     return GridView.builder(
       padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+        crossAxisCount: 4,
         mainAxisSpacing: 6,
         crossAxisSpacing: 6,
-        childAspectRatio: 1.2,
+        childAspectRatio: 1.1,
       ),
       itemCount: results.length,
       itemBuilder: (context, index) {
         final result = results[index];
         final animation = result.animation;
-        return InkWell(
-          onTap: () => onGifTap(result),
-          onLongPress: () => onAnimationTap(animation),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: StickerFileImage(
-                  fileId: animation.thumbnailFileId ?? animation.fileId,
-                  emoji: '🎞',
-                  fit: BoxFit.cover,
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => onGifTap(result),
+            onLongPress: () => onAnimationTap(animation),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: StickerFileImage(
+                    fileId: animation.thumbnailFileId ?? animation.fileId,
+                    emoji: '🎞',
+                    fit: BoxFit.cover,
+                  ),
                 ),
-              ),
-              Text(
-                result.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall,
-                textAlign: TextAlign.center,
-              ),
-            ],
+                Text(
+                  result.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tg.textSecondary,
+                    fontSize: TelegramFontSizes.time,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         );
       },
