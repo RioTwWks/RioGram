@@ -5,6 +5,7 @@ import '../../core/chat/chat_manager.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../core/search/search_manager.dart';
+import '../../core/theme/telegram_theme.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/stories_strip.dart';
 import '../../widgets/chat_desktop_shortcuts.dart';
@@ -162,6 +163,13 @@ class _ChatsScreenState extends State<ChatsScreen> {
           ),
         ],
       ),
+      floatingActionButton: _mobileTabIndex == 0
+          ? FloatingActionButton(
+              tooltip: 'Новое сообщение',
+              onPressed: () => _openNewChatDialog(context, chatManager),
+              child: const Icon(Icons.edit_outlined),
+            )
+          : null,
     );
   }
 
@@ -635,22 +643,27 @@ class _ChatsList extends StatelessWidget {
 
     final itemCount = chats.length + (showSavedMessagesShortcut ? 1 : 0);
 
-    return ListView.separated(
+    return ListView.builder(
       itemCount: itemCount,
-      separatorBuilder: (context, index) {
-        if (showSavedMessagesShortcut && index == 0) {
-          return const Divider(height: 1);
-        }
-        return const Divider(height: 1, indent: 72);
-      },
       itemBuilder: (context, index) {
         if (showSavedMessagesShortcut && index == 0) {
-          return SavedMessagesShortcut(onTap: onSavedMessagesTap);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SavedMessagesShortcut(onTap: onSavedMessagesTap),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: context.telegramTheme.chatListDivider,
+              ),
+            ],
+          );
         }
 
         final chatIndex = showSavedMessagesShortcut ? index - 1 : index;
         final chat = chats[chatIndex];
         final selected = chat.id == selectedChatId;
+        final isLast = index == itemCount - 1;
 
         return ChatListDismissible(
           chat: chat,
@@ -660,6 +673,7 @@ class _ChatsList extends StatelessWidget {
             chat: chat,
             selected: selected,
             activeList: activeList,
+            showDivider: !isLast,
             onTap: () => onChatTap(chat.id),
             onPinToggle: () => _togglePin(chatManager, chat, activeList),
             onArchiveToggle: () => _toggleArchive(chatManager, chat.id),
