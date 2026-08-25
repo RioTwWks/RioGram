@@ -1,3 +1,5 @@
+// §9.11.9 regression — ChatListTile (no golden; CI headless).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -211,6 +213,19 @@ void main() {
       final color = preview.style?.color;
       expect(color, isNotNull);
       expect(color!.a, lessThan(1.0));
+    });
+
+    testWidgets('selected accent 8%', (tester) async {
+      final chat = ChatSummary(id: 3, title: 'Sel', lastMessageDate: DateTime.now());
+      await tester.pumpWidget(wrap(ChatListTile(chat: chat, selected: true, activeList: const ChatListMain(), onTap: () {})));
+      final material = tester.widget<Material>(find.descendant(of: find.byType(ChatListTile), matching: find.byType(Material)).first);
+      expect(material.color?.a, closeTo(0.08, 0.01));
+    });
+
+    testWidgets('horizontal padding 12px', (tester) async {
+      final chat = ChatSummary(id: 4, title: 'Pad', lastMessageDate: DateTime.now());
+      await tester.pumpWidget(wrap(ChatListTile(chat: chat, selected: false, activeList: const ChatListMain(), onTap: () {})));
+      expect(find.descendant(of: find.byType(ConstrainedBox), matching: find.byWidgetPredicate((w) => w is Padding && w.padding == const EdgeInsets.all(TelegramSpacing.chatListHorizontalPadding))), findsOneWidget);
     });
   });
 

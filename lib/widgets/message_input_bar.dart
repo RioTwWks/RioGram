@@ -160,6 +160,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
                 child: _stickerPanelOpen
                     ? StickerPanelPanel(
                         chatId: widget.chatId!,
+                        height: TelegramSpacing.stickerPanelHeight,
                         onStickerSent: () => _setStickerPanelOpen(false),
                       )
                     : const SizedBox(width: double.infinity),
@@ -225,7 +226,10 @@ class _LeftInputButton extends StatelessWidget {
         tooltip: 'Клавиатура',
         onPressed: onEmojiOrKeyboard,
         icon: Icon(TelegramIcons.keyboard, color: tg.textSecondary),
-        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints(
+          minWidth: TelegramSpacing.inputTouchTarget,
+          minHeight: TelegramSpacing.inputTouchTarget,
+        ),
       );
     }
 
@@ -234,7 +238,10 @@ class _LeftInputButton extends StatelessWidget {
         tooltip: 'Стикеры и GIF',
         onPressed: onEmojiOrKeyboard,
         icon: Icon(TelegramIcons.emoji, color: tg.textSecondary),
-        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints(
+          minWidth: TelegramSpacing.inputTouchTarget,
+          minHeight: TelegramSpacing.inputTouchTarget,
+        ),
       );
     }
 
@@ -242,7 +249,10 @@ class _LeftInputButton extends StatelessWidget {
       tooltip: 'Прикрепить',
       onPressed: onAttach,
       icon: Icon(TelegramIcons.attach, color: tg.textSecondary),
-      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(
+          minWidth: TelegramSpacing.inputTouchTarget,
+          minHeight: TelegramSpacing.inputTouchTarget,
+        ),
     );
   }
 }
@@ -279,7 +289,10 @@ class _MessageTextField extends StatelessWidget {
               icon: Icon(TelegramIcons.attach, color: tg.textSecondary, size: 22),
               padding: const EdgeInsets.only(left: 4),
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(
+          minWidth: TelegramSpacing.inputTouchTarget,
+          minHeight: TelegramSpacing.inputTouchTarget,
+        ),
             ),
           Expanded(
             child: TextField(
@@ -340,7 +353,10 @@ class _RightInputButton extends StatelessWidget {
         tooltip: 'Голосовое сообщение',
         onPressed: onVoiceAction,
         icon: Icon(TelegramIcons.mic, color: tg.textSecondary),
-        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints(
+          minWidth: TelegramSpacing.inputTouchTarget,
+          minHeight: TelegramSpacing.inputTouchTarget,
+        ),
       );
     }
 
@@ -356,9 +372,9 @@ class _RightInputButton extends StatelessWidget {
         onTap: onSend,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(icon, color: TelegramColors.unreadBadgeText, size: 20),
+          width: TelegramSpacing.inputTouchTarget,
+          height: TelegramSpacing.inputTouchTarget,
+          child: Icon(icon, color: TelegramColors.unreadBadgeText, size: 22),
         ),
       ),
     );
@@ -426,7 +442,10 @@ class _ComposerDraftBar extends StatelessWidget {
             tooltip: 'Отмена',
             onPressed: onClose,
             icon: Icon(TelegramIcons.close, size: 20, color: tg.textSecondary),
-            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(
+          minWidth: TelegramSpacing.inputTouchTarget,
+          minHeight: TelegramSpacing.inputTouchTarget,
+        ),
             padding: const EdgeInsets.all(8),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
@@ -480,7 +499,10 @@ class _ScheduleBar extends StatelessWidget {
             tooltip: 'Отмена',
             onPressed: onClose,
             icon: Icon(TelegramIcons.close, size: 20, color: tg.textSecondary),
-            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(
+          minWidth: TelegramSpacing.inputTouchTarget,
+          minHeight: TelegramSpacing.inputTouchTarget,
+        ),
             padding: const EdgeInsets.all(8),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),

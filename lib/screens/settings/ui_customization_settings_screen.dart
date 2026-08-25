@@ -64,6 +64,12 @@ class UiCustomizationSettingsScreen extends StatelessWidget {
               onChanged: ui.setHideNavigationBar,
             ),
             TelegramSettingsSwitchTile(
+              title: 'Скрыть ленту историй',
+              subtitle: 'Классический режим без stories над списком чатов',
+              value: ui.hideStoriesStrip,
+              onChanged: ui.setHideStoriesStrip,
+            ),
+            TelegramSettingsSwitchTile(
               title: 'Скрыть иконки в списке',
               subtitle: 'Pin, preview-иконки медиа, тип чата',
               value: ui.hideListIcons,

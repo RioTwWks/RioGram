@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riogram/core/navigation/telegram_routes.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
+import 'package:riogram/widgets/chat_folder_sidebar.dart';
 import 'package:riogram/widgets/mobile_tab_bar.dart';
 
 void main() {
@@ -10,8 +11,10 @@ void main() {
       expect(TelegramLayoutBreakpoints.mobile, 800);
       expect(TelegramLayoutBreakpoints.threeColumn, 840);
       expect(TelegramLayoutBreakpoints.chatListWidth, 340);
+      expect(TelegramLayoutBreakpoints.chatListWidthMin, 280);
     });
   });
+  test('folder sidebar 68px', () => expect(ChatFolderSidebar.width, 68));
 
   group('TelegramNavigationDurations', () {
     test('переходы в диапазоне 150–200 ms', () {
