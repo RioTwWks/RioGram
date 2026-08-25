@@ -36,6 +36,30 @@ echo "==> emcc: ${EMCC_VERSION_LINE}"
 export CC="${CC:-gcc}"
 export CXX="${CXX:-g++}"
 
+need_cmd() {
+  local name="$1"
+  if ! command -v "${name}" >/dev/null 2>&1; then
+    echo "${name} не найден в PATH." >&2
+    echo "Установите зависимости: ./scripts/install-linux-build-deps.sh" >&2
+    exit 1
+  fi
+  if ! "${name}" --version >/dev/null 2>&1 && ! "${name}" -version >/dev/null 2>&1; then
+    local path
+    path="$(command -v "${name}")"
+    echo "${name} найден (${path}), но не запускается (Permission denied / битый бинарь)." >&2
+    echo "Проверьте: ls -la \"${path}\"; type -a ${name}" >&2
+    echo "Переустановите: sudo apt-get install --reinstall -y cmake gperf php-cli" >&2
+    exit 1
+  fi
+}
+
+need_cmd cmake
+need_cmd gperf
+need_cmd perl
+need_cmd php
+need_cmd npm
+echo "==> cmake: $(command -v cmake) ($(cmake --version | head -n1))"
+
 cd "${TDWEB_DIR}"
 
 echo "==> OpenSSL для Emscripten..."
