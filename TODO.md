@@ -504,10 +504,10 @@ MVP — прочный фундамент. Ниже — направления, 
 
 Нужно следить за обновлениями [оригинального TDLib](https://github.com/tdlib/td) и переносить патчи `DPI_BYPASS` на новые версии.
 
-- [ ] Настроить уведомления о новых релизах upstream TDLib (GitHub Releases / watch repo)
-- [ ] Добавить CI job или scheduled workflow: проверка нового тега `tdlib/td` → issue или Telegram-бот / email
-- [ ] Документировать процесс merge upstream → `td/` (чеклист: `TDLIB_PATCHES.md`, конфликты, регрессия DPI)
-- [ ] Зафиксировать в репозитории текущую базовую версию upstream TDLib (commit / tag)
+- [x] Настроить уведомления о новых релизах upstream TDLib (GitHub Releases / watch repo) — scheduled workflow + Issue
+- [x] Добавить CI job или scheduled workflow: проверка нового тега `tdlib/td` → issue или Telegram-бот / email — [`.github/workflows/tdlib-upstream-sync.yml`](.github/workflows/tdlib-upstream-sync.yml)
+- [x] Документировать процесс merge upstream → `td/` (чеклист: `TDLIB_PATCHES.md`, конфликты, регрессия DPI) — [docs/TDLIB_UPSTREAM_SYNC.md](docs/TDLIB_UPSTREAM_SYNC.md)
+- [x] Зафиксировать в репозитории текущую базовую версию upstream TDLib (commit / tag) — [`td/upstream-base.json`](td/upstream-base.json)
 
 Варианты нотификации:
 - GitHub Action `schedule` + `gh api repos/tdlib/td/releases/latest`

@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/tdlib/td",
+  "version": "1.8.66",
+  "commit": "a9966eb3704a3351568c28013fed67d797c17828",
+  "commit_date": "2025-07-14T11:54:57Z",
+  "synced_at": "2026-08-25",
+  "patches_doc": "docs/TDLIB_PATCHES.md",
+  "merge_doc": "docs/TDLIB_UPSTREAM_SYNC.md",
+  "notes": "RioGram DPI_BYPASS patches are applied on top of this upstream base. Bump this file after each successful merge."
+}
