@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../core/theme/telegram_theme.dart';
+
 /// Inline-воспроизведение видео в пузыре сообщения.
 class InlineVideoPlayer extends StatefulWidget {
   const InlineVideoPlayer({
@@ -90,10 +92,13 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
     if (_hasError) {
       return _VideoPlaceholder(
         label: widget.durationLabel,
         icon: Icons.videocam_off_outlined,
+        surfaceColor: tg.elevatedSurface,
       );
     }
 
@@ -101,6 +106,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
       return _VideoPlaceholder(
         label: widget.durationLabel,
         icon: Icons.hourglass_top,
+        surfaceColor: tg.elevatedSurface,
       );
     }
 
@@ -110,7 +116,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
         : controller.value.aspectRatio;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(TelegramRadii.mediaPreview),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -129,10 +135,19 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
                   duration: const Duration(milliseconds: 200),
                   child: Container(
                     color: Colors.black26,
-                    child: const Icon(
-                      Icons.play_circle_fill,
-                      size: 56,
-                      color: Colors.white,
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow,
+                        size: 36,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -168,10 +183,12 @@ class _VideoPlaceholder extends StatelessWidget {
   const _VideoPlaceholder({
     required this.label,
     required this.icon,
+    required this.surfaceColor,
   });
 
   final String? label;
   final IconData icon;
+  final Color surfaceColor;
 
   @override
   Widget build(BuildContext context) {
@@ -179,8 +196,8 @@ class _VideoPlaceholder extends StatelessWidget {
       height: 160,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(TelegramRadii.mediaPreview),
       ),
       child: Stack(
         alignment: Alignment.center,
