@@ -98,7 +98,7 @@ class TdlibClient {
       'system_language_code': 'ru',
       'device_model': 'RioGram',
       'system_version': Platform.operatingSystemVersion,
-      'application_version': '0.12.0',
+      'application_version': '1.0.0',
     });
   }
 

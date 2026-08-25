@@ -12,6 +12,7 @@ import '../models/message_enrichment.dart';
 import '../models/sticker_models.dart';
 import '../core/location/map_launcher.dart';
 import 'audio_message_player.dart';
+import 'document_message_body.dart';
 import 'file_transfer_progress_bar.dart';
 import 'formatted_text_widget.dart';
 import 'inline_keyboard_widget.dart';
@@ -542,10 +543,13 @@ class _MessageBody extends StatelessWidget {
         children: [
           GestureDetector(
             onTap: onMediaTap == null ? null : () => onMediaTap!(message),
-            child: Image.file(
-              File(localPath),
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Text(content.preview),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(TelegramRadii.mediaPreview),
+              child: Image.file(
+                File(localPath),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Text(content.preview),
+              ),
             ),
           ),
           ..._captionWidgets(content),
@@ -666,31 +670,12 @@ class _MessageBody extends StatelessWidget {
     }
 
     if (content.kind == MessageKind.document) {
-      final docInfo = content.documentInfo;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.attach_file),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(content.fileName ?? content.preview),
-                    if (docInfo != null && docInfo.fileSize > 0)
-                      Text(
-                        docInfo.sizeLabel,
-                        style: TextStyle(
-                          fontSize: TelegramFontSizes.bubbleMeta,
-                          color: context.telegramTheme.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+          DocumentMessageBody(
+            fileName: content.fileName ?? content.preview,
+            documentInfo: content.documentInfo,
           ),
           ..._captionWidgets(content),
         ],

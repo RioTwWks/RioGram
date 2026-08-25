@@ -34,13 +34,13 @@ import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
 import '../../widgets/poll_message_body.dart';
-import '../../widgets/sticker_panel_sheet.dart';
 import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
 import 'chat_message_search_screen.dart';
 import 'chat_info_screen.dart';
 import 'message_thread_screen.dart';
 import '../webapp/web_app_screen.dart';
+import '../../core/navigation/telegram_routes.dart';
 
 /// Экран переписки: форматирование, ответ, пересылка, редактирование, удаление.
 class ChatScreen extends StatefulWidget {
@@ -140,15 +140,7 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
       if (answer.url.isNotEmpty) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => WebAppScreen(
-              url: answer.url,
-              launchId: 0,
-              title: 'Бот',
-            ),
-          ),
-        );
+        TelegramRoutes.push(context, WebAppScreen(url: answer.url, launchId: 0, title: 'Бот'));
       }
     }
 
@@ -156,15 +148,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final launchId = bot.pendingWebAppLaunchId;
     if (webUrl != null && launchId != null) {
       bot.clearPendingWebApp();
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => WebAppScreen(
-            url: webUrl,
-            launchId: launchId,
-            title: 'Mini App',
-          ),
-        ),
-      );
+      TelegramRoutes.push(context, WebAppScreen(url: webUrl, launchId: launchId, title: 'Mini App'));
     }
 
     final inline = bot.inlineQueryState;
@@ -404,11 +388,13 @@ class _ChatScreenState extends State<ChatScreen> {
     await context.read<ChatManager>().sendLocationRequest(request);
   }
 
-  Future<void> _openStickerPanel() async {
+  void _onStickerPanelChanged(bool open) {
     final chatManager = context.read<ChatManager>();
-    chatManager.sendChatAction(OutgoingChatAction.choosingSticker);
-    await StickerPanelSheet.show(context, chatId: widget.chatId);
-    chatManager.sendChatAction(OutgoingChatAction.cancel);
+    if (open) {
+      chatManager.sendChatAction(OutgoingChatAction.choosingSticker);
+    } else {
+      chatManager.sendChatAction(OutgoingChatAction.cancel);
+    }
   }
 
   Future<void> _recordVoice() async {
@@ -442,14 +428,7 @@ class _ChatScreenState extends State<ChatScreen> {
       initialIndex = 0;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => MediaViewerScreen(
-          items: items,
-          initialIndex: initialIndex,
-        ),
-      ),
-    );
+    TelegramRoutes.fade(context, MediaViewerScreen(items: items, initialIndex: initialIndex));
   }
 
   Future<void> _pickSchedule() async {
@@ -845,7 +824,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
   void _openChatInfo() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatInfoScreen(chatId: widget.chatId)));
+    TelegramRoutes.push(context, ChatInfoScreen(chatId: widget.chatId));
   }
   void _openChatMenu() {
     showModalBottomSheet<void>(context: context, builder: (ctx) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -853,7 +832,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ListTile(leading: const Icon(Icons.search), title: const Text('Поиск в чате'), onTap: () {
         Navigator.pop(ctx);
         final chat = context.read<ChatManager>().activeChat;
-        Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatMessageSearchScreen(chatId: widget.chatId, chatTitle: chat?.title, forumTopicId: widget.forumTopicId)));
+        TelegramRoutes.push(context, ChatMessageSearchScreen(chatId: widget.chatId, chatTitle: chat?.title, forumTopicId: widget.forumTopicId));
       }),
     ])));
   }
@@ -873,15 +852,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _openComments(ChatMessage message) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => MessageThreadScreen(
-          channelChatId: widget.chatId,
-          channelMessageId: message.id,
-          postPreview: message.content.preview,
-        ),
-      ),
-    );
+    await TelegramRoutes.push(context, MessageThreadScreen(channelChatId: widget.chatId, channelMessageId: message.id, postPreview: message.content.preview));
   }
 
   Future<void> _subscribeToChannel(ChatManager manager, ChatSummary chat) async {
@@ -1022,15 +993,7 @@ class _ChatScreenState extends State<ChatScreen> {
               tooltip: 'Поиск в чате',
               icon: const Icon(Icons.search),
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ChatMessageSearchScreen(
-                      chatId: widget.chatId,
-                      chatTitle: chat?.title,
-                      forumTopicId: widget.forumTopicId,
-                    ),
-                  ),
-                );
+                TelegramRoutes.push(context, ChatMessageSearchScreen(chatId: widget.chatId, chatTitle: chat?.title, forumTopicId: widget.forumTopicId));
               },
             ),
           if (!selectionMode && widget.forumTopicId == null)
@@ -1170,8 +1133,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     );
                   },
                 ),
-              const Divider(height: 1),
               MessageInputBar(
+              chatId: widget.chatId,
               controller: _controller,
               onSend: _sendMessage,
               onAttach: _attachMedia,
@@ -1195,7 +1158,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onFormatLink: () =>
                   ComposerFormatting.insertLink(context, _controller),
               onVoiceAction: _recordVoice,
-              onStickerAction: _openStickerPanel,
+              onStickerPanelChanged: _onStickerPanelChanged,
             ),
             ],
           ],

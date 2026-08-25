@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/user/profile_manager.dart';
 import '../../widgets/contact_list_tile.dart';
+import '../../widgets/empty_state.dart';
 import '../profile/user_profile_screen.dart';
 import '../../core/navigation/telegram_routes.dart';
 
@@ -68,10 +69,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
             controller: _searchController,
             decoration: InputDecoration(
               hintText: 'Поиск контактов',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search_outlined),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: const Icon(Icons.close_outlined),
                       onPressed: () {
                         _searchController.clear();
                         contacts.setSearchQuery('');
@@ -148,12 +149,16 @@ class _ContactsBody extends StatelessWidget {
 
     final users = contacts.contacts;
     if (users.isEmpty) {
-      return Center(
-        child: Text(
-          contacts.searchQuery.isEmpty
-              ? 'Контактов пока нет'
-              : 'Ничего не найдено',
-        ),
+      return EmptyStateWidget(
+        icon: contacts.searchQuery.isEmpty
+            ? Icons.contacts_outlined
+            : Icons.search_off_outlined,
+        title: contacts.searchQuery.isEmpty
+            ? 'Контактов пока нет'
+            : 'Ничего не найдено',
+        subtitle: contacts.searchQuery.isEmpty
+            ? 'Добавьте контакты или импортируйте из адресной книги'
+            : 'Попробуйте другой запрос',
       );
     }
 

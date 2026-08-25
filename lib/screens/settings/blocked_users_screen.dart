@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/navigation/telegram_routes.dart';
 import '../../core/user/profile_manager.dart';
 import '../../widgets/chat_avatar.dart';
+import '../../widgets/telegram_settings_tile.dart';
 import '../profile/user_profile_screen.dart';
-import '../../core/navigation/telegram_routes.dart';
 
-/// Список заблокированных пользователей.
 class BlockedUsersScreen extends StatefulWidget {
   const BlockedUsersScreen({super.key});
 
@@ -27,38 +27,64 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
   Widget build(BuildContext context) {
     final profile = context.watch<ProfileManager>();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Заблокированные')),
-      body: profile.isLoadingBlocked
-          ? const Center(child: CircularProgressIndicator())
-          : profile.blockedUsers.isEmpty
-              ? const Center(child: Text('Заблокированных пользователей нет'))
-              : ListView.builder(
-                  itemCount: profile.blockedUsers.length,
-                  itemBuilder: (context, index) {
-                    final blocked = profile.blockedUsers[index];
-                    final user = profile.userById(blocked.userId);
-                    final title =
-                        user?.displayName ?? blocked.displayName ?? 'Пользователь';
+    if (profile.isLoadingBlocked) {
+      return Scaffold(
+        backgroundColor: telegramSettingsPageBackground(context),
+        appBar: AppBar(title: const Text('Заблокированные')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
-                    return ListTile(
-                      leading: ChatAvatar(
-                        title: title,
-                        localPath: user?.avatarLocalPath,
-                      ),
-                      title: Text(title),
-                      trailing: IconButton(
-                        tooltip: 'Разблокировать',
-                        icon: const Icon(Icons.lock_open_outlined),
-                        onPressed: () =>
-                            profile.unblockUser(blocked.userId),
-                      ),
-                      onTap: () {
-                        TelegramRoutes.push(context, UserProfileScreen(userId: blocked.userId));
-                      },
-                    );
-                  },
+    if (profile.blockedUsers.isEmpty) {
+      return const TelegramSettingsScaffold(
+        title: 'Заблокированные',
+        children: [
+          Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('Заблокированных пользователей нет'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return TelegramSettingsScaffold(
+      title: 'Заблокированные',
+      children: [
+        TelegramSettingsGroup(
+          children: [
+            ...profile.blockedUsers.asMap().entries.map((entry) {
+              final blocked = entry.value;
+              final user = profile.userById(blocked.userId);
+              final title =
+                  user?.displayName ?? blocked.displayName ?? 'Пользователь';
+              final isLast = entry.key == profile.blockedUsers.length - 1;
+              return TelegramSettingsTile(
+                title: title,
+                leading: ChatAvatar(
+                  title: title,
+                  localPath: user?.avatarLocalPath,
+                  radius: 20,
                 ),
+                showChevron: false,
+                showDivider: !isLast,
+                trailing: IconButton(
+                  tooltip: 'Разблокировать',
+                  icon: const Icon(Icons.lock_open_outlined),
+                  onPressed: () => profile.unblockUser(blocked.userId),
+                ),
+                onTap: () {
+                  TelegramRoutes.push(
+                    context,
+                    UserProfileScreen(userId: blocked.userId),
+                  );
+                },
+              );
+            }),
+          ],
+        ),
+      ],
     );
   }
 }

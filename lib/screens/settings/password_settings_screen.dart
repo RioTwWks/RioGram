@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/security/security_settings_manager.dart';
+import '../../widgets/telegram_settings_tile.dart';
 
-/// Управление облачным паролем (2FA) в настройках.
 class PasswordSettingsScreen extends StatefulWidget {
   const PasswordSettingsScreen({super.key});
 
@@ -33,145 +33,97 @@ class _PasswordSettingsScreenState extends State<PasswordSettingsScreen> {
     final state = security.passwordState;
     final hasPassword = state?.hasPassword ?? false;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Облачный пароль')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (security.isLoading)
-            const LinearProgressIndicator()
-          else
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hasPassword ? '2FA включена' : '2FA не настроена',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    if (hasPassword && state!.passwordHint.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text('Подсказка: ${state.passwordHint}'),
-                    ],
-                    if (hasPassword && state!.hasRecoveryEmail) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Email восстановления: ${state.recoveryEmailPattern}',
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          if (security.lastError != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              security.lastError!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+    return TelegramSettingsScaffold(
+      title: 'Облачный пароль',
+      children: [
+        if (security.isLoading) const LinearProgressIndicator(),
+        TelegramSettingsGroup(
+          children: [
+            TelegramSettingsTile(
+              title: hasPassword ? '2FA включена' : '2FA не настроена',
+              subtitle: hasPassword && state!.passwordHint.isNotEmpty
+                  ? 'Подсказка: ${state.passwordHint}'
+                  : hasPassword && state!.hasRecoveryEmail
+                      ? 'Email: ${state.recoveryEmailPattern}'
+                      : null,
+              showChevron: false,
+              showDivider: false,
             ),
           ],
-          const SizedBox(height: 16),
-          Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                if (hasPassword)
-                  TextFormField(
+        ),
+        if (security.lastError != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(security.lastError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+        const SizedBox(height: 16),
+        Form(
+          key: _formKey,
+          child: TelegramSettingsGroup(
+            children: [
+              if (hasPassword)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: TextFormField(
                     controller: _oldPasswordController,
                     obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Текущий пароль',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Введите текущий пароль';
-                      }
-                      return null;
-                    },
+                    decoration: const InputDecoration(labelText: 'Текущий пароль'),
+                    validator: (value) => value == null || value.isEmpty ? 'Введите текущий пароль' : null,
                   ),
-                if (hasPassword) const SizedBox(height: 12),
-                TextFormField(
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: TextFormField(
                   controller: _newPasswordController,
                   obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: hasPassword ? 'Новый пароль' : 'Пароль',
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (!hasPassword && (value == null || value.isEmpty)) {
-                      return 'Введите пароль';
+                  decoration: InputDecoration(labelText: hasPassword ? 'Новый пароль' : 'Пароль'),
+                  validator: (value) => !hasPassword && (value == null || value.isEmpty) ? 'Введите пароль' : null,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: TextField(controller: _hintController, decoration: const InputDecoration(labelText: 'Подсказка')),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: TextField(controller: _recoveryController, decoration: const InputDecoration(labelText: 'Email восстановления (необязательно)')),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: security.isSaving
+              ? null
+              : () {
+                  if (!(_formKey.currentState?.validate() ?? false)) return;
+                  security.setPassword(
+                    oldPassword: _oldPasswordController.text,
+                    newPassword: _newPasswordController.text,
+                    hint: _hintController.text,
+                    recoveryEmail: _recoveryController.text.trim(),
+                  );
+                },
+          child: security.isSaving
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(hasPassword ? 'Изменить пароль' : 'Установить пароль'),
+        ),
+        if (hasPassword) ...[
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: security.isSaving
+                ? null
+                : () {
+                    if (_oldPasswordController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Введите текущий пароль')));
+                      return;
                     }
-                    return null;
+                    security.removePassword(oldPassword: _oldPasswordController.text);
                   },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _hintController,
-                  decoration: const InputDecoration(
-                    labelText: 'Подсказка',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _recoveryController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email восстановления (необязательно)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: security.isSaving
-                      ? null
-                      : () {
-                          if (!(_formKey.currentState?.validate() ?? false)) {
-                            return;
-                          }
-                          security.setPassword(
-                            oldPassword: _oldPasswordController.text,
-                            newPassword: _newPasswordController.text,
-                            hint: _hintController.text,
-                            recoveryEmail: _recoveryController.text.trim(),
-                          );
-                        },
-                  child: security.isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(hasPassword ? 'Изменить пароль' : 'Установить пароль'),
-                ),
-                if (hasPassword) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: security.isSaving
-                        ? null
-                        : () {
-                            if (_oldPasswordController.text.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Введите текущий пароль'),
-                                ),
-                              );
-                              return;
-                            }
-                            security.removePassword(
-                              oldPassword: _oldPasswordController.text,
-                            );
-                          },
-                    child: const Text('Отключить 2FA'),
-                  ),
-                ],
-              ],
-            ),
+            child: const Text('Отключить 2FA'),
           ),
         ],
-      ),
+      ],
     );
   }
 }

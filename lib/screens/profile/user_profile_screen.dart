@@ -4,18 +4,15 @@ import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
 import '../../core/secret/secret_chat_manager.dart';
+import '../../core/theme/telegram_theme.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/user/profile_manager.dart';
-import '../../widgets/chat_avatar.dart';
+import '../../models/user_models.dart';
+import '../../widgets/telegram_settings_tile.dart';
 import '../../widgets/user_status_subtitle.dart';
 
-/// Просмотр профиля другого пользователя.
 class UserProfileScreen extends StatefulWidget {
-  const UserProfileScreen({
-    super.key,
-    required this.userId,
-    this.chatId,
-  });
+  const UserProfileScreen({super.key, required this.userId, this.chatId});
 
   final int userId;
   final int? chatId;
@@ -37,12 +34,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _copyUsername(String username) async {
     await Clipboard.setData(ClipboardData(text: '@$username'));
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Username скопирован')),
-    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Username скопирован')));
   }
 
   Future<void> _confirmBlock(ProfileManager profile, bool isBlocked) async {
@@ -50,26 +43,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(isBlocked ? 'Разблокировать?' : 'Заблокировать?'),
-        content: Text(
-          isBlocked
-              ? 'Пользователь снова сможет писать вам.'
-              : 'Пользователь не сможет писать вам и звонить.',
-        ),
+        content: Text(isBlocked ? 'Пользователь снова сможет писать вам.' : 'Пользователь не сможет писать вам и звонить.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(isBlocked ? 'Разблокировать' : 'Заблокировать'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(isBlocked ? 'Разблокировать' : 'Заблокировать')),
         ],
       ),
     );
-    if (confirmed != true) {
-      return;
-    }
+    if (confirmed != true) return;
     if (isBlocked) {
       profile.unblockUser(widget.userId);
     } else {
@@ -77,180 +58,152 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  List<Widget> _actionTiles({
+    required BuildContext context,
+    required ProfileManager profile,
+    required ContactManager contacts,
+    required UserSummary? user,
+    required dynamic fullInfo,
+    required TelegramThemeData tg,
+  }) {
+    final items = <({String title, Widget? leading, VoidCallback? onTap})>[];
+
+    if (user != null && !user.isBot) {
+      items.add((
+        title: 'Секретный чат',
+        leading: Icon(Icons.lock_outline, color: tg.accent),
+        onTap: () {
+          context.read<SecretChatManager>().createSecretChat(user.id);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Создание секретного чата…')));
+        },
+      ));
+    }
+    if (user != null && !user.isContact) {
+      items.add((
+        title: 'Добавить в контакты',
+        leading: Icon(Icons.person_add_outlined, color: tg.accent),
+        onTap: () {
+          contacts.addContact(user.id, firstName: user.firstName, lastName: user.lastName);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Контакт добавлен')));
+        },
+      ));
+    }
+    if (user != null && user.isContact) {
+      items.add((
+        title: 'Удалить из контактов',
+        leading: Icon(Icons.person_remove_outlined, color: tg.textSecondary),
+        onTap: () {
+          contacts.removeContact(user.id);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Контакт удалён')));
+        },
+      ));
+    }
+    items.add((
+      title: (fullInfo?.isBlocked ?? false) ? 'Разблокировать' : 'Заблокировать',
+      leading: Icon((fullInfo?.isBlocked ?? false) ? Icons.lock_open_outlined : Icons.block, color: Theme.of(context).colorScheme.error),
+      onTap: () => _confirmBlock(profile, fullInfo?.isBlocked ?? false),
+    ));
+    if (widget.chatId != null) {
+      items.add((title: 'Открыть чат', leading: Icon(Icons.chat_outlined, color: tg.accent), onTap: () => Navigator.of(context).pop()));
+    }
+
+    return items.asMap().entries.map((entry) {
+      final item = entry.value;
+      final isLast = entry.key == items.length - 1;
+      return TelegramSettingsTile(title: item.title, leading: item.leading, showChevron: false, showDivider: !isLast, onTap: item.onTap);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = context.watch<ProfileManager>();
     final contacts = context.read<ContactManager>();
     final chatManager = context.read<ChatManager>();
+    final tg = context.telegramTheme;
 
     final user = profile.userById(widget.userId);
     final fullInfo = profile.fullInfoFor(widget.userId);
     final commonChats = profile.commonChatsFor(widget.userId);
     final isLoading = profile.isLoadingFullInfo(widget.userId) && user == null;
 
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: telegramSettingsPageBackground(context),
+        appBar: AppBar(title: const Text('Профиль')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
+      backgroundColor: telegramSettingsPageBackground(context),
       appBar: AppBar(title: const Text('Профиль')),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
+      body: TelegramSettingsListView(
+        children: [
+          TelegramProfileHeader(
+            displayName: user?.displayName ?? 'Пользователь',
+            username: user?.username,
+            phone: user?.isContact == true && user!.phoneNumber.isNotEmpty ? user.phoneNumber : null,
+            avatarLocalPath: user?.avatarLocalPath,
+            onUsernameTap: user?.username != null ? () => _copyUsername(user!.username!) : null,
+            subtitle: user != null
+                ? UserStatusSubtitle(status: user.status, style: TextStyle(fontSize: TelegramFontSizes.chatSubtitle, color: tg.textSecondary))
+                : null,
+          ),
+          if (fullInfo?.bio.isNotEmpty == true) ...[
+            const TelegramSettingsSectionHeader('О себе'),
+            TelegramSettingsGroup(
               children: [
-                Center(
-                  child: Column(
-                    children: [
-                      ChatAvatar(
-                        title: user?.displayName ?? 'Пользователь',
-                        localPath: user?.avatarLocalPath,
-                        radius: 48,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        user?.displayName ?? 'Пользователь',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      if (user != null)
-                        UserStatusSubtitle(
-                          status: user.status,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      if (user?.username != null &&
-                          user!.username!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        InkWell(
-                          onTap: () => _copyUsername(user.username!),
-                          child: Text('@${user.username}'),
-                        ),
-                      ],
-                      if (user?.phoneNumber.isNotEmpty == true &&
-                          user!.isContact) ...[
-                        const SizedBox(height: 4),
-                        Text(user.phoneNumber),
-                      ],
-                    ],
-                  ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(fullInfo!.bio, style: TextStyle(fontSize: TelegramFontSizes.preview, color: tg.textPrimary)),
                 ),
-                if (fullInfo?.bio.isNotEmpty == true) ...[
-                  const SizedBox(height: 24),
-                  Text('О себе', style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: 8),
-                  Text(fullInfo!.bio),
-                ],
-                if (user?.isBot == true && fullInfo != null) ...[
-                  const SizedBox(height: 24),
-                  Text('Бот', style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: 8),
-                  if (fullInfo.botInfo.shortDescription.isNotEmpty)
-                    Text(fullInfo.botInfo.shortDescription),
-                  if (fullInfo.botInfo.description.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(fullInfo.botInfo.description),
-                  ],
-                  if (fullInfo.botInfo.commands.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    ...fullInfo.botInfo.commands.map(
-                      (cmd) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        title: Text(cmd.slashCommand),
-                        subtitle: Text(cmd.description),
-                      ),
-                    ),
-                  ],
-                ],
-                if (commonChats.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    'Общие чаты',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  ...commonChats.map(
-                    (chat) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.groups_outlined),
-                      title: Text(chat.title),
-                      onTap: () {
-                        chatManager.openChat(chat.id);
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                      },
-                    ),
-                  ),
-                ] else if (profile.isLoadingCommonChats(widget.userId))
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                const SizedBox(height: 24),
-                if (user != null && !user.isBot)
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      context.read<SecretChatManager>().createSecretChat(user.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Создание секретного чата…'),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.lock_outline),
-                    label: const Text('Секретный чат'),
-                  ),
-                if (user != null && !user.isBot) const SizedBox(height: 8),
-                if (user != null && !user.isContact)
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      contacts.addContact(
-                        user.id,
-                        firstName: user.firstName,
-                        lastName: user.lastName,
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Контакт добавлен')),
-                      );
-                    },
-                    icon: const Icon(Icons.person_add_outlined),
-                    label: const Text('Добавить в контакты'),
-                  ),
-                if (user != null && user.isContact) ...[
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      contacts.removeContact(user.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Контакт удалён')),
-                      );
-                    },
-                    icon: const Icon(Icons.person_remove_outlined),
-                    label: const Text('Удалить из контактов'),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                OutlinedButton.icon(
-                  onPressed: () => _confirmBlock(
-                    profile,
-                    fullInfo?.isBlocked ?? false,
-                  ),
-                  icon: Icon(
-                    (fullInfo?.isBlocked ?? false)
-                        ? Icons.lock_open_outlined
-                        : Icons.block,
-                  ),
-                  label: Text(
-                    (fullInfo?.isBlocked ?? false)
-                        ? 'Разблокировать'
-                        : 'Заблокировать',
-                  ),
-                ),
-                if (widget.chatId != null) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    icon: const Icon(Icons.chat_outlined),
-                    label: const Text('Открыть чат'),
-                  ),
-                ],
               ],
             ),
+          ],
+          if (user?.isBot == true && fullInfo != null) ...[
+            const TelegramSettingsSectionHeader('Бот'),
+            TelegramSettingsGroup(
+              children: [
+                if (fullInfo.botInfo.shortDescription.isNotEmpty)
+                  Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: Text(fullInfo.botInfo.shortDescription)),
+                if (fullInfo.botInfo.description.isNotEmpty)
+                  Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: Text(fullInfo.botInfo.description)),
+                ...fullInfo.botInfo.commands.asMap().entries.map((entry) {
+                  final cmd = entry.value;
+                  final isLast = entry.key == fullInfo.botInfo.commands.length - 1;
+                  return TelegramSettingsTile(title: cmd.slashCommand, subtitle: cmd.description, showChevron: false, showDivider: !isLast);
+                }),
+              ],
+            ),
+          ],
+          if (commonChats.isNotEmpty) ...[
+            const TelegramSettingsSectionHeader('Общие чаты'),
+            TelegramSettingsGroup(
+              children: [
+                ...commonChats.asMap().entries.map((entry) {
+                  final chat = entry.value;
+                  final isLast = entry.key == commonChats.length - 1;
+                  return TelegramSettingsTile(
+                    title: chat.title,
+                    leading: Icon(Icons.groups_outlined, color: tg.textSecondary),
+                    showChevron: false,
+                    showDivider: !isLast,
+                    onTap: () {
+                      chatManager.openChat(chat.id);
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    },
+                  );
+                }),
+              ],
+            ),
+          ] else if (profile.isLoadingCommonChats(widget.userId))
+            const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator())),
+          const TelegramSettingsSectionHeader('Действия'),
+          TelegramSettingsGroup(
+            children: _actionTiles(context: context, profile: profile, contacts: contacts, user: user, fullInfo: fullInfo, tg: tg),
+          ),
+        ],
+      ),
     );
   }
 }

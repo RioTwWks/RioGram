@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_theme.dart';
 import '../models/audio_models.dart';
 import 'voice_waveform.dart';
 
-/// Воспроизведение голосового сообщения с waveform.
+/// Воспроизведение голосового сообщения с горизонтальной waveform.
 class VoiceMessagePlayer extends StatefulWidget {
   const VoiceMessagePlayer({
     super.key,
@@ -78,17 +79,33 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final minWidth = 220.0;
+    final tg = context.telegramTheme;
+    final accent = tg.accent;
+    final textColor =
+        widget.isOutgoing ? tg.bubbleOutgoingText : tg.textPrimary;
 
     return ConstrainedBox(
-      constraints: BoxConstraints(minWidth: minWidth, maxWidth: 280),
+      constraints: const BoxConstraints(minWidth: 220, maxWidth: 280),
       child: Row(
         children: [
-          IconButton.filled(
-            onPressed: _togglePlayback,
-            icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+          Material(
+            color: accent,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: _togglePlayback,
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: Icon(
+                  _isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,16 +113,18 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
                 VoiceWaveform(
                   heights: widget.voiceInfo.normalizedWaveform,
                   progress: _playbackProgress,
-                  activeColor: widget.isOutgoing
-                      ? theme.colorScheme.onPrimaryContainer
-                      : theme.colorScheme.primary,
+                  activeColor: accent,
+                  inactiveColor: textColor.withValues(alpha: 0.35),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _isPlaying
                       ? _formatDuration(_position)
                       : widget.voiceInfo.durationLabel,
-                  style: theme.textTheme.labelSmall,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: tg.textTime,
+                    fontSize: TelegramFontSizes.bubbleMeta,
+                  ),
                 ),
               ],
             ),

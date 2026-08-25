@@ -7,6 +7,7 @@ import '../../core/proxy/proxy_manager.dart';
 import '../../core/search/search_manager.dart';
 import '../../core/theme/telegram_theme.dart';
 import '../../models/chat_models.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/stories_strip.dart';
 import '../../widgets/chat_desktop_shortcuts.dart';
 import '../../core/navigation/telegram_routes.dart';
@@ -363,8 +364,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   Widget _buildConversationPane(ChatManager chatManager) {
     if (_selectedChatId == null) {
-      return const Center(
-        child: Text('Выберите чат'),
+      return const EmptyStateWidget(
+        icon: Icons.chat_bubble_outline,
+        title: 'Выберите чат',
+        subtitle: 'Выберите чат из списка слева',
       );
     }
 
@@ -569,7 +572,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
       IconButton(
         tooltip: 'Настройки',
         onPressed: () => _openSettings(context),
-        icon: const Icon(Icons.settings),
+        icon: const Icon(Icons.settings_outlined),
       ),
     ];
   }
@@ -598,12 +601,23 @@ class _ChatsList extends StatelessWidget {
     final activeList = chatManager.activeChatList;
 
     if (chats.isEmpty && !showSavedMessagesShortcut) {
-      final emptyLabel = switch (activeList) {
-        ChatListArchive() => 'Архив пуст',
-        ChatListFolder() => 'В папке нет чатов',
-        _ => 'Загрузка чатов...',
+      return switch (activeList) {
+        ChatListArchive() => const EmptyStateWidget(
+            icon: Icons.archive_outlined,
+            title: 'Архив пуст',
+            subtitle: 'Архивированные чаты появятся здесь',
+          ),
+        ChatListFolder() => const EmptyStateWidget(
+            icon: Icons.folder_outlined,
+            title: 'В папке нет чатов',
+            subtitle: 'Добавьте чаты в эту папку в настройках',
+          ),
+        _ => const EmptyStateWidget(
+            icon: Icons.chat_bubble_outline,
+            title: 'Нет чатов',
+            subtitle: 'Начните новую переписку',
+          ),
       };
-      return Center(child: Text(emptyLabel));
     }
 
     final itemCount = chats.length + (showSavedMessagesShortcut ? 1 : 0);

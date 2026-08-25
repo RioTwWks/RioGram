@@ -31,7 +31,7 @@ void main() {
         'device_model': 'Desktop',
         'platform': 'Linux',
         'application_name': 'RioGram',
-        'application_version': '0.12.0',
+        'application_version': '1.0.0',
         'ip_address': '1.2.3.4',
         'location': 'Amsterdam',
         'log_in_date': 1_700_000_000,
