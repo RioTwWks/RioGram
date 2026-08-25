@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_icons.dart';
 import '../models/message_enrichment.dart';
 
-/// Иконки статуса доставки исходящего сообщения.
+/// Иконки статуса доставки исходящего сообщения (как в Telegram).
+///
+/// - [MessageDeliveryStatus.sent] — одна серая галочка
+/// - [MessageDeliveryStatus.delivered] — две серые галочки
+/// - [MessageDeliveryStatus.read] — две синие галочки
 class MessageDeliveryIcon extends StatelessWidget {
   const MessageDeliveryIcon({
     super.key,
@@ -24,15 +29,31 @@ class MessageDeliveryIcon extends StatelessWidget {
     final read = readColor ?? theme.colorScheme.primary;
 
     return switch (status) {
-      MessageDeliveryStatus.sending =>
-        Icon(Icons.access_time, size: size, color: color),
-      MessageDeliveryStatus.failed =>
-        Icon(Icons.error_outline, size: size, color: theme.colorScheme.error),
-      MessageDeliveryStatus.sent => Icon(Icons.check, size: size, color: color),
-      MessageDeliveryStatus.delivered =>
-        Icon(Icons.done_all, size: size, color: color),
-      MessageDeliveryStatus.read =>
-        Icon(Icons.done_all, size: size, color: read),
+      MessageDeliveryStatus.sending => Icon(
+          TelegramIcons.deliverySending,
+          size: size,
+          color: color,
+        ),
+      MessageDeliveryStatus.failed => Icon(
+          TelegramIcons.deliveryFailed,
+          size: size,
+          color: theme.colorScheme.error,
+        ),
+      MessageDeliveryStatus.sent => Icon(
+          TelegramIcons.deliverySent,
+          size: size,
+          color: color,
+        ),
+      MessageDeliveryStatus.delivered => Icon(
+          TelegramIcons.deliveryDelivered,
+          size: size,
+          color: color,
+        ),
+      MessageDeliveryStatus.read => Icon(
+          TelegramIcons.deliveryDelivered,
+          size: size,
+          color: read,
+        ),
     };
   }
 }
@@ -56,7 +77,11 @@ class MessageViewCountLabel extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.visibility_outlined, size: 14, color: theme.colorScheme.onSurfaceVariant),
+        Icon(
+          TelegramIcons.visibility,
+          size: 14,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 4),
         Text(
           _formatCount(viewCount),
