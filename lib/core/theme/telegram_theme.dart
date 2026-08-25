@@ -129,8 +129,9 @@ abstract final class TelegramTypography {
     required Color primary,
     required Color secondary,
     required Color time,
+    String? fontFamily,
   }) {
-    final family = platformFontFamily;
+    final family = fontFamily ?? platformFontFamily;
     final base = brightness == Brightness.light
         ? Typography.material2021(platform: TargetPlatform.android).black
         : Typography.material2021(platform: TargetPlatform.android).white;
@@ -219,6 +220,7 @@ class TelegramThemeData extends ThemeExtension<TelegramThemeData> {
     required this.bubbleIncomingText,
     required this.accent,
     required this.isDesktopChatBackground,
+    this.cornerRadiusScale = 1.0,
   });
 
   final Color chatListBackground;
@@ -239,8 +241,12 @@ class TelegramThemeData extends ThemeExtension<TelegramThemeData> {
   final Color bubbleIncomingText;
   final Color accent;
   final bool isDesktopChatBackground;
+  final double cornerRadiusScale;
 
-  static TelegramThemeData light({Color accentColor = TelegramColors.accent}) {
+  static TelegramThemeData light({
+    Color accentColor = TelegramColors.accent,
+    double cornerRadiusScale = 1.0,
+  }) {
     final isDesktop = _isDesktopPlatform;
     return TelegramThemeData(
       chatListBackground: TelegramColors.chatListBackgroundLight,
@@ -263,10 +269,14 @@ class TelegramThemeData extends ThemeExtension<TelegramThemeData> {
       bubbleIncomingText: TelegramColors.textPrimaryLight,
       accent: accentColor,
       isDesktopChatBackground: isDesktop,
+      cornerRadiusScale: cornerRadiusScale,
     );
   }
 
-  static TelegramThemeData dark({Color accentColor = TelegramColors.accent}) {
+  static TelegramThemeData dark({
+    Color accentColor = TelegramColors.accent,
+    double cornerRadiusScale = 1.0,
+  }) {
     return TelegramThemeData(
       chatListBackground: TelegramColors.chatListBackgroundDark,
       chatListDivider: TelegramColors.elevatedSurfaceDark,
@@ -286,6 +296,7 @@ class TelegramThemeData extends ThemeExtension<TelegramThemeData> {
       bubbleIncomingText: TelegramColors.textPrimaryDark,
       accent: accentColor,
       isDesktopChatBackground: _isDesktopPlatform,
+      cornerRadiusScale: cornerRadiusScale,
     );
   }
 
@@ -319,6 +330,7 @@ class TelegramThemeData extends ThemeExtension<TelegramThemeData> {
     Color? bubbleIncomingText,
     Color? accent,
     bool? isDesktopChatBackground,
+    double? cornerRadiusScale,
   }) {
     return TelegramThemeData(
       chatListBackground: chatListBackground ?? this.chatListBackground,
@@ -344,6 +356,7 @@ class TelegramThemeData extends ThemeExtension<TelegramThemeData> {
       accent: accent ?? this.accent,
       isDesktopChatBackground:
           isDesktopChatBackground ?? this.isDesktopChatBackground,
+      cornerRadiusScale: cornerRadiusScale ?? this.cornerRadiusScale,
     );
   }
 
@@ -383,6 +396,8 @@ class TelegramThemeData extends ThemeExtension<TelegramThemeData> {
       isDesktopChatBackground: t < 0.5
           ? isDesktopChatBackground
           : other.isDesktopChatBackground,
+      cornerRadiusScale:
+          lerpDouble(cornerRadiusScale, other.cornerRadiusScale, t) ?? cornerRadiusScale,
     );
   }
 }
@@ -407,10 +422,20 @@ abstract final class TelegramTheme {
   static ThemeData build({
     required Brightness brightness,
     Color accentColor = TelegramColors.accent,
+    double cornerRadiusScale = 1.0,
+    String? fontFamily,
   }) {
     final telegram = brightness == Brightness.light
-        ? TelegramThemeData.light(accentColor: accentColor)
-        : TelegramThemeData.dark(accentColor: accentColor);
+        ? TelegramThemeData.light(
+            accentColor: accentColor,
+            cornerRadiusScale: cornerRadiusScale,
+          )
+        : TelegramThemeData.dark(
+            accentColor: accentColor,
+            cornerRadiusScale: cornerRadiusScale,
+          );
+
+    final scaled = (double value) => value * cornerRadiusScale;
 
     final colorScheme = ColorScheme(
       brightness: brightness,
@@ -437,6 +462,7 @@ abstract final class TelegramTheme {
       primary: telegram.textPrimary,
       secondary: telegram.textSecondary,
       time: telegram.textTime,
+      fontFamily: fontFamily,
     );
 
     final platformHighlight = switch (defaultTargetPlatform) {
@@ -458,7 +484,7 @@ abstract final class TelegramTheme {
       dividerColor: telegram.chatListDivider,
       textTheme: textTheme,
       primaryTextTheme: textTheme,
-      fontFamily: TelegramTypography.platformFontFamily,
+      fontFamily: fontFamily ?? TelegramTypography.platformFontFamily,
       extensions: [telegram],
       splashFactory: platformSplash,
       splashColor: Colors.transparent,
@@ -508,7 +534,7 @@ abstract final class TelegramTheme {
         color: telegram.bubbleIncoming,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(TelegramRadii.bubble),
+          borderRadius: BorderRadius.circular(scaled(TelegramRadii.bubble)),
         ),
         margin: EdgeInsets.zero,
       ),
@@ -519,7 +545,7 @@ abstract final class TelegramTheme {
           elevation: 0,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(TelegramRadii.buttonPill),
+            borderRadius: BorderRadius.circular(scaled(TelegramRadii.buttonPill)),
           ),
         ),
       ),
@@ -528,15 +554,15 @@ abstract final class TelegramTheme {
         fillColor: telegram.inputFieldBackground,
         hintStyle: TextStyle(color: telegram.textSecondary),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(TelegramRadii.inputField),
+          borderRadius: BorderRadius.circular(scaled(TelegramRadii.inputField)),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(TelegramRadii.inputField),
+          borderRadius: BorderRadius.circular(scaled(TelegramRadii.inputField)),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(TelegramRadii.inputField),
+          borderRadius: BorderRadius.circular(scaled(TelegramRadii.inputField)),
           borderSide: BorderSide(color: telegram.accent, width: 1),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -590,7 +616,7 @@ abstract final class TelegramTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(TelegramRadii.bubble),
+          borderRadius: BorderRadius.circular(scaled(TelegramRadii.bubble)),
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
@@ -598,7 +624,7 @@ abstract final class TelegramTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 4,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(TelegramRadii.buttonPill),
+          borderRadius: BorderRadius.circular(scaled(TelegramRadii.buttonPill)),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -609,7 +635,7 @@ abstract final class TelegramTheme {
         behavior: SnackBarBehavior.floating,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(TelegramRadii.buttonPill),
+          borderRadius: BorderRadius.circular(scaled(TelegramRadii.buttonPill)),
         ),
       ),
     );
@@ -648,4 +674,7 @@ extension TelegramThemeContext on BuildContext {
   TelegramThemeData get telegramTheme =>
       Theme.of(this).extension<TelegramThemeData>() ??
       TelegramThemeData.light();
+
+  double scaledTelegramRadius(double base) =>
+      base * telegramTheme.cornerRadiusScale;
 }

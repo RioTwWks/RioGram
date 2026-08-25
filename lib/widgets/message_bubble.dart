@@ -110,6 +110,7 @@ class MessageBubble extends StatelessWidget {
     final borderRadius = MessageBubbleGrouping.bubbleBorderRadius(
       isOutgoing: isOutgoing,
       position: groupPosition,
+      radiusScale: tg.cornerRadiusScale,
     );
     final hasTail = MessageBubbleGrouping.shouldShowTail(
       position: groupPosition,

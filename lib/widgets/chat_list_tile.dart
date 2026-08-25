@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../core/theme/telegram_theme.dart';
+import '../core/theme/ui_customization_manager.dart';
 import '../models/chat_models.dart';
+import '../models/ui_customization_models.dart';
 import 'chat_avatar.dart';
 
 /// Иконка типа чата в списке.
@@ -140,6 +143,11 @@ class ChatListTile extends StatelessWidget {
       fontWeight: chat.showsUnreadIndicator ? FontWeight.w600 : FontWeight.w400,
     );
 
+    final ui = context.watch<UiCustomizationManager>();
+    final showPinIcon = !ui.hideListIcons && isPinned;
+    final showMuteIcon = !ui.hideMuteIcons && chat.isMuted;
+    final showPreviewIcon = !ui.hideListIcons && previewParts.icon != null;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -173,7 +181,7 @@ class ChatListTile extends StatelessWidget {
                                 style: titleStyle,
                               ),
                             ),
-                            if (isPinned) ...[
+                            if (showPinIcon) ...[
                               Icon(
                                 Icons.push_pin,
                                 size: 14,
@@ -181,7 +189,7 @@ class ChatListTile extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                             ],
-                            if (chat.isMuted) ...[
+                            if (showMuteIcon) ...[
                               _MutedBellIcon(color: tg.textSecondary),
                               const SizedBox(width: 4),
                             ],
@@ -191,7 +199,7 @@ class ChatListTile extends StatelessWidget {
                           const SizedBox(height: 3),
                           Row(
                             children: [
-                              if (previewParts.icon != null) ...[
+                              if (showPreviewIcon) ...[
                                 Icon(
                                   previewParts.icon,
                                   size: 16,
@@ -473,52 +481,158 @@ class _UnreadBadge extends StatelessWidget {
   }
 }
 
-/// Свайп-действие «В архив» / «Из архива».
+/// Свайп-действия в списке чатов (§7.3).
 class ChatListDismissible extends StatelessWidget {
   const ChatListDismissible({
     super.key,
     required this.chat,
     required this.activeList,
     required this.child,
-    required this.onArchiveToggle,
+    required this.endToStartAction,
+    required this.startToEndAction,
+    this.onArchiveToggle,
+    this.onMuteToggle,
+    this.onDelete,
+    this.onMarkRead,
+    this.onPinToggle,
   });
 
   final ChatSummary chat;
   final ChatListKey activeList;
   final Widget child;
-  final VoidCallback onArchiveToggle;
+  final ChatSwipeAction endToStartAction;
+  final ChatSwipeAction startToEndAction;
+  final VoidCallback? onArchiveToggle;
+  final VoidCallback? onMuteToggle;
+  final VoidCallback? onDelete;
+  final VoidCallback? onMarkRead;
+  final VoidCallback? onPinToggle;
 
   @override
   Widget build(BuildContext context) {
+    final directions = <DismissDirection>[];
+    if (endToStartAction != ChatSwipeAction.none) {
+      directions.add(DismissDirection.endToStart);
+    }
+    if (startToEndAction != ChatSwipeAction.none) {
+      directions.add(DismissDirection.startToEnd);
+    }
+    if (directions.isEmpty) {
+      return child;
+    }
+
     final isArchive = activeList is ChatListArchive;
-    final label = isArchive ? 'Из архива' : 'В архив';
-    final icon = isArchive ? Icons.unarchive_outlined : Icons.archive_outlined;
-    final color = isArchive ? Colors.green : Colors.orange;
 
     return Dismissible(
       key: ValueKey('chat_swipe_${chat.id}_${activeList.storageId}'),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) async {
-        onArchiveToggle();
+      direction: directions.length == 1
+          ? directions.first
+          : DismissDirection.horizontal,
+      confirmDismiss: (direction) async {
+        final action = direction == DismissDirection.endToStart
+            ? endToStartAction
+            : startToEndAction;
+        _runAction(action, isArchive: isArchive);
         return false;
       },
-      background: Container(
+      background: _ChatSwipeBackground(
+        alignment: Alignment.centerLeft,
+        action: startToEndAction,
+        isArchive: isArchive,
+      ),
+      secondaryBackground: _ChatSwipeBackground(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: color,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+        action: endToStartAction,
+        isArchive: isArchive,
       ),
       child: child,
+    );
+  }
+
+  void _runAction(ChatSwipeAction action, {required bool isArchive}) {
+    switch (action) {
+      case ChatSwipeAction.none:
+        break;
+      case ChatSwipeAction.archive:
+        onArchiveToggle?.call();
+      case ChatSwipeAction.mute:
+        onMuteToggle?.call();
+      case ChatSwipeAction.delete:
+        onDelete?.call();
+      case ChatSwipeAction.markRead:
+        onMarkRead?.call();
+      case ChatSwipeAction.pin:
+        onPinToggle?.call();
+    }
+  }
+}
+
+class _ChatSwipeBackground extends StatelessWidget {
+  const _ChatSwipeBackground({
+    required this.alignment,
+    required this.action,
+    required this.isArchive,
+  });
+
+  final Alignment alignment;
+  final ChatSwipeAction action;
+  final bool isArchive;
+
+  @override
+  Widget build(BuildContext context) {
+    if (action == ChatSwipeAction.none) {
+      return const SizedBox.shrink();
+    }
+
+    final (icon, label, color) = switch (action) {
+      ChatSwipeAction.archive => (
+          isArchive ? Icons.unarchive_outlined : Icons.archive_outlined,
+          isArchive ? 'Из архива' : 'В архив',
+          isArchive ? Colors.green : Colors.orange,
+        ),
+      ChatSwipeAction.mute => (
+          Icons.notifications_off_outlined,
+          'Без звука',
+          Colors.blueGrey,
+        ),
+      ChatSwipeAction.delete => (
+          Icons.delete_outline,
+          'Удалить',
+          Colors.red,
+        ),
+      ChatSwipeAction.markRead => (
+          Icons.done_all,
+          'Прочитано',
+          Colors.blue,
+        ),
+      ChatSwipeAction.pin => (
+          Icons.push_pin,
+          'Закрепить',
+          Colors.purple,
+        ),
+      ChatSwipeAction.none => (Icons.block, '', Colors.grey),
+    };
+
+    return Container(
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      color: color,
+      child: Row(
+        mainAxisAlignment: alignment == Alignment.centerRight
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

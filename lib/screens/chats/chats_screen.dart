@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
-import '../../core/search/search_manager.dart';
+import '../../core/notifications/notification_settings_manager.dart';
+import '../../core/theme/ui_customization_manager.dart';
 import '../../core/theme/telegram_theme.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/empty_state.dart';
@@ -98,6 +99,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
     SearchManager searchManager,
     ProxyManager? proxy,
   ) {
+    final ui = context.watch<UiCustomizationManager>();
+
     return Scaffold(
       appBar: _mobileTabIndex == 0
           ? _buildAppBar(context, chatManager, proxy, showBack: false)
@@ -143,12 +146,14 @@ class _ChatsScreenState extends State<ChatsScreen> {
             showFolderTabs: true,
           ),
       },
-      bottomNavigationBar: MobileTabBar(
-        selectedIndex: _mobileTabIndex,
-        onDestinationSelected: (index) {
-          setState(() => _mobileTabIndex = index);
-        },
-      ),
+      bottomNavigationBar: ui.hideNavigationBar
+          ? null
+          : MobileTabBar(
+              selectedIndex: _mobileTabIndex,
+              onDestinationSelected: (index) {
+                setState(() => _mobileTabIndex = index);
+              },
+            ),
       floatingActionButton: _mobileTabIndex == 0
           ? FloatingActionButton(
               tooltip: 'Новое сообщение',
@@ -589,6 +594,8 @@ class _ChatsList extends StatelessWidget {
         .where((chat) => chat.kind != ChatKind.savedMessages)
         .toList();
     final activeList = chatManager.activeChatList;
+    final ui = context.watch<UiCustomizationManager>();
+    final notifications = context.read<NotificationSettingsManager>();
 
     if (chats.isEmpty && !showSavedMessagesShortcut) {
       return switch (activeList) {
@@ -637,7 +644,19 @@ class _ChatsList extends StatelessWidget {
         return ChatListDismissible(
           chat: chat,
           activeList: activeList,
+          endToStartAction: ui.chatSwipeEndToStart,
+          startToEndAction: ui.chatSwipeStartToEnd,
           onArchiveToggle: () => _toggleArchive(chatManager, chat.id),
+          onMuteToggle: () {
+            if (chat.isMuted) {
+              notifications.unmuteChat(chat.id);
+            } else {
+              notifications.muteChat(chat.id);
+            }
+          },
+          onDelete: () => chatManager.deleteChat(chat.id),
+          onMarkRead: () => _toggleUnread(chatManager, chat),
+          onPinToggle: () => _togglePin(chatManager, chat, activeList),
           child: ChatListTile(
             chat: chat,
             selected: selected,

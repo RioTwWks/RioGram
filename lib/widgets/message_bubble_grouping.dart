@@ -45,9 +45,10 @@ abstract final class MessageBubbleGrouping {
   static BorderRadius bubbleBorderRadius({
     required bool isOutgoing,
     required BubbleGroupPosition position,
+    double radiusScale = 1.0,
   }) {
-    final l = TelegramRadii.bubbleLarge;
-    final s = TelegramRadii.bubbleGrouped;
+    final l = TelegramRadii.bubbleLarge * radiusScale;
+    final s = TelegramRadii.bubbleGrouped * radiusScale;
     if (isOutgoing) {
       return switch (position) {
         BubbleGroupPosition.single => BorderRadius.circular(l),

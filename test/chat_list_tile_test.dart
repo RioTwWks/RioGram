@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
+import 'package:riogram/core/theme/ui_customization_manager.dart';
 import 'package:riogram/models/chat_models.dart';
 import 'package:riogram/widgets/chat_list_tile.dart';
 
@@ -41,9 +43,12 @@ void main() {
 
   group('ChatListTile', () {
     Widget wrap(Widget child) {
-      return MaterialApp(
-        theme: TelegramTheme.build(brightness: Brightness.light),
-        home: Scaffold(body: child),
+      return ChangeNotifierProvider(
+        create: (_) => UiCustomizationManager(),
+        child: MaterialApp(
+          theme: TelegramTheme.build(brightness: Brightness.light),
+          home: Scaffold(body: child),
+        ),
       );
     }
 

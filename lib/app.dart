@@ -33,6 +33,7 @@ import 'core/notifications/notification_service.dart';
 import 'core/proxy/proxy_manager.dart';
 import 'core/proxy/web_proxy_manager.dart';
 import 'core/theme/theme_manager.dart';
+import 'core/theme/ui_customization_manager.dart';
 import 'core/tdlib/tdlib_client.dart';
 import 'models/auth_models.dart';
 import 'screens/auth/code_screen.dart';
@@ -66,6 +67,7 @@ class _BootstrapScope extends StatefulWidget {
 }
 
 class _BootstrapScopeState extends State<_BootstrapScope> {
+  late final UiCustomizationManager _uiCustomizationManager;
   late final ThemeManager _themeManager;
   late final AppLockManager _appLockManager;
   late final AccountManager _accountManager;
@@ -75,7 +77,8 @@ class _BootstrapScopeState extends State<_BootstrapScope> {
   @override
   void initState() {
     super.initState();
-    _themeManager = ThemeManager();
+    _uiCustomizationManager = UiCustomizationManager();
+    _themeManager = ThemeManager(customization: _uiCustomizationManager);
     _appLockManager = AppLockManager();
     _accountManager = AccountManager(
       onAccountChanged: () {
@@ -88,6 +91,7 @@ class _BootstrapScopeState extends State<_BootstrapScope> {
   Future<void> _loadBootstrap() async {
     await Future.wait([
       _themeManager.load(),
+      _uiCustomizationManager.load(),
       _appLockManager.load(),
       _accountManager.load(),
     ]);
@@ -114,6 +118,9 @@ class _BootstrapScopeState extends State<_BootstrapScope> {
 
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<UiCustomizationManager>.value(
+          value: _uiCustomizationManager,
+        ),
         ChangeNotifierProvider<ThemeManager>.value(value: _themeManager),
         ChangeNotifierProvider<AppLockManager>.value(value: _appLockManager),
         ChangeNotifierProvider<AccountManager>.value(value: _accountManager),
