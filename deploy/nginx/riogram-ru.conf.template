@@ -1,6 +1,8 @@
 # RioGram RU frontend — Nginx + WSS (§8.4)
 # Install: scripts/setup-web-infra-ru.sh
-# Placeholders: __RIOGRAM_DOMAIN__
+# Placeholders: __RIOGRAM_DOMAIN__, __RIOGRAM_HTTPS_PORT__, __RIOGRAM_HTTPS_PORT_SUFFIX__
+# Default HTTPS port is 443; use e.g. 16443 when :443 is already occupied.
+# Browser URL: https://domain__RIOGRAM_HTTPS_PORT_SUFFIX__/
 
 map $http_upgrade $connection_upgrade {
     default upgrade;
@@ -22,16 +24,17 @@ server {
     }
 
     location / {
-        return 301 https://$host$request_uri;
+        return 301 https://$host__RIOGRAM_HTTPS_PORT_SUFFIX__$request_uri;
     }
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen __RIOGRAM_HTTPS_PORT__ ssl http2;
+    listen [::]:__RIOGRAM_HTTPS_PORT__ ssl http2;
     server_name __RIOGRAM_DOMAIN__;
 
-    # Certbot fills these paths after: certbot --nginx -d __RIOGRAM_DOMAIN__
+    # Prefer: certbot certonly --webroot -w /var/www/certbot -d __RIOGRAM_DOMAIN__
+    # (works with non-443 HTTPS listen). For :443 only, certbot --nginx also works.
     ssl_certificate     /etc/letsencrypt/live/__RIOGRAM_DOMAIN__/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/__RIOGRAM_DOMAIN__/privatekey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;

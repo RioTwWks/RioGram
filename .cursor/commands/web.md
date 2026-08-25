@@ -52,4 +52,4 @@ WSS_STABILITY_SECONDS=30 ./scripts/run-web-e2e.sh
 | EU | `127.0.0.1:8080` | nginx aggregator (static + WSS) |
 | EU | `/opt/riogram/web` | Flutter static |
 | RU | `127.0.0.1:8080` | SSH tunnel → EU `:8080` |
-| RU | `:443` | Nginx TLS → tunnel |
+| RU | `:443` / `RIOGRAM_HTTPS_PORT` | Nginx TLS → tunnel |

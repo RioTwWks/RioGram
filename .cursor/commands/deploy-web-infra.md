@@ -21,11 +21,16 @@ sudo ./deploy/ufw/riogram-eu.sh
 ## RU frontend
 
 ```bash
+# HTTPS :443 (default) или другой порт, если 443 занят:
 sudo RIOGRAM_DOMAIN=your-domain.ru ./scripts/setup-web-infra-ru.sh
+# sudo RIOGRAM_DOMAIN=your-domain.ru RIOGRAM_HTTPS_PORT=16443 ./scripts/setup-web-infra-ru.sh
+
 # EU pubkey → /var/lib/riogram-tunnel/.ssh/authorized_keys
-sudo certbot --nginx -d your-domain.ru
+sudo certbot certonly --webroot -w /var/www/certbot -d your-domain.ru
+sudo nginx -t && sudo systemctl reload nginx
 sudo ./deploy/ufw/riogram-ru.sh
 ./scripts/verify-web-tunnel.sh
+# Открыть https://domain/ или https://domain:16443/ ; WSS base: wss://domain[:port]
 ```
 
 ## Локальная проверка EU stack
