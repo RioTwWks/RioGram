@@ -10,6 +10,12 @@ import '../../core/call/group_call_manager.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../core/secret/secret_chat_manager.dart';
 import '../../core/user/profile_manager.dart';
+import '../../widgets/scroll_to_bottom_button.dart';
+import '../../widgets/message_bubble_grouping.dart';
+import '../../widgets/date_separator.dart';
+import '../../widgets/chat_app_bar_title.dart';
+import '../../models/secret_chat_models.dart';
+import '../../core/theme/telegram_theme.dart';
 import '../../models/bot_models.dart';
 import '../../models/message_enrichment.dart';
 import '../../models/call_models.dart';
@@ -28,7 +34,6 @@ import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
 import '../../widgets/poll_message_body.dart';
-import '../../widgets/user_status_subtitle.dart';
 import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
 import 'chat_message_search_screen.dart';
@@ -65,6 +70,10 @@ class _ChatScreenState extends State<ChatScreen> {
   var _isSubscribing = false;
   BotManager? _botManager;
   int _lastShownInlineQueryId = 0;
+  static const _scrollBottomThreshold = 80.0;
+  int _lastMessageCount = 0;
+  int _newMessagesBelow = 0;
+  bool _initialScrollDone = false;
 
   @override
   void initState() {
@@ -92,6 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _loadSecretChatState(manager);
     });
     _controller.addListener(_onTextChanged);
+    _scrollController.addListener(_onScroll);
   }
 
   void _loadSecretChatState(ChatManager chatManager) {
@@ -787,17 +797,58 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _scrollToBottom() {
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+    final pos = _scrollController.position;
+    return pos.maxScrollExtent - pos.pixels < _scrollBottomThreshold;
+  }
+  void _onScroll() {
+    if (_isNearBottom() && _newMessagesBelow > 0) setState(() => _newMessagesBelow = 0);
+  }
+  void _handleMessageCountChange(int count) {
+    if (count == 0) { _lastMessageCount = 0; _initialScrollDone = false; return; }
+    if (!_initialScrollDone) { _initialScrollDone = true; _lastMessageCount = count; _scrollToBottom(); return; }
+    if (count > _lastMessageCount) {
+      if (_isNearBottom()) _scrollToBottom();
+      else setState(() => _newMessagesBelow += count - _lastMessageCount);
+    }
+    _lastMessageCount = count;
+  }
+  void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) {
-        return;
-      }
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
+      if (!_scrollController.hasClients) return;
+      final t = _scrollController.position.maxScrollExtent;
+      if (animated) _scrollController.animateTo(t, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+      else _scrollController.jumpTo(t);
+      if (_newMessagesBelow > 0) setState(() => _newMessagesBelow = 0);
     });
+  }
+  void _openChatInfo() {
+    TelegramRoutes.push(context, ChatInfoScreen(chatId: widget.chatId));
+  }
+  void _openChatMenu() {
+    showModalBottomSheet<void>(context: context, builder: (ctx) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      ListTile(leading: const Icon(Icons.info_outline), title: const Text('Информация о чате'), onTap: () { Navigator.pop(ctx); _openChatInfo(); }),
+      ListTile(leading: const Icon(Icons.search), title: const Text('Поиск в чате'), onTap: () {
+        Navigator.pop(ctx);
+        final chat = context.read<ChatManager>().activeChat;
+        TelegramRoutes.push(context, ChatMessageSearchScreen(chatId: widget.chatId, chatTitle: chat?.title, forumTopicId: widget.forumTopicId));
+      }),
+    ])));
+  }
+  Widget? _buildAppBarKindSubtitle({required bool isSecretChat, required bool isBotChat, required ChatSummary? chat, required SecretChatSummary? secretChat}) {
+    if (isSecretChat) return ChatAppBarKindSubtitle(icon: Icons.lock, label: secretChat?.isReady == true ? 'E2E шифрование' : 'Секретный чат');
+    if (isBotChat) return const ChatAppBarKindSubtitle(icon: Icons.smart_toy_outlined, label: 'Бот');
+    if (widget.forumTopicId != null && chat != null) return ChatAppBarKindSubtitle(icon: Icons.forum_outlined, label: chat.title);
+    return null;
+  }
+  List<ChatMessage>? _albumMessagesFor(List<ChatMessageListItem> items, ChatMessage m) {
+    for (final item in items) {
+      if (item is AlbumChatMessageItem && item.albumMessages.any((x) => x.id == m.id)) {
+        return item.albumMessages.length > 1 ? item.albumMessages : null;
+      }
+    }
+    return null;
   }
 
   Future<void> _openComments(ChatMessage message) async {
@@ -887,87 +938,28 @@ class _ChatScreenState extends State<ChatScreen> {
         (chat?.kind == ChatKind.group || chat?.kind == ChatKind.channel) &&
         chatManager.canSendInActiveChat;
 
-    if (messages.isNotEmpty) {
-      _scrollToBottom();
-    }
+    _handleMessageCountChange(messages.length);
+
+    final tg = context.telegramTheme;
+    final listEntries = MessageBubbleGrouping.buildListEntries(messages: messages, showSenderNamesInGroups: showSenderName);
 
     return Scaffold(
+      backgroundColor: tg.chatBackground,
       appBar: AppBar(
+        backgroundColor: tg.chatListBackground,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: tg.textPrimary,
+        iconTheme: IconThemeData(color: tg.accent),
         title: selectionMode
-            ? Text('Выбрано: ${chatManager.selectedMessageCount}')
-            : InkWell(
-                onTap: widget.forumTopicId == null
-                    ? () {
-                        TelegramRoutes.push(context, ChatInfoScreen(chatId: widget.chatId));
-                      }
-                    : null,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.forumTopicName ??
-                          chat?.title ??
-                          'Чат',
-                    ),
-                    if (isSecretChat)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.lock,
-                            size: 14,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            secretChat?.isReady == true
-                                ? 'E2E шифрование'
-                                : 'Секретный чат',
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ],
-                      )
-                    else if (isBotChat)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.smart_toy_outlined,
-                            size: 14,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Бот',
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ],
-                      )
-                    else if (widget.forumTopicId != null && chat != null)
-                      Text(
-                        chat.title,
-                        style: Theme.of(context).textTheme.labelSmall,
-                      )
-                    else if (privateUser != null)
-                      UserStatusSubtitle(status: privateUser.status),
-                  ],
-                ),
+            ? Text('Выбрано: ${chatManager.selectedMessageCount}', style: TextStyle(color: tg.textPrimary))
+            : ChatAppBarTitle(
+                title: widget.forumTopicName ?? chat?.title ?? 'Чат',
+                avatarLocalPath: chat?.avatarLocalPath,
+                userStatus: privateUser?.status,
+                typingStatus: typing != null && !selectionMode && editing == null ? typing : null,
+                subtitle: _buildAppBarKindSubtitle(isSecretChat: isSecretChat, isBotChat: isBotChat, chat: chat, secretChat: secretChat),
+                onTap: widget.forumTopicId == null ? _openChatInfo : null,
               ),
-        leading: selectionMode
-            ? IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: chatManager.exitSelectionMode,
-              )
-            : widget.forumTopicId != null
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () {
-                      if (widget.onBackToTopics != null) {
-                        widget.onBackToTopics!();
-                      } else {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  )
-                : null,
         automaticallyImplyLeading:
             !selectionMode && widget.forumTopicId == null,
         actions: [
@@ -1006,11 +998,9 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           if (!selectionMode && widget.forumTopicId == null)
             IconButton(
-              tooltip: 'Информация',
-              icon: const Icon(Icons.info_outline),
-              onPressed: () {
-                TelegramRoutes.push(context, ChatInfoScreen(chatId: widget.chatId));
-              },
+              tooltip: 'Меню',
+              icon: const Icon(Icons.more_vert),
+              onPressed: _openChatMenu,
             ),
           if (selectionMode) ...[
             IconButton(
@@ -1031,21 +1021,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ],
-        bottom: typing != null && !selectionMode && editing == null
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(24),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 16, bottom: 8),
-                    child: Text(
-                      typing,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                ),
-              )
-            : null,
       ),
       body: Column(
         children: [
@@ -1068,22 +1043,23 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         ),
                       )
-                    : listItems.isEmpty
+                    : listEntries.isEmpty
                         ? const Center(child: Text('Нет сообщений'))
-                        : ListView.builder(
+                        : Stack(children: [ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: listItems.length,
+                            itemCount: listEntries.length,
                             itemBuilder: (context, index) {
-                              final item = listItems[index];
-                              final message = item.primary;
-                              final album = item is AlbumChatMessageItem
-                                  ? item.albumMessages
-                                  : null;
+                              final entry = listEntries[index];
+                              if (entry is ChatListDateEntry) return DateSeparator(date: entry.date);
+                              final msgEntry = entry as ChatListMessageEntry;
+                              final message = msgEntry.message;
+                              final album = _albumMessagesFor(listItems, message);
                               return MessageBubble(
                                 message: message,
                                 albumMessages: album,
-                                showSenderName: showSenderName,
+                                groupPosition: msgEntry.groupPosition,
+                                showSenderName: msgEntry.showSenderName,
                                 replyPreview:
                                     chatManager.replyPreviewFor(message),
                                 selectionMode: selectionMode,
@@ -1141,7 +1117,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     chatManager.activeLiveLocationMessageId,
                               );
                             },
-                          ),
+                          ), if (_newMessagesBelow > 0) Positioned(bottom: 12, left: 0, right: 0, child: Center(child: ScrollToBottomButton(newMessageCount: _newMessagesBelow, onPressed: () => _scrollToBottom()))), ],),
           ),
           if (!selectionMode) ...[
             if (showReadOnlyBar)

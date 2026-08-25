@@ -96,12 +96,31 @@ class MessageBubble extends StatelessWidget {
       );
     }
 
-    final theme = Theme.of(context);
     final tg = context.telegramTheme;
-    final time = DateFormat.Hm().format(message.date);
+    final isOutgoing = message.isOutgoing;
     final alignment =
-        message.isOutgoing ? Alignment.centerRight : Alignment.centerLeft;
-    final color = message.isOutgoing ? tg.bubbleOutgoing : tg.bubbleIncoming;
+        isOutgoing ? Alignment.centerRight : Alignment.centerLeft;
+    final bubbleColor = isOutgoing ? tg.bubbleOutgoing : tg.bubbleIncoming;
+    final borderRadius = MessageBubbleGrouping.bubbleBorderRadius(
+      isOutgoing: isOutgoing,
+      position: groupPosition,
+    );
+    final hasTail = MessageBubbleGrouping.shouldShowTail(
+      position: groupPosition,
+      showTail: showTail,
+    );
+    final topMargin = groupPosition == BubbleGroupPosition.middle ||
+            groupPosition == BubbleGroupPosition.last
+        ? 2.0
+        : 6.0;
+    final bottomMargin = groupPosition == BubbleGroupPosition.first ||
+            groupPosition == BubbleGroupPosition.middle
+        ? 0.0
+        : 6.0;
+    final senderColor = MessageBubbleGrouping.senderNameColor(
+      message.senderUserId,
+      tg.accent,
+    );
 
     return Align(
       alignment: alignment,
@@ -112,140 +131,131 @@ class MessageBubble extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           onLongPress: onLongPress,
-          child: Card(
-            elevation: 0,
-            shadowColor: Colors.transparent,
-            color: isSelected
-                ? tg.accent.withValues(alpha: 0.25)
-                : color,
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(TelegramRadii.bubble),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (selectionMode)
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Icon(
-                        isSelected
-                            ? Icons.check_circle
-                            : Icons.radio_button_unchecked,
-                        size: 18,
-                        color: theme.colorScheme.primary,
+          child: Padding(
+            padding: EdgeInsets.only(
+                left: 8, right: 8, top: topMargin, bottom: bottomMargin),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (!isOutgoing && hasTail)
+                  _BubbleTail(isOutgoing: false, color: bubbleColor),
+                Flexible(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? tg.accent.withValues(alpha: 0.25)
+                          : bubbleColor,
+                      borderRadius: borderRadius,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: borderRadius,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (selectionMode)
+                              Align(
+                                alignment: Alignment.topRight,
+                                child: Icon(
+                                  isSelected
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                  size: 18,
+                                  color: tg.accent,
+                                ),
+                              ),
+                            if (message.forwardInfo != null)
+                              _ForwardHeader(
+                                  info: message.forwardInfo!,
+                                  accent: tg.accent),
+                            if (message.replyTo != null)
+                              _ReplyQuote(
+                                reply: message.replyTo!,
+                                preview: replyPreview,
+                                accent: tg.accent,
+                                textSecondary: tg.textSecondary,
+                              ),
+                            if (showSenderName && message.senderName != null)
+                              Text(
+                                message.senderName!,
+                                style: TextStyle(
+                                  fontSize: TelegramFontSizes.chatSubtitle,
+                                  fontWeight: FontWeight.w600,
+                                  color: senderColor,
+                                ),
+                              ),
+                            if (showSenderName && message.senderName != null)
+                              const SizedBox(height: 4),
+                            _MessageBody(
+                              message: message,
+                              albumMessages: albumMessages,
+                              onPollVote: onPollVote,
+                              onMediaTap: onMediaTap,
+                              activeLiveLocationMessageId:
+                                  activeLiveLocationMessageId,
+                            ),
+                            if (message.fileTransfer != null &&
+                                message.fileTransfer!.isActive)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: FileTransferProgressBar(
+                                  transfer: message.fileTransfer!,
+                                  onCancel: onCancelTransfer,
+                                ),
+                              ),
+                            if (message.reactions.isNotEmpty ||
+                                onAddReaction != null) ...[
+                              const SizedBox(height: 6),
+                              MessageReactionsRow(
+                                reactions: message.reactions,
+                                onReactionTap: onReactionTap,
+                                onAddReaction: onAddReaction,
+                              ),
+                            ],
+                            if (showComments && onCommentsTap != null) ...[
+                              const SizedBox(height: 6),
+                              Align(
+                                alignment: isOutgoing
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                                child: TextButton.icon(
+                                  onPressed: onCommentsTap,
+                                  icon: const Icon(
+                                      Icons.chat_bubble_outline, size: 18),
+                                  label: Text(message.replyCount > 0
+                                      ? '${message.replyCount} коммент.'
+                                      : 'Комментарии'),
+                                ),
+                              ),
+                            ],
+                            if (message.inlineKeyboard.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              InlineKeyboardWidget(
+                                rows: message.inlineKeyboard,
+                                onCallbackTap: onInlineButtonTap,
+                                onWebAppTap:
+                                    onInlineWebAppTap ?? onInlineButtonTap,
+                                onSwitchInlineTap: onInlineSwitchTap,
+                              ),
+                            ],
+                            const SizedBox(height: 2),
+                            _BubbleMetaRow(
+                              message: message,
+                              showViewCount: showViewCount,
+                              timeColor: tg.textTime,
+                              accent: tg.accent,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  if (message.forwardInfo != null)
-                    _ForwardHeader(info: message.forwardInfo!),
-                  if (message.replyTo != null)
-                    _ReplyQuote(
-                      reply: message.replyTo!,
-                      preview: replyPreview,
-                    ),
-                  if (showSenderName &&
-                      !message.isOutgoing &&
-                      message.senderName != null) ...[
-                    Text(
-                      message.senderName!,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  _MessageBody(
-                    message: message,
-                    albumMessages: albumMessages,
-                    onPollVote: onPollVote,
-                    onMediaTap: onMediaTap,
-                    activeLiveLocationMessageId: activeLiveLocationMessageId,
                   ),
-                  if (message.fileTransfer != null &&
-                      message.fileTransfer!.isActive)
-                    FileTransferProgressBar(
-                      transfer: message.fileTransfer!,
-                      onCancel: onCancelTransfer,
-                    ),
-                  if (message.reactions.isNotEmpty || onAddReaction != null) ...[
-                    const SizedBox(height: 8),
-                    MessageReactionsRow(
-                      reactions: message.reactions,
-                      onReactionTap: onReactionTap,
-                      onAddReaction: onAddReaction,
-                    ),
-                  ],
-                  if (showComments && onCommentsTap != null) ...[
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: message.isOutgoing
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: onCommentsTap,
-                        icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                        label: Text(
-                          message.replyCount > 0
-                              ? '${message.replyCount} коммент.'
-                              : 'Комментарии',
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (message.inlineKeyboard.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    InlineKeyboardWidget(
-                      rows: message.inlineKeyboard,
-                      onCallbackTap: onInlineButtonTap,
-                      onWebAppTap: onInlineWebAppTap ?? onInlineButtonTap,
-                      onSwitchInlineTap: onInlineSwitchTap,
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showViewCount &&
-                          (message.interactionInfo?.viewCount ?? 0) > 0) ...[
-                        MessageViewCountLabel(
-                          viewCount: message.interactionInfo!.viewCount,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      if (message.schedulingInfo != null) ...[
-                        Icon(
-                          Icons.schedule,
-                          size: 14,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
-                      ],
-                      if (message.isEdited) ...[
-                        Text(
-                          'изменено',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontStyle: FontStyle.italic,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      Text(
-                        time,
-                        style: theme.textTheme.labelSmall,
-                      ),
-                      if (message.isOutgoing &&
-                          message.deliveryStatus != null) ...[
-                        const SizedBox(width: 4),
-                        MessageDeliveryIcon(status: message.deliveryStatus!),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
+                ),
+                if (isOutgoing && hasTail)
+                  _BubbleTail(isOutgoing: true, color: bubbleColor),
+              ],
             ),
           ),
         ),
@@ -254,20 +264,110 @@ class MessageBubble extends StatelessWidget {
   }
 }
 
+class _BubbleTail extends StatelessWidget {
+  const _BubbleTail({required this.isOutgoing, required this.color});
+  final bool isOutgoing;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+        size: const Size(6, 10),
+        painter: _BubbleTailPainter(isOutgoing: isOutgoing, color: color),
+      );
+}
+
+class _BubbleTailPainter extends CustomPainter {
+  _BubbleTailPainter({required this.isOutgoing, required this.color});
+  final bool isOutgoing;
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path();
+    if (isOutgoing) {
+      path.moveTo(0, 0);
+      path.lineTo(size.width, size.height * 0.35);
+      path.lineTo(0, size.height);
+    } else {
+      path.moveTo(size.width, 0);
+      path.lineTo(0, size.height * 0.35);
+      path.lineTo(size.width, size.height);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+  @override
+  bool shouldRepaint(covariant _BubbleTailPainter o) =>
+      o.color != color || o.isOutgoing != isOutgoing;
+}
+
+class _BubbleMetaRow extends StatelessWidget {
+  const _BubbleMetaRow({
+    required this.message,
+    required this.showViewCount,
+    required this.timeColor,
+    required this.accent,
+  });
+  final ChatMessage message;
+  final bool showViewCount;
+  final Color timeColor;
+  final Color accent;
+  @override
+  Widget build(BuildContext context) {
+    final time = DateFormat.Hm().format(message.date);
+    final meta = TextStyle(
+        fontSize: TelegramFontSizes.bubbleMeta, color: timeColor);
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showViewCount &&
+              (message.interactionInfo?.viewCount ?? 0) > 0) ...[
+            MessageViewCountLabel(
+                viewCount: message.interactionInfo!.viewCount),
+            const SizedBox(width: 6),
+          ],
+          if (message.schedulingInfo != null) ...[
+            Icon(Icons.schedule, size: 12, color: timeColor),
+            const SizedBox(width: 3),
+          ],
+          if (message.isEdited) ...[
+            Text('изменено',
+                style: meta.copyWith(fontStyle: FontStyle.italic)),
+            const SizedBox(width: 4),
+          ],
+          Text(time, style: meta),
+          if (message.isOutgoing && message.deliveryStatus != null) ...[
+            const SizedBox(width: 3),
+            MessageDeliveryIcon(
+              status: message.deliveryStatus!,
+              size: 12,
+              readColor: accent,
+              defaultColor: timeColor,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ForwardHeader extends StatelessWidget {
-  const _ForwardHeader({required this.info});
+  const _ForwardHeader({required this.info, required this.accent});
 
   final MessageForwardInfo info;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         info.isHiddenOrigin ? 'Переслано' : 'Переслано от ${info.originLabel}',
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.primary,
+        style: TextStyle(
+          fontSize: TelegramFontSizes.chatSubtitle,
+          fontWeight: FontWeight.w600,
+          color: accent,
         ),
       ),
     );
@@ -278,23 +378,23 @@ class _ReplyQuote extends StatelessWidget {
   const _ReplyQuote({
     required this.reply,
     this.preview,
+    required this.accent,
+    required this.textSecondary,
   });
 
   final MessageReplyInfo reply;
   final String? preview;
+  final Color accent;
+  final Color textSecondary;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
       decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: theme.colorScheme.primary, width: 3),
-        ),
-        color: theme.colorScheme.surface.withValues(alpha: 0.4),
+        border: Border(left: BorderSide(color: accent, width: 2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,15 +402,20 @@ class _ReplyQuote extends StatelessWidget {
           if (reply.authorName != null)
             Text(
               reply.authorName!,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.primary,
+              style: TextStyle(
+                fontSize: TelegramFontSizes.chatSubtitle,
+                fontWeight: FontWeight.w600,
+                color: accent,
               ),
             ),
           Text(
             preview ?? reply.preview,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall,
+            style: TextStyle(
+              fontSize: TelegramFontSizes.preview,
+              color: textSecondary,
+            ),
           ),
         ],
       ),
