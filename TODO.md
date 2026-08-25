@@ -549,7 +549,7 @@ MVP — прочный фундамент. Ниже — направления, 
 - [x] Поддержать настройку адреса WSS-прокси в клиенте (например `wss://your-proxy-domain.ru/`) — `WebSocketProxyPreferences`, `WebProxyManager`
 - [x] Добавить в UI настройки поле для WebSocket-прокси (аналог экрана прокси, но для Web) — `WebSocketProxySettings`
 - [x] Обеспечить автоматическое переподключение при обрыве WSS-соединения — `WebProxyManager._scheduleReconnect()`
-- [ ] Собрать и подключить tdweb WASM (`td/example/web`) для полной авторизации в браузере
+- [x] Собрать и подключить tdweb WASM (`td/example/web`) для полной авторизации в браузере — `./scripts/build-tdweb.sh`, `./scripts/copy-tdweb.sh`, `web/index.html`
 
 ### 8.3. Web-прокси (серверная часть)
 

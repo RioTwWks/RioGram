@@ -114,6 +114,9 @@ unlinked_spec.ds
 **/linux/flutter/generated_plugin_registrant.h
 **/linux/flutter/generated_plugins.cmake
 
+# tdweb WASM (собирается ./scripts/build-tdweb.sh, не коммитить)
+web/tdweb/
+
 # TDLib native libs (собираются локально / в CI, не коммитить)
 linux/runner/libtdjson.so
 windows/runner/tdjson.dll

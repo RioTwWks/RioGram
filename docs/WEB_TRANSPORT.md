@@ -55,20 +55,52 @@ wss://venus.web.telegram.org/apiws
 
 ## Подключение tdweb
 
-TDLib для браузера собирается через Emscripten:
+TDLib для браузера собирается через Emscripten (upstream: `td/example/web/`).
+
+### Требования
+
+| Компонент | Версия |
+|-----------|--------|
+| emsdk | **3.1.1** (не системный emscripten) |
+| cmake, gperf, perl, php-cli | см. `scripts/install-linux-build-deps.sh` |
+| node/npm | для webpack (`build-tdweb.sh`) |
+
+> **Примечание:** шаг `build-tdlib.sh` генерирует исходники через системный cmake.
+> Если `c++` — clang без libstdc++, задайте `CC=gcc CXX=g++` (скрипт `build-tdweb.sh` делает это автоматически).
 
 ```bash
-cd td/example/web
-# см. README: emsdk 3.1.1, build-openssl.sh, build-tdlib.sh, build-tdweb.sh
-./build-tdweb.sh
-cp -r tdweb/dist/* ../../web/tdweb/
+# Установка emsdk (один раз)
+git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+cd ~/emsdk && ./emsdk install 3.1.1 && ./emsdk activate 3.1.1
+source ~/emsdk/emsdk_env.sh
 ```
 
-Раскомментируйте в `web/index.html`:
+### Сборка
+
+```bash
+./scripts/build-tdweb.sh   # openssl → tdlib wasm → webpack (~30+ мин)
+./scripts/copy-tdweb.sh    # td/example/web/tdweb/dist → web/tdweb/
+```
+
+Скрипт `build-tdweb.sh` вызывает upstream-цепочку:
+
+1. `build-openssl.sh` — OpenSSL 1.1.0l для Emscripten
+2. `build-tdlib.sh` — `td_wasm.js` + `td_wasm.wasm`
+3. `copy-tdlib.sh` → `tdweb/src/prebuilt/release/`
+4. `build-tdweb.sh` — webpack → `tdweb/dist/tdweb.js`
+
+### Подключение в index.html
 
 ```html
+<script src="js/wss_proxy_hook.js"></script>
 <script src="tdweb/tdweb.js"></script>
+<script src="js/tdlib_bridge.js"></script>
 ```
+
+Webpack экспортирует UMD-библиотеку `window.tdweb` (default = `TdClient`).
+`tdlib_bridge.js` резолвит класс через `window.tdweb.default || window.tdweb`.
+
+Артефакты `web/tdweb/` в `.gitignore` — собираются локально или в CI.
 
 Без tdweb приложение покажет ошибку при инициализации TDLib, но **WSS hook и настройки работают** (можно тестировать rewrite в UI).
 
