@@ -175,6 +175,19 @@ flutter build ios --release --no-codesign
 
 ---
 
+## Upstream TDLib (§7.7)
+
+Форк в `td/` основан на версии из [`td/upstream-base.json`](../td/upstream-base.json). После обновления upstream пересоберите библиотеку и обновите manifest.
+
+```bash
+./scripts/check-tdlib-upstream.sh          # есть ли новая версия
+flutter test test/tdlib_upstream_manifest_test.dart
+```
+
+Чеклист merge: [TDLIB_UPSTREAM_SYNC.md](TDLIB_UPSTREAM_SYNC.md) · патчи: [TDLIB_PATCHES.md](TDLIB_PATCHES.md)
+
+---
+
 ## GitHub Actions
 
 | Workflow | Назначение |

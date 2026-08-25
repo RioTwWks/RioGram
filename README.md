@@ -15,13 +15,14 @@
 - **Автоматический failover** между PhantomProxy и StealthGate
 - **Экран настроек прокси** с ручным тестом и переключением
 
-### Клиент Telegram (MVP + §6.2)
-- Авторизация по номеру, 2FA, список чатов, текст/фото/файлы
-- **Список чатов:** pin, архив, папки, mute, черновики, типы чатов
-- **Поиск** по чатам и сообщениям, удаление/очистка, «непрочитанное»
-- **Desktop:** master-detail (≥720px), три колонки (≥840px), горячие клавиши
+### Клиент Telegram
 
-Поддерживаемые платформы: Windows, macOS, Linux, Android, iOS.
+- Авторизация, 2FA, список чатов, сообщения, медиа, группы, звонки
+- **Список чатов (§6.2):** pin, архив, папки, mute, поиск, desktop layout
+- **RioGram §7:** призрачный режим, анти-отзыв, Local Premium, AdBlock, Mini Apps, LaTeX, плагины
+- **Дизайн §9:** классический вид Telegram (`TelegramTheme`)
+
+Поддерживаемые платформы: Windows, macOS, Linux, Android, iOS, Web (WSS + tdweb).
 
 ## Этапы MVP
 
@@ -29,10 +30,12 @@ Flutter + TDLib + авторизация ✅
 DPI-патчи в TDLib ✅  
 Прокси и failover ✅  
 UI, чаты, темы, уведомления ✅  
-§6.2 Список чатов и организация ✅  
-Сборка на всех платформах (CI + Release + docs) ✅  
+§6.2 Список чатов ✅  
+§7.3–§7.7 (кастомизация, безопасность, интеграции, плагины, upstream sync) ✅  
+§8 Web (WSS transport, E2E) ✅  
+Сборка на всех платформах (CI + Release) ✅  
 
-Дальнейший паритет с Telegram — [TODO.md](TODO.md) §6.3+.
+Дальше: функциональный паритет §6.3+, pixel parity §9.11 — [TODO.md](TODO.md).
 
 ## Быстрый старт
 
@@ -55,6 +58,9 @@ flutter run -d linux
 - [Список чатов (§6.2)](docs/CHATS.md)
 - [Настройка прокси](docs/PROXY.md)
 - [Патчи TDLib (DPI)](docs/TDLIB_PATCHES.md)
+- [Синхронизация с upstream TDLib (§7.7)](docs/TDLIB_UPSTREAM_SYNC.md)
+- [Плагины (§7.6)](docs/PLUGINS.md)
+- [Web-платформа (§8)](docs/WEB.md)
 - [CI/CD и релизы](docs/CI.md)
 - [Секреты для GitHub Actions](docs/SECRETS.md)
 - [Сборка на всех платформах](docs/BUILD.md)
@@ -68,21 +74,19 @@ flutter run -d linux
 lib/
 ├── core/
 │   ├── config/       # AppConfig из .env
-│   ├── tdlib/        # FFI-обёртка libtdjson
+│   ├── tdlib/        # FFI / Web tdlib client
 │   ├── auth/         # AuthManager
-│   ├── chat/         # ChatManager, TdlibChatParser
-│   ├── proxy/        # ProxyManager, failover
-│   ├── theme/        # ThemeManager
+│   ├── chat/         # ChatManager, parsers, LaTeX
+│   ├── proxy/        # ProxyManager, WebProxyManager
+│   ├── plugins/      # PluginManager, RioGramPlugin API
+│   ├── theme/        # TelegramTheme, ThemeManager
+│   ├── privacy/      # SecurityPrivacyManager
 │   └── notifications/
-├── screens/
-│   ├── auth/         # Вход
-│   ├── chats/        # ChatsScreen (адаптивный layout)
-│   ├── chat/         # Переписка
-│   └── settings/     # Настройки прокси и темы
-├── widgets/          # ChatListTile, ChatFolderSidebar, …
-└── models/           # chat_models, auth_models, proxy_models
-td/                   # Модифицированный TDLib
-scripts/              # Сборка TDLib
+├── screens/          # auth, chats, chat, settings
+├── widgets/
+└── models/
+td/                   # Модифицированный TDLib + upstream-base.json
+scripts/              # build-tdlib, check-tdlib-upstream, CI helpers
 docs/                 # Документация (RU)
 .cursor/              # Правила и команды Cursor
 ```

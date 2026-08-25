@@ -4,7 +4,9 @@ command: Запустить локальные проверки CI (Flutter)
 
 # CI — локальный запуск
 
-Повторяет job **flutter** из `.github/workflows/ci.yml`.
+Повторяет jobs из `.github/workflows/ci.yml`.
+
+## Flutter (job flutter)
 
 ```bash
 ./scripts/ci-flutter.sh
@@ -40,6 +42,19 @@ test -f td/build/install/lib/libtdjson.so && echo OK
 WSS_STABILITY_SECONDS=30 ./scripts/run-web-e2e.sh
 ```
 
-Подробнее: [docs/CI.md](../../docs/CI.md), [docs/WEB_E2E.md](../../docs/WEB_E2E.md)
+## TDLib upstream (workflow tdlib-upstream-sync)
 
-Web-деплой: [@web](web.md) · Релизные сборки: [@release](release.md)
+Не входит в PR CI, но можно проверить локально:
+
+```bash
+./scripts/check-tdlib-upstream.sh
+flutter test test/tdlib_upstream_manifest_test.dart
+```
+
+Подробнее: [@tdlib-upstream](tdlib-upstream.md)
+
+---
+
+Документация: [docs/CI.md](../../docs/CI.md), [docs/WEB_E2E.md](../../docs/WEB_E2E.md)
+
+Связанные команды: [@web](web.md) · [@release](release.md) · [@build-tdlib](build-tdlib.md)

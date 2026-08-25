@@ -1,6 +1,6 @@
-# Контекст проекта — RioGram MVP
+# Контекст проекта — RioGram
 
-**Название:** RioGram
+**Название:** RioGram  
 **Цель:** Кросс-платформенный клиент Telegram (Flutter + модифицированный TDLib) с обходом DPI РКН.
 
 ## Проблема
@@ -11,8 +11,8 @@
 
 ```
 Flutter UI (Dart)
-    ↓ FFI
-TDLib (C++, патчи DPI_BYPASS: рандомизация ClientHello, фрагментация, DRS)
+    ↓ FFI / tdweb (Web)
+TDLib (C++, патчи DPI_BYPASS: ClientHello, фрагментация, DRS)
     ↓
 PhantomProxy (основной, RU VPS) ──failover──► StealthGate Front (резерв, RU VPS)
                                                       ↓ SGFB-туннель
@@ -42,7 +42,7 @@ EU VPS nginx :8080 (aggregator)
 | Инфра RU/EU | `deploy/nginx/`, `scripts/setup-web-infra-*.sh` |
 | E2E | `scripts/run-web-e2e.sh`, `e2e/web/` |
 
-Документация: `docs/WEB.md` (оглавление §8), `WEB_TRANSPORT.md`, `WEB_PROXY.md`, `WEB_INFRA.md`, `WEB_E2E.md`.  
+Документация: `docs/WEB.md`, `WEB_TRANSPORT.md`, `WEB_PROXY.md`, `WEB_INFRA.md`, `WEB_E2E.md`.  
 Команды Cursor: `.cursor/commands/web.md`.
 
 ## Прокси-стратегия
@@ -53,64 +53,76 @@ EU VPS nginx :8080 (aggregator)
 | **StealthGate** (Rust) | Резервный, Front/Back Split (RU→EU) | github.com/RioTwWks/StealthGate |
 
 - **Не подключаться напрямую к EU** — только через RU-посредник.
-- **Failover в клиенте:** TDLib `addProxy` → `pingProxy` → `enableProxy` (PhantomProxy первый, StealthGate второй).
+- **Failover:** TDLib `addProxy` → `pingProxy` → `enableProxy` (PhantomProxy первый, StealthGate второй).
+- **Transport proxy:** системный HTTP/SOCKS через `RioGram:Transport` в `ConnectionCreator.cpp`.
 
-## DPI-патчи TDLib (этап 2 MVP)
+## TDLib (форк + upstream)
 
-- Рандомизация TLS ClientHello (профили Chrome/Firefox/Yandex/Safari)
-- Фрагментация первого пакета
-- Динамические размеры TLS-записей (DRS)
-- Все изменения помечать `// DPI_BYPASS:`
-
-**Референсы:** ZaStoGram_desktop, telemt/tdlib-obf, Qz3rK/tdesktop
+- Каталог: `td/` (vendor, не submodule)
+- База upstream: **`td/upstream-base.json`** (сейчас v1.8.66)
+- Патчи DPI: `docs/TDLIB_PATCHES.md` — все изменения с `// DPI_BYPASS:`
+- Merge upstream: `docs/TDLIB_UPSTREAM_SYNC.md`, `./scripts/check-tdlib-upstream.sh`
+- CI: `.github/workflows/tdlib-upstream-sync.yml` (еженедельно → Issue при новой версии)
+- Команда Cursor: `.cursor/commands/tdlib-upstream.md`, `.cursor/commands/build-tdlib.md`
 
 ## Flutter-стек
 
-- FFI-обёртка `TdlibClient` + `tdlib_bindings.dart`
-- **Provider** для стейта (`AuthManager`, `ChatManager`, `ProxyManager`, `ThemeManager`)
+- FFI: `TdlibClient` + `tdlib_bindings.dart`; Web — `tdlib_client_web.dart`
+- **Provider:** `AuthManager`, `ChatManager`, `ProxyManager`, `ThemeManager`, `PluginManager`, …
 - Структура: `lib/core/`, `lib/screens/`, `lib/widgets/`, `lib/models/`
+- Дизайн §9: `lib/core/theme/telegram_theme.dart` (`TelegramTheme`, `TelegramColors`)
 
-### Список чатов (§6.2 — готово)
+### Список чатов (§6.2 ✅)
 
-- `ChatManager`: `loadChats`, позиции, pin/archive, поиск, delete, mark unread
-- Адаптивный UI: mobile / master-detail (720px) / 3-column desktop (840px)
-- Виджеты: `ChatListTile`, `ChatFolderSidebar`, `ChatDesktopShortcuts`, `ChatSearchPanel`, `NewChatDialog`
+- `ChatManager`: `loadChats`, pin/archive, поиск, delete, mark unread
+- Адаптивный UI: mobile / master-detail (720px) / 3-column (840px)
 - Документация: `docs/CHATS.md`
+
+### RioGram-фичи (§7)
+
+| Блок | Статус | Документация |
+|------|--------|--------------|
+| §7.2 Призрачный режим, анти-отзыв, медиа | ✅ | `TODO.md` §7.2 |
+| §7.3 UI-кастомизация сверх §9 | ✅ | настройки `ui_customization_*` |
+| §7.4 Local Premium, AdBlock, телеметрия | ✅ | `security_privacy_*` |
+| §7.5 Mini Apps, LaTeX, автопостинг | ✅ | `docs/PLUGINS.md` (LaTeX в chat/) |
+| §7.6 Плагины + децентрализация (research) | ✅ | `docs/PLUGINS.md`, `DECENTRALIZATION.md` |
+| §7.7 Sync с upstream TDLib | ✅ | `TDLIB_UPSTREAM_SYNC.md` |
+
+Плагины: `PluginManager`, `RioGramPlugin`, hooks в `ChatManager` / `MessageBubble`.
 
 ## Сервера (не коммитить реальные IP)
 
 - VPS РФ #1: PhantomProxy
 - VPS РФ #2: StealthGate Front
-- VPS EU: StealthGate Back
+- VPS EU: StealthGate Back + Web backend
 
 ## Секреты
 
 - `api_id`, `api_hash` — только в `.env` / GitHub Actions Secrets
 - Прокси-секреты — в `.env` или Secrets, не в коде
-- Настройка CI: `docs/SECRETS.md`
-- Подпись мобильных сборок: `docs/SIGNING.md`
+- `docs/SECRETS.md`, `docs/SIGNING.md`
 
 ## CI/CD
 
-- **CI** (`.github/workflows/ci.yml`): `flutter analyze/test`, TDLib Linux, `flutter-web`, `web-e2e`
-- **Release** (`.github/workflows/release.yml`): при публикации GitHub Release — пакеты для Linux, Windows, macOS, Android, iOS
-- Локально: `./scripts/ci-flutter.sh`, `./scripts/run-web-e2e.sh`, `@release` — см. `.cursor/commands/release.md`
-- Документация: `docs/CI.md`
+| Workflow | Назначение |
+|----------|------------|
+| `ci.yml` | flutter analyze/test, tdlib-linux, flutter-web, web-e2e, flutter-linux |
+| `release.yml` | пакеты всех платформ при GitHub Release |
+| `tdlib-upstream-sync.yml` | проверка новой версии tdlib/td → Issue |
 
-## Текущий статус
+Локально: `./scripts/ci-flutter.sh`, `./scripts/run-web-e2e.sh`, `./scripts/check-tdlib-upstream.sh`  
+Документация: `docs/CI.md`
 
-- **Этап 1** ✅ Flutter + TDLib + авторизация
-- **Этап 2** ✅ DPI-патчи TDLib (ClientHello, фрагментация, DRS)
-- **Этап 3** ✅ Прокси, failover, экран настроек
-- **CI** ✅ GitHub Actions (Flutter + TDLib Linux)
-- **Release** ✅ GitHub Actions — пакеты для всех платформ
-- **Этап 4** ✅ UI, чаты, темы, уведомления
-- **Этап 5** ✅ Сборка на всех платформах (BUILD/INSTALL, CI flutter-linux, Release)
-- **Signing** ✅ Android/iOS release-подпись (docs/SIGNING.md, CI secrets)
-- **§6.2 Список чатов** ✅ Отображение, действия, десктопная навигация (см. `docs/CHATS.md`)
-- **§6.3+** ⏳ Сообщения, медиа, группы — в работе по TODO.md
-- **§8 Web** ✅ PoC, WSS transport, proxy, infra, deploy; E2E автоматизация (§8.6); ручные чеклисты auth/RU — открыты
-- **§9** ⏳ Классический дизайн Telegram — не начат
+## Текущий статус (кратко)
+
+- **Этапы 1–5 MVP** ✅ (Flutter, TDLib, DPI, прокси, UI, сборки, Release)
+- **§6** ⏳ функциональный паритет — в работе (§6.2 ✅, далее сообщения/медиа/группы)
+- **§7.3–§7.7** ✅
+- **§8 Web** ✅ PoC + WSS + infra + E2E; ручной деплой ops — открыт
+- **§9** ⏳ классический дизайн Telegram — токены и §9.11 pixel parity в работе
+
+Актуальный чеклист: `TODO.md`, план: `PLAN.md`.
 
 ## Лицензия
 
