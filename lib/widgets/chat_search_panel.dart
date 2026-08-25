@@ -6,6 +6,7 @@ import '../core/theme/telegram_theme.dart';
 import '../models/chat_models.dart';
 import '../models/search_models.dart';
 import 'chat_list_tile.dart';
+import 'empty_state.dart';
 
 /// Поле поиска по чатам и сообщениям.
 class ChatSearchBar extends StatefulWidget {
@@ -162,7 +163,11 @@ class ChatSearchResults extends StatelessWidget {
         publicChats.isEmpty &&
         messages.isEmpty &&
         user == null) {
-      return const Center(child: Text('Ничего не найдено'));
+      return const EmptyStateWidget(
+        icon: Icons.search_off_outlined,
+        title: 'Ничего не найдено',
+        subtitle: 'Попробуйте другой запрос',
+      );
     }
 
     return ListView(
@@ -268,11 +273,19 @@ class ChatMessageSearchResults extends StatelessWidget {
     }
 
     if (!state.isActive) {
-      return const Center(child: Text('Введите запрос'));
+      return const EmptyStateWidget(
+        icon: Icons.search_outlined,
+        title: 'Введите запрос',
+        subtitle: 'Поиск по сообщениям в этом чате',
+      );
     }
 
     if (state.results.isEmpty) {
-      return const Center(child: Text('Сообщения не найдены'));
+      return const EmptyStateWidget(
+        icon: Icons.search_off_outlined,
+        title: 'Сообщения не найдены',
+        subtitle: 'Попробуйте другой запрос',
+      );
     }
 
     return ListView.builder(
@@ -348,7 +361,7 @@ class SavedMessagesShortcut extends StatelessWidget {
       leading: CircleAvatar(
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         child: Icon(
-          Icons.bookmark,
+          Icons.bookmark_outline,
           color: Theme.of(context).colorScheme.onPrimaryContainer,
         ),
       ),

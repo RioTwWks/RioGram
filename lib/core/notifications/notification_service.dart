@@ -2,9 +2,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Локальные уведомления о новых сообщениях и badge на иконке.
+///
+/// §9.8: системный стиль ОС (иконка приложения, без кастомных glass/banner layout).
 class NotificationService {
   NotificationService({FlutterLocalNotificationsPlugin? plugin})
       : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+
+  static const String messagesChannelId = 'riogram_messages';
+  static const String messagesChannelName = 'Сообщения';
+  static const String messagesChannelDescription =
+      'Уведомления о новых сообщениях RioGram';
 
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
@@ -29,6 +36,19 @@ class NotificationService {
     );
 
     await _plugin.initialize(settings);
+
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android != null) {
+      await android.createNotificationChannel(
+        const AndroidNotificationChannel(
+          messagesChannelId,
+          messagesChannelName,
+          description: messagesChannelDescription,
+          importance: Importance.high,
+        ),
+      );
+    }
 
     final ios = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
@@ -84,17 +104,26 @@ class NotificationService {
 
     final details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'riogram_messages',
-        'Сообщения',
-        channelDescription: 'Уведомления о новых сообщениях RioGram',
+        messagesChannelId,
+        messagesChannelName,
+        channelDescription: messagesChannelDescription,
         importance: Importance.high,
         priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        styleInformation: const DefaultStyleInformation(false, false),
+        visibility: NotificationVisibility.public,
         number: _badgeCount > 0 ? _badgeCount : null,
+        channelShowBadge: true,
       ),
       iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
+        presentBanner: true,
         badgeNumber: _badgeCount > 0 ? _badgeCount : null,
       ),
       macOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
         badgeNumber: _badgeCount > 0 ? _badgeCount : null,
       ),
       linux: const LinuxNotificationDetails(),
@@ -108,7 +137,6 @@ class NotificationService {
         details,
       );
     } catch (error) {
-      // Linux: ExcessNotificationGeneration при лавине однотипных notify.
       debugPrint('NotificationService: show failed: $error');
     }
   }

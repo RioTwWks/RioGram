@@ -9,7 +9,7 @@ import '../../models/media_models.dart';
 import '../../widgets/inline_video_player.dart';
 import '../../widgets/video_note_player.dart';
 
-/// Полноэкранный просмотрщик: зум фото, свайп, сохранение.
+/// Полноэкранный просмотрщик: чёрный фон, свайп между медиа, pinch-zoom.
 class MediaViewerScreen extends StatefulWidget {
   const MediaViewerScreen({
     super.key,
@@ -54,7 +54,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       return;
     }
     setState(() {
-      _statusMessage = saved != null ? 'Сохранено: $saved' : 'Не удалось сохранить';
+      _statusMessage =
+          saved != null ? 'Сохранено: $saved' : 'Не удалось сохранить';
     });
   }
 
@@ -65,6 +66,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: Text('${_currentIndex + 1} / ${widget.items.length}'),
         actions: [
           IconButton(
@@ -181,60 +184,117 @@ class _MediaPageState extends State<_MediaPage> {
     final item = widget.item;
     if (!item.hasLocalFile) {
       return const Center(
-        child: Text('Файл ещё загружается…', style: TextStyle(color: Colors.white70)),
+        child: Text(
+          'Файл ещё загружается…',
+          style: TextStyle(color: Colors.white70),
+        ),
       );
     }
 
-    return switch (item.kind) {
-      MessageKind.photo => InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 4,
-          child: Center(
-            child: Image.file(
-              File(item.localPath),
-              fit: BoxFit.contain,
+    return ColoredBox(
+      color: Colors.black,
+      child: switch (item.kind) {
+        MessageKind.photo => _ZoomableImage(path: item.localPath),
+        MessageKind.video => Center(
+            child: _videoReady && _videoController != null
+                ? _ZoomableVideo(controller: _videoController!)
+                : InlineVideoPlayer(filePath: item.localPath),
+          ),
+        MessageKind.videoNote => Center(
+            child: VideoNotePlayer(
+              filePath: item.localPath,
+              videoInfo: item.videoInfo,
+              size: 240,
             ),
           ),
-        ),
-      MessageKind.video => Center(
-          child: _videoReady && _videoController != null
-              ? AspectRatio(
-                  aspectRatio: _videoController!.value.aspectRatio,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      VideoPlayer(_videoController!),
-                      IconButton(
-                        iconSize: 64,
-                        color: Colors.white,
-                        onPressed: () {
-                          setState(() {
-                            _videoController!.value.isPlaying
-                                ? _videoController!.pause()
-                                : _videoController!.play();
-                          });
-                        },
-                        icon: Icon(
-                          _videoController!.value.isPlaying
-                              ? Icons.pause_circle
-                              : Icons.play_circle,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : InlineVideoPlayer(filePath: item.localPath),
-        ),
-      MessageKind.videoNote => Center(
-          child: VideoNotePlayer(
-            filePath: item.localPath,
-            videoInfo: item.videoInfo,
-            size: 280,
+        _ => Center(
+            child: Text(
+              item.localPath,
+              style: const TextStyle(color: Colors.white54),
+            ),
           ),
+      },
+    );
+  }
+}
+
+class _ZoomableImage extends StatelessWidget {
+  const _ZoomableImage({required this.path});
+
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    return InteractiveViewer(
+      minScale: 0.5,
+      maxScale: 5,
+      panEnabled: true,
+      scaleEnabled: true,
+      clipBehavior: Clip.none,
+      child: Center(
+        child: Image.file(
+          File(path),
+          fit: BoxFit.contain,
         ),
-      _ => Center(
-          child: Text(item.localPath, style: const TextStyle(color: Colors.white54)),
+      ),
+    );
+  }
+}
+
+class _ZoomableVideo extends StatefulWidget {
+  const _ZoomableVideo({required this.controller});
+
+  final VideoPlayerController controller;
+
+  @override
+  State<_ZoomableVideo> createState() => _ZoomableVideoState();
+}
+
+class _ZoomableVideoState extends State<_ZoomableVideo> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onVideoUpdate);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onVideoUpdate);
+    super.dispose();
+  }
+
+  void _onVideoUpdate() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final isPlaying = controller.value.isPlaying;
+
+    return InteractiveViewer(
+      minScale: 1,
+      maxScale: isPlaying ? 1 : 3,
+      panEnabled: !isPlaying,
+      scaleEnabled: !isPlaying,
+      child: AspectRatio(
+        aspectRatio: controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(controller),
+            if (!isPlaying)
+              IconButton(
+                iconSize: 64,
+                color: Colors.white,
+                onPressed: () => controller.play(),
+                icon: const Icon(Icons.play_circle),
+              ),
+          ],
         ),
-    };
+      ),
+    );
   }
 }

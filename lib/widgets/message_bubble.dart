@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../core/theme/telegram_theme.dart';
 import '../models/audio_models.dart';
 import '../models/chat_models.dart';
 import '../models/formatted_text.dart';
@@ -11,12 +12,14 @@ import '../models/message_enrichment.dart';
 import '../models/sticker_models.dart';
 import '../core/location/map_launcher.dart';
 import 'audio_message_player.dart';
+import 'document_message_body.dart';
 import 'file_transfer_progress_bar.dart';
 import 'formatted_text_widget.dart';
 import 'inline_keyboard_widget.dart';
 import 'inline_video_player.dart';
 import 'location_message_body.dart';
 import 'media_album_grid.dart';
+import 'message_bubble_grouping.dart';
 import 'message_delivery_icon.dart';
 import 'message_reactions_row.dart';
 import 'poll_message_body.dart';
@@ -47,6 +50,8 @@ class MessageBubble extends StatelessWidget {
     this.showComments = false,
     this.showSenderName = false,
     this.activeLiveLocationMessageId,
+    this.groupPosition = BubbleGroupPosition.single,
+    this.showTail = true,
   });
 
   final ChatMessage message;
@@ -69,6 +74,8 @@ class MessageBubble extends StatelessWidget {
   final bool showComments;
   final bool showSenderName;
   final int? activeLiveLocationMessageId;
+  final BubbleGroupPosition groupPosition;
+  final bool showTail;
 
   @override
   Widget build(BuildContext context) {
@@ -76,13 +83,25 @@ class MessageBubble extends StatelessWidget {
       return _ServiceMessageBubble(message: message);
     }
 
+    if (message.content.kind == MessageKind.sticker) {
+      return _StickerMessageBubble(
+        message: message,
+        isSelected: isSelected,
+        selectionMode: selectionMode,
+        showViewCount: showViewCount,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        onReactionTap: onReactionTap,
+        onAddReaction: onAddReaction,
+      );
+    }
+
     final theme = Theme.of(context);
+    final tg = context.telegramTheme;
     final time = DateFormat.Hm().format(message.date);
     final alignment =
         message.isOutgoing ? Alignment.centerRight : Alignment.centerLeft;
-    final color = message.isOutgoing
-        ? theme.colorScheme.primaryContainer
-        : theme.colorScheme.surfaceContainerHighest;
+    final color = message.isOutgoing ? tg.bubbleOutgoing : tg.bubbleIncoming;
 
     return Align(
       alignment: alignment,
@@ -94,10 +113,15 @@ class MessageBubble extends StatelessWidget {
           onTap: onTap,
           onLongPress: onLongPress,
           child: Card(
+            elevation: 0,
+            shadowColor: Colors.transparent,
             color: isSelected
-                ? theme.colorScheme.primary.withValues(alpha: 0.25)
+                ? tg.accent.withValues(alpha: 0.25)
                 : color,
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(TelegramRadii.bubble),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -415,7 +439,7 @@ class _MessageBody extends StatelessWidget {
           GestureDetector(
             onTap: onMediaTap == null ? null : () => onMediaTap!(message),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(TelegramRadii.mediaPreview),
               child: Image.file(
                 File(localPath),
                 fit: BoxFit.cover,
@@ -541,64 +565,14 @@ class _MessageBody extends StatelessWidget {
     }
 
     if (content.kind == MessageKind.document) {
-      final docInfo = content.documentInfo;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.attach_file),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(content.fileName ?? content.preview),
-                    if (docInfo != null && docInfo.fileSize > 0)
-                      Text(
-                        docInfo.sizeLabel,
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                  ],
-                ),
-              ),
-            ],
+          DocumentMessageBody(
+            fileName: content.fileName ?? content.preview,
+            documentInfo: content.documentInfo,
           ),
           ..._captionWidgets(content),
-        ],
-      );
-    }
-
-    if (content.kind == MessageKind.sticker) {
-      final sticker = content.stickerInfo?.sticker;
-      final size = _stickerDisplaySize(sticker);
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (localPath != null && sticker != null && !sticker.isAnimated)
-            SizedBox(
-              width: size.width,
-              height: size.height,
-              child: Image.file(
-                File(localPath),
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => Text(content.preview),
-              ),
-            )
-          else if (localPath != null && sticker != null && sticker.isVideo)
-            SizedBox(
-              width: size.width,
-              height: size.height,
-              child: InlineVideoPlayer(
-                filePath: localPath,
-                maxHeight: size.height,
-              ),
-            )
-          else
-            Text(
-              content.preview,
-              style: const TextStyle(fontSize: 48),
-            ),
         ],
       );
     }
@@ -627,15 +601,6 @@ class _MessageBody extends StatelessWidget {
     }
 
     return Text(content.preview);
-  }
-
-  Size _stickerDisplaySize(StickerModel? sticker) {
-    if (sticker == null || sticker.width <= 0 || sticker.height <= 0) {
-      return const Size(180, 180);
-    }
-    const maxSide = 180.0;
-    final scale = maxSide / math.max(sticker.width, sticker.height);
-    return Size(sticker.width * scale, sticker.height * scale);
   }
 
   List<Widget> _captionWidgets(MessageContent content) {
@@ -682,7 +647,7 @@ class _MediaPlaceholder extends StatelessWidget {
       height: 160,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: context.telegramTheme.elevatedSurface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Stack(
@@ -717,6 +682,149 @@ class _MediaPlaceholder extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _StickerMessageBubble extends StatelessWidget {
+  const _StickerMessageBubble({
+    required this.message,
+    this.isSelected = false,
+    this.selectionMode = false,
+    this.showViewCount = false,
+    this.onTap,
+    this.onLongPress,
+    this.onReactionTap,
+    this.onAddReaction,
+  });
+
+  final ChatMessage message;
+  final bool isSelected;
+  final bool selectionMode;
+  final bool showViewCount;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final void Function(String emoji)? onReactionTap;
+  final VoidCallback? onAddReaction;
+
+  @override
+  Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+    final time = DateFormat.Hm().format(message.date);
+    final alignment =
+        message.isOutgoing ? Alignment.centerRight : Alignment.centerLeft;
+    final content = message.content;
+    final localPath = message.localFilePath ?? content.localPath;
+    final sticker = content.stickerInfo?.sticker;
+    final size = _stickerDisplaySize(sticker);
+
+    return Align(
+      alignment: alignment,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+        ),
+        child: GestureDetector(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: isSelected
+                ? BoxDecoration(
+                    color: tg.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(TelegramRadii.bubble),
+                  )
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Column(
+                crossAxisAlignment: message.isOutgoing
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: [
+                  if (selectionMode)
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Icon(
+                        isSelected
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        size: 18,
+                        color: tg.accent,
+                      ),
+                    ),
+                  if (localPath != null && sticker != null && !sticker.isAnimated)
+                    SizedBox(
+                      width: size.width,
+                      height: size.height,
+                      child: Image.file(
+                        File(localPath),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => Text(content.preview),
+                      ),
+                    )
+                  else if (localPath != null && sticker != null && sticker.isVideo)
+                    SizedBox(
+                      width: size.width,
+                      height: size.height,
+                      child: InlineVideoPlayer(
+                        filePath: localPath,
+                        maxHeight: size.height,
+                      ),
+                    )
+                  else
+                    Text(
+                      content.preview,
+                      style: const TextStyle(fontSize: 48),
+                    ),
+                  if (message.reactions.isNotEmpty || onAddReaction != null) ...[
+                    const SizedBox(height: 4),
+                    MessageReactionsRow(
+                      reactions: message.reactions,
+                      onReactionTap: onReactionTap,
+                      onAddReaction: onAddReaction,
+                    ),
+                  ],
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (showViewCount &&
+                          (message.interactionInfo?.viewCount ?? 0) > 0) ...[
+                        MessageViewCountLabel(
+                          viewCount: message.interactionInfo!.viewCount,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: TelegramFontSizes.bubbleMeta,
+                          color: tg.textTime,
+                        ),
+                      ),
+                      if (message.isOutgoing &&
+                          message.deliveryStatus != null) ...[
+                        const SizedBox(width: 4),
+                        MessageDeliveryIcon(status: message.deliveryStatus!),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Size _stickerDisplaySize(StickerModel? sticker) {
+    if (sticker == null || sticker.width <= 0 || sticker.height <= 0) {
+      return const Size(180, 180);
+    }
+    const maxSide = 180.0;
+    final scale = maxSide / math.max(sticker.width, sticker.height);
+    return Size(sticker.width * scale, sticker.height * scale);
   }
 }
 

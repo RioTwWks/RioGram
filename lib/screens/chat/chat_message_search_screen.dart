@@ -59,11 +59,11 @@ class _ChatMessageSearchScreenState extends State<ChatMessageSearchScreen> {
             child: SearchBar(
               controller: _controller,
               hintText: 'Поиск в чате',
-              leading: const Icon(Icons.search),
+              leading: const Icon(Icons.search_outlined),
               trailing: _controller.text.isNotEmpty
                   ? [
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(Icons.close_outlined),
                         onPressed: () {
                           _controller.clear();
                           search.clearChatSearch();

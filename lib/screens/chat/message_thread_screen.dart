@@ -154,14 +154,13 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
                           ),
           ),
           if (contextInfo != null) ...[
-            const Divider(height: 1),
             MessageInputBar(
+              chatId: widget.channelChatId,
               controller: _controller,
               onSend: _sendComment,
               onAttach: () {},
               onSchedule: () {},
               onVoiceAction: null,
-              onStickerAction: null,
             ),
           ],
         ],

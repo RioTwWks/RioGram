@@ -13,5 +13,6 @@ import UIKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     CallPlatformPlugin.register(with: engineBridge.pluginRegistry.registrar(forPlugin: "CallPlatformPlugin")!)
+    NavigationPlatformPlugin.register(with: engineBridge.pluginRegistry.registrar(forPlugin: "NavigationPlatformPlugin")!)
   }
 }

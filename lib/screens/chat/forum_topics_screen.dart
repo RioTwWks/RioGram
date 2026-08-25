@@ -6,6 +6,7 @@ import '../../models/forum_models.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/chat_list_tile.dart';
 import 'chat_screen.dart';
+import '../../core/navigation/telegram_routes.dart';
 
 /// Список тем форума в супергруппе.
 class ForumTopicsScreen extends StatefulWidget {
@@ -92,15 +93,7 @@ class _ForumTopicsScreenState extends State<ForumTopicsScreen> {
       widget.onTopicSelected!(topic.forumTopicId, name);
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(
-          chatId: widget.chatId,
-          forumTopicId: topic.forumTopicId,
-          forumTopicName: name,
-        ),
-      ),
-    );
+    TelegramRoutes.push(context, ChatScreen(chatId: widget.chatId, forumTopicId: topic.forumTopicId, forumTopicName: name));
   }
 
   @override

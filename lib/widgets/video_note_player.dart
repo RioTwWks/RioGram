@@ -3,15 +3,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../core/theme/telegram_theme.dart';
 import '../models/media_models.dart';
 
-/// Круглое видеосообщение («кружочек»).
+/// Круглое видеосообщение («кружочек») — 240px по умолчанию.
 class VideoNotePlayer extends StatefulWidget {
   const VideoNotePlayer({
     super.key,
     required this.filePath,
     this.videoInfo,
-    this.size = 200,
+    this.size = 240,
     this.onOpenFullscreen,
   });
 
@@ -74,12 +75,18 @@ class _VideoNotePlayerState extends State<VideoNotePlayer> {
     });
   }
 
+  double get _diameter {
+    if (widget.videoInfo?.videoNoteLength != null &&
+        widget.videoInfo!.videoNoteLength > 0) {
+      return widget.videoInfo!.videoNoteLength.toDouble().clamp(120.0, 280.0);
+    }
+    return widget.size;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final diameter = widget.videoInfo?.videoNoteLength != null &&
-            widget.videoInfo!.videoNoteLength > 0
-        ? widget.videoInfo!.videoNoteLength.toDouble().clamp(120.0, 280.0)
-        : widget.size;
+    final tg = context.telegramTheme;
+    final diameter = _diameter;
 
     return SizedBox(
       width: diameter,
@@ -101,8 +108,12 @@ class _VideoNotePlayerState extends State<VideoNotePlayer> {
               )
             else
               ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                child: const Icon(Icons.videocam_outlined, size: 48),
+                color: tg.elevatedSurface,
+                child: Icon(
+                  Icons.videocam_outlined,
+                  size: 48,
+                  color: tg.textSecondary,
+                ),
               ),
             Material(
               color: Colors.transparent,
@@ -113,12 +124,15 @@ class _VideoNotePlayerState extends State<VideoNotePlayer> {
                   width: diameter,
                   height: diameter,
                   child: AnimatedOpacity(
-                    opacity:
-                        _controller?.value.isPlaying == true ? 0 : 0.35,
+                    opacity: _controller?.value.isPlaying == true ? 0 : 0.35,
                     duration: const Duration(milliseconds: 200),
                     child: const ColoredBox(
                       color: Colors.black,
-                      child: Icon(Icons.play_arrow, color: Colors.white, size: 48),
+                      child: Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 48,
+                      ),
                     ),
                   ),
                 ),

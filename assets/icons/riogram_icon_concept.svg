@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="RioGram icon concept">
+  <rect width="512" height="512" rx="112" fill="#3390EC"/>
+  <path fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"
+    d="M148 128h120c72 0 116 44 116 108s-44 108-116 108h-52v148"/>
+  <path fill="none" stroke="#FFFFFF" stroke-width="28" stroke-linecap="round"
+    d="M168 344c48-24 88-64 120-120"/>
+</svg>

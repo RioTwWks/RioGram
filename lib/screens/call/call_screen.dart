@@ -5,12 +5,13 @@ import 'package:provider/provider.dart';
 import '../../core/call/call_manager.dart';
 import '../../core/call/group_call_manager.dart';
 import '../../core/call/tdlib_call_parser.dart';
+import '../../core/theme/telegram_theme.dart';
 import '../../models/call_models.dart';
 import '../../models/group_call_models.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/call_device_picker_sheet.dart';
 
-/// Экран активного или входящего звонка.
+/// Экран активного или входящего звонка (§9.8).
 class CallScreen extends StatelessWidget {
   const CallScreen({super.key});
 
@@ -42,24 +43,28 @@ class CallScreen extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final theme = Theme.of(context);
-    final name = call.userDisplayName ??
-        callManager.displayNameFor(call.userId);
+    final name = call.userDisplayName ?? callManager.displayNameFor(call.userId);
     final status = call.uiPhase == CallUiPhase.active
         ? CallScreen.formatDuration(callManager.callDuration)
         : TdlibCallParser.statusLabel(call);
     final engine = callManager.signalingBridge.mediaEngine;
+    final isIncoming = call.isIncomingRinging;
 
-    return Material(
-      color: theme.colorScheme.surface,
+    return ColoredBox(
+      color: TelegramColors.callBackground,
       child: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 24),
-            Text(
-              call.isVideo ? 'Видеозвонок' : 'Звонок',
-              style: theme.textTheme.titleMedium,
-            ),
+            if (!isIncoming) ...[
+              const SizedBox(height: 24),
+              Text(
+                call.isVideo ? 'Видеозвонок' : 'Звонок',
+                style: TextStyle(
+                  color: TelegramColors.callTextSecondary,
+                  fontSize: TelegramFontSizes.preview,
+                ),
+              ),
+            ],
             const Spacer(),
             if (call.isVideo && call.uiPhase == CallUiPhase.active)
               _VideoPreview(
@@ -70,19 +75,24 @@ class CallScreen extends StatelessWidget {
             else
               ChatAvatar(
                 title: name,
-                radius: 56,
+                radius: TelegramSpacing.callAvatarRadius,
               ),
             const SizedBox(height: 24),
             Text(
               name,
-              style: theme.textTheme.headlineSmall,
+              style: const TextStyle(
+                color: TelegramColors.callTextPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               status,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              style: const TextStyle(
+                color: TelegramColors.callTextSecondary,
+                fontSize: TelegramFontSizes.preview,
               ),
             ),
             if (callManager.lastError != null) ...[
@@ -91,15 +101,16 @@ class CallScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
                   callManager.lastError!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: TelegramFontSizes.chatSubtitle,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ),
             ],
             const Spacer(),
-            if (call.isIncomingRinging)
+            if (isIncoming)
               _IncomingControls(callManager: callManager)
             else if (!call.isEnded)
               _ActiveControls(
@@ -128,11 +139,10 @@ class GroupCallScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final engine = context.read<CallManager>().signalingBridge.mediaEngine;
 
-    return Material(
-      color: theme.colorScheme.surface,
+    return ColoredBox(
+      color: TelegramColors.callBackground,
       child: SafeArea(
         child: Column(
           children: [
@@ -144,16 +154,29 @@ class GroupCallScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(call.title, style: theme.textTheme.titleLarge),
+                        Text(
+                          call.title,
+                          style: const TextStyle(
+                            color: TelegramColors.callTextPrimary,
+                            fontSize: TelegramFontSizes.chatTitle,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         Text(
                           '${call.participantCount} участников',
-                          style: theme.textTheme.bodyMedium,
+                          style: const TextStyle(
+                            color: TelegramColors.callTextSecondary,
+                            fontSize: TelegramFontSizes.preview,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   if (manager.lastError != null)
-                    Icon(Icons.error_outline, color: theme.colorScheme.error),
+                    Icon(
+                      Icons.error_outline,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                 ],
               ),
             ),
@@ -162,7 +185,8 @@ class GroupCallScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius:
+                        BorderRadius.circular(TelegramRadii.mediaPreview),
                     child: RTCVideoView(engine.localRenderer, mirror: true),
                   ),
                 ),
@@ -175,11 +199,16 @@ class GroupCallScreen extends StatelessWidget {
                     final participant = manager.participants[index];
                     return ListTile(
                       leading: CircleAvatar(
+                        backgroundColor: TelegramColors.callControlBackground,
+                        foregroundColor: TelegramColors.callTextPrimary,
                         child: Text('${participant.userId % 10}'),
                       ),
                       title: Text(
                         participant.displayName ??
                             'Участник ${participant.userId}',
+                        style: const TextStyle(
+                          color: TelegramColors.callTextPrimary,
+                        ),
                       ),
                       subtitle: Text(
                         participant.isSpeaking
@@ -187,9 +216,15 @@ class GroupCallScreen extends StatelessWidget {
                             : participant.isMuted
                                 ? 'Без звука'
                                 : 'На линии',
+                        style: const TextStyle(
+                          color: TelegramColors.callTextSecondary,
+                        ),
                       ),
                       trailing: participant.isHandRaised
-                          ? const Icon(Icons.front_hand)
+                          ? const Icon(
+                              Icons.front_hand,
+                              color: TelegramColors.callTextPrimary,
+                            )
                           : null,
                     );
                   },
@@ -198,28 +233,29 @@ class GroupCallScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _RoundActionButton(
+                _CallRoundButton(
                   icon: manager.isMuted ? Icons.mic_off : Icons.mic,
                   label: manager.isMuted ? 'Вкл. звук' : 'Без звука',
                   onPressed: manager.toggleMute,
                 ),
                 if (call.canEnableVideo)
-                  _RoundActionButton(
+                  _CallRoundButton(
                     icon: manager.isVideoEnabled
                         ? Icons.videocam
                         : Icons.videocam_off,
                     label: manager.isVideoEnabled ? 'Камера' : 'Без видео',
                     onPressed: () => manager.toggleVideo(),
                   ),
-                _RoundActionButton(
+                _CallRoundButton(
                   icon: Icons.settings_voice,
                   label: 'Аудио',
                   onPressed: () => CallDevicePickerSheet.show(context),
                 ),
-                _RoundActionButton(
+                _CallRoundButton(
                   icon: Icons.call_end,
                   label: 'Выйти',
-                  color: Colors.red,
+                  backgroundColor: TelegramColors.callDeclineRed,
+                  iconColor: TelegramColors.callTextPrimary,
                   onPressed: () => manager.leaveGroupCall(),
                 ),
               ],
@@ -250,17 +286,21 @@ class _VideoPreview extends StatelessWidget {
       child: AspectRatio(
         aspectRatio: 3 / 4,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(TelegramRadii.bubble),
           child: Stack(
             fit: StackFit.expand,
             children: [
               ColoredBox(
-                color: Colors.black,
+                color: TelegramColors.callBackground,
                 child: remoteRenderer != null &&
                         remoteRenderer!.srcObject != null
                     ? RTCVideoView(remoteRenderer!)
                     : const Center(
-                        child: Icon(Icons.person, color: Colors.white24),
+                        child: Icon(
+                          Icons.person,
+                          color: TelegramColors.callControlBackground,
+                          size: 64,
+                        ),
                       ),
               ),
               if (enabled && localRenderer != null)
@@ -272,7 +312,8 @@ class _VideoPreview extends StatelessWidget {
                       width: 96,
                       height: 128,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius:
+                            BorderRadius.circular(TelegramRadii.mediaPreview),
                         child: RTCVideoView(localRenderer!, mirror: true),
                       ),
                     ),
@@ -293,22 +334,29 @@ class _IncomingControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _RoundActionButton(
-          icon: Icons.call_end,
-          label: 'Отклонить',
-          color: Colors.red,
-          onPressed: callManager.declineCall,
-        ),
-        _RoundActionButton(
-          icon: Icons.call,
-          label: 'Принять',
-          color: Colors.green,
-          onPressed: callManager.acceptCall,
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _CallRoundButton(
+            icon: Icons.call_end,
+            label: 'Отклонить',
+            backgroundColor: TelegramColors.callDeclineRed,
+            iconColor: TelegramColors.callTextPrimary,
+            size: TelegramSpacing.callPrimaryButtonSize,
+            onPressed: callManager.declineCall,
+          ),
+          _CallRoundButton(
+            icon: Icons.call,
+            label: 'Принять',
+            backgroundColor: TelegramColors.callAcceptGreen,
+            iconColor: TelegramColors.callTextPrimary,
+            size: TelegramSpacing.callPrimaryButtonSize,
+            onPressed: callManager.acceptCall,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -324,56 +372,64 @@ class _ActiveControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _RoundActionButton(
-          icon: callManager.isMuted ? Icons.mic_off : Icons.mic,
-          label: callManager.isMuted ? 'Вкл. звук' : 'Без звука',
-          onPressed: () => callManager.toggleMute(),
-        ),
-        if (call.isVideo)
-          _RoundActionButton(
-            icon: callManager.isVideoEnabled
-                ? Icons.videocam
-                : Icons.videocam_off,
-            label: callManager.isVideoEnabled ? 'Камера' : 'Без видео',
-            onPressed: () => callManager.toggleVideo(),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _CallRoundButton(
+            icon: callManager.isMuted ? Icons.mic_off : Icons.mic,
+            label: callManager.isMuted ? 'Вкл. звук' : 'Без звука',
+            onPressed: () => callManager.toggleMute(),
           ),
-        _RoundActionButton(
-          icon: Icons.settings_voice,
-          label: 'Аудио',
-          onPressed: () => CallDevicePickerSheet.show(context),
-        ),
-        _RoundActionButton(
-          icon: Icons.call_end,
-          label: 'Завершить',
-          color: Colors.red,
-          onPressed: callManager.hangUp,
-        ),
-      ],
+          if (call.isVideo)
+            _CallRoundButton(
+              icon: callManager.isVideoEnabled
+                  ? Icons.videocam
+                  : Icons.videocam_off,
+              label: callManager.isVideoEnabled ? 'Камера' : 'Без видео',
+              onPressed: () => callManager.toggleVideo(),
+            ),
+          _CallRoundButton(
+            icon: Icons.settings_voice,
+            label: 'Аудио',
+            onPressed: () => CallDevicePickerSheet.show(context),
+          ),
+          _CallRoundButton(
+            icon: Icons.call_end,
+            label: 'Завершить',
+            backgroundColor: TelegramColors.callDeclineRed,
+            iconColor: TelegramColors.callTextPrimary,
+            onPressed: callManager.hangUp,
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _RoundActionButton extends StatelessWidget {
-  const _RoundActionButton({
+class _CallRoundButton extends StatelessWidget {
+  const _CallRoundButton({
     required this.icon,
     required this.label,
     required this.onPressed,
-    this.color,
+    this.backgroundColor,
+    this.iconColor,
+    this.size,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onPressed;
-  final Color? color;
+  final Color? backgroundColor;
+  final Color? iconColor;
+  final double? size;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bg = color ?? theme.colorScheme.surfaceContainerHighest;
-    final fg = color != null ? Colors.white : theme.colorScheme.onSurface;
+    final buttonSize = size ?? TelegramSpacing.callControlButtonSize;
+    final bg = backgroundColor ?? TelegramColors.callControlBackground;
+    final fg = iconColor ?? TelegramColors.callTextPrimary;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -381,18 +437,25 @@ class _RoundActionButton extends StatelessWidget {
         Material(
           color: bg,
           shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
-            customBorder: const CircleBorder(),
             onTap: onPressed,
+            customBorder: const CircleBorder(),
             child: SizedBox(
-              width: 64,
-              height: 64,
-              child: Icon(icon, color: fg),
+              width: buttonSize,
+              height: buttonSize,
+              child: Icon(icon, color: fg, size: buttonSize * 0.4),
             ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(label, style: theme.textTheme.labelMedium),
+        Text(
+          label,
+          style: const TextStyle(
+            color: TelegramColors.callTextSecondary,
+            fontSize: TelegramFontSizes.chatSubtitle,
+          ),
+        ),
       ],
     );
   }
