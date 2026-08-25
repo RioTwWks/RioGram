@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -30,6 +31,7 @@ import 'core/user/profile_manager.dart';
 import 'core/media/media_cache_manager.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/proxy/proxy_manager.dart';
+import 'core/proxy/web_proxy_manager.dart';
 import 'core/theme/theme_manager.dart';
 import 'core/tdlib/tdlib_client.dart';
 import 'models/auth_models.dart';
@@ -174,6 +176,7 @@ class _AppScopeState extends State<_AppScope> {
   late final TdlibClient _client;
   late final NotificationService _notificationService;
   ProxyManager? _proxyManager;
+  WebProxyManager? _webProxyManager;
   late final AuthManager _authManager;
   late final MediaCacheManager _mediaCacheManager;
   late final StickerManager _stickerManager;
@@ -205,7 +208,11 @@ class _AppScopeState extends State<_AppScope> {
     _client = TdlibClient();
     _notificationService = NotificationService()..init();
 
-    _proxyManager = ProxyManager(client: _client, config: widget.config);
+    if (kIsWeb) {
+      _webProxyManager = WebProxyManager(client: _client);
+    } else {
+      _proxyManager = ProxyManager(client: _client, config: widget.config);
+    }
 
     _mediaCacheManager = MediaCacheManager(client: _client);
     _stickerManager = StickerManager(client: _client);
@@ -270,6 +277,7 @@ class _AppScopeState extends State<_AppScope> {
       client: _client,
       config: widget.config,
       proxyManager: _proxyManager,
+      webProxyManager: _webProxyManager,
       accountDirectorySuffix: widget.accountDirectorySuffix.isEmpty
           ? null
           : widget.accountDirectorySuffix,
@@ -352,6 +360,7 @@ class _AppScopeState extends State<_AppScope> {
     _stickerManager.dispose();
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
+    _webProxyManager?.dispose();
     _client.dispose();
     super.dispose();
   }
@@ -425,6 +434,10 @@ class _AppScopeState extends State<_AppScope> {
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),
+        if (_webProxyManager != null)
+          ChangeNotifierProvider<WebProxyManager>.value(
+            value: _webProxyManager!,
+          ),
       ],
       child: widget.child,
     );

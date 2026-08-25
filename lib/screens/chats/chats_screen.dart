@@ -16,7 +16,7 @@ import '../../widgets/chat_folder_sidebar.dart';
 import '../../widgets/chat_list_tile.dart';
 import '../../widgets/chat_search_panel.dart';
 import '../../widgets/new_chat_dialog.dart';
-import '../../widgets/proxy_status_indicator.dart';
+import '../../widgets/connection_status_indicator.dart';
 import '../chat/chat_screen.dart';
 import '../chat/forum_topics_screen.dart';
 import '../contacts/contacts_screen.dart';
@@ -266,14 +266,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (proxy != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: ProxyStatusIndicator(
-                status: proxy.status,
-                proxyName: proxy.activeProxyName,
-              ),
-            ),
+          const Padding(
+            padding: EdgeInsets.only(right: 4),
+            child: ConnectionStatusIndicator(),
+          ),
           IconButton(
             tooltip: 'Новый чат (Ctrl+N)',
             onPressed: () => _openNewChatDialog(context, chatManager),
@@ -554,16 +550,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
           },
           icon: const Icon(Icons.bookmark_outline),
         ),
-      if (proxy != null)
-        Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: Center(
-            child: ProxyStatusIndicator(
-              status: proxy.status,
-              proxyName: proxy.activeProxyName,
-            ),
-          ),
-        ),
+      const Padding(
+        padding: EdgeInsets.only(right: 4),
+        child: Center(child: ConnectionStatusIndicator()),
+      ),
       IconButton(
         tooltip: 'Контакты',
         onPressed: () => _openContacts(context),
