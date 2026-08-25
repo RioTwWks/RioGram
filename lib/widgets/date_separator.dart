@@ -32,9 +32,9 @@ class DateSeparator extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             child: Text(
               formatDate(date),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: TelegramFontSizes.preview,
-                color: tg.textPrimary,
+                color: TelegramColors.dateSeparatorText,
                 fontWeight: FontWeight.w500,
               ),
             ),

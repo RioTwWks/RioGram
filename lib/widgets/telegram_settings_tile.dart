@@ -188,7 +188,7 @@ class TelegramSettingsTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  effectiveTrailing?,
+                  ?effectiveTrailing,
                 ],
               ),
             ),

@@ -1,5 +1,6 @@
 import '../../models/chat_models.dart';
 import '../../models/group_models.dart';
+import '../../models/message_enrichment.dart';
 import 'tdlib_chat_info_parser.dart';
 import '../tdlib/tdlib_json.dart';
 

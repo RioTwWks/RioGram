@@ -4,7 +4,7 @@ import 'package:riogram/models/message_enrichment.dart';
 
 void main() {
   group('MessageEnrichmentParser delivery', () {
-    test('pending / failed / sent / read для исходящих', () {
+    test('pending / failed / delivered / read для исходящих', () {
       final pending = MessageEnrichmentParser.parseDeliveryStatus(
         {
           'is_outgoing': true,
