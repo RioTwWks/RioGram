@@ -24,7 +24,7 @@ WEB_ROOT="${E2E_WEB_ROOT}" "${ROOT_DIR}/scripts/verify-web-deploy.sh"
 
 if [[ "${E2E_SKIP_WSS:-0}" != "1" ]]; then
   echo "==> WSS stability (${WSS_STABILITY_SECONDS:-65}s)"
-  WSS_URL="ws://127.0.0.1:8080/venus.web.telegram.org/apiws" \
+  WSS_URL="ws://127.0.0.1:${E2E_BACKEND_PORT:-8080}/venus.web.telegram.org/apiws" \
     WSS_STABILITY_SECONDS="${WSS_STABILITY_SECONDS:-65}" \
     "${ROOT_DIR}/scripts/e2e-wss-stability.sh"
 fi

@@ -4,7 +4,8 @@
 
 e2e_stack_up() {
   E2E_ROOT="${E2E_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-  E2E_WEB_ROOT="${E2E_WEB_ROOT:-http://127.0.0.1:8080}"
+  E2E_BACKEND_PORT="${EU_BACKEND_PORT:-8080}"
+  E2E_WEB_ROOT="${E2E_WEB_ROOT:-http://127.0.0.1:${E2E_BACKEND_PORT}}"
   E2E_TMP="/tmp/riogram-eu-test"
   E2E_NGINX_CONF="${E2E_ROOT}/deploy/nginx/riogram-eu-backend.conf"
   E2E_WEB_SRC="${E2E_ROOT}/build/web"
@@ -22,9 +23,12 @@ e2e_stack_up() {
   mkdir -p "${E2E_TMP}/log" "${E2E_TMP}/nginx-body" "${E2E_TMP}/web"
   cp -a "${E2E_WEB_SRC}/." "${E2E_TMP}/web/"
 
-  sed "s|/var/log/riogram|${E2E_TMP}/log|g" "${E2E_NGINX_CONF}" \
-    | sed "s|/run/riogram-eu-backend.pid|${E2E_TMP}/nginx.pid|g" \
-    | sed "s|/opt/riogram/web|${E2E_TMP}/web|g" \
+  sed \
+    -e "s|__EU_BACKEND_PORT__|${E2E_BACKEND_PORT}|g" \
+    -e "s|/var/log/riogram|${E2E_TMP}/log|g" \
+    -e "s|/run/riogram-eu-backend.pid|${E2E_TMP}/nginx.pid|g" \
+    -e "s|/opt/riogram/web|${E2E_TMP}/web|g" \
+    "${E2E_NGINX_CONF}" \
     | sed "/^http {/a\\
     client_body_temp_path ${E2E_TMP}/nginx-body;\\
     proxy_temp_path ${E2E_TMP}/nginx-body;\\
@@ -42,6 +46,7 @@ e2e_stack_up() {
   sleep 0.3
 
   export WEB_ROOT="${E2E_WEB_ROOT}"
+  export EU_BACKEND_PORT="${E2E_BACKEND_PORT}"
 }
 
 e2e_stack_down() {
