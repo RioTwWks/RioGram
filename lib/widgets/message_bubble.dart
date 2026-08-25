@@ -3,8 +3,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../core/features/anti_recall_store.dart';
+import '../core/features/riogram_features_manager.dart';
 import '../core/theme/telegram_theme.dart';
+import '../models/anti_recall_models.dart';
 import '../models/audio_models.dart';
 import '../models/chat_models.dart';
 import '../models/formatted_text.dart';
@@ -22,7 +26,9 @@ import 'media_album_grid.dart';
 import 'message_bubble_grouping.dart';
 import 'message_delivery_icon.dart';
 import 'message_reactions_row.dart';
+import 'media_hover_preview.dart';
 import 'poll_message_body.dart';
+import 'riogram_features_widgets.dart';
 import 'video_note_player.dart';
 import 'voice_message_player.dart';
 
@@ -440,8 +446,15 @@ class _MessageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final antiRecall = context.watch<AntiRecallStore>();
+    final mediaFeatures = context.watch<RioGramMediaFeaturesManager>();
+    final snapshot = mediaFeatures.antiRecallEnabled
+        ? antiRecall.snapshotFor(message.chatId, message.id)
+        : null;
+
+    Widget body;
     if (albumMessages != null && albumMessages!.length > 1) {
-      return Column(
+      body = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           MediaAlbumGrid(
@@ -456,18 +469,54 @@ class _MessageBody extends StatelessWidget {
           ],
         ],
       );
+    } else {
+      body = _buildPrimaryBody(context, snapshot);
     }
 
+    if (snapshot == null) {
+      return body;
+    }
+
+    final reasonLabel = switch (snapshot.reason) {
+      AntiRecallSnapshotReason.deleted => 'Удалённое сообщение (анти-отзыв)',
+      AntiRecallSnapshotReason.edited => 'До редактирования',
+      AntiRecallSnapshotReason.received => 'Оригинал',
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AntiRecallBanner(
+          reasonLabel: reasonLabel,
+          preview: snapshot.content.preview,
+          caption: snapshot.content.caption,
+        ),
+        body,
+      ],
+    );
+  }
+
+  Widget _buildPrimaryBody(
+    BuildContext context,
+    AntiRecallSnapshot? snapshot,
+  ) {
     final content = message.content;
     final localPath = message.localFilePath ?? content.localPath;
 
-    if (message.isDeleted) {
+    if (message.isDeleted && snapshot == null) {
       return Text(
         content.preview,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontStyle: FontStyle.italic,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
+      );
+    }
+
+    if (message.isDeleted && snapshot != null) {
+      return Text(
+        snapshot.content.preview,
+        style: Theme.of(context).textTheme.bodyMedium,
       );
     }
 
@@ -538,17 +587,24 @@ class _MessageBody extends StatelessWidget {
     }
 
     if (content.kind == MessageKind.photo && localPath != null) {
+      final mediaFeatures = context.read<RioGramMediaFeaturesManager>();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: onMediaTap == null ? null : () => onMediaTap!(message),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(TelegramRadii.mediaPreview),
-              child: Image.file(
-                File(localPath),
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Text(content.preview),
+          MediaHoverPreview(
+            enabled: mediaFeatures.hoverPreviewEnabled,
+            localPath: localPath,
+            kind: MessageKind.photo,
+            previewLabel: content.caption ?? content.preview,
+            child: GestureDetector(
+              onTap: onMediaTap == null ? null : () => onMediaTap!(message),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(TelegramRadii.mediaPreview),
+                child: Image.file(
+                  File(localPath),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Text(content.preview),
+                ),
               ),
             ),
           ),
@@ -571,15 +627,22 @@ class _MessageBody extends StatelessWidget {
     }
 
     if (content.kind == MessageKind.video) {
+      final mediaFeatures = context.read<RioGramMediaFeaturesManager>();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (localPath != null)
-            InlineVideoPlayer(
-              filePath: localPath,
-              durationLabel: content.videoInfo?.durationLabel,
-              onOpenFullscreen:
-                  onMediaTap == null ? null : () => onMediaTap!(message),
+            MediaHoverPreview(
+              enabled: mediaFeatures.hoverPreviewEnabled,
+              localPath: localPath,
+              kind: MessageKind.video,
+              previewLabel: content.videoInfo?.durationLabel,
+              child: InlineVideoPlayer(
+                filePath: localPath,
+                durationLabel: content.videoInfo?.durationLabel,
+                onOpenFullscreen:
+                    onMediaTap == null ? null : () => onMediaTap!(message),
+              ),
             )
           else
             _MediaPlaceholder(

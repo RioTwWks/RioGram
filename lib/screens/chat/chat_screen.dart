@@ -8,6 +8,7 @@ import '../../core/bot/bot_manager.dart';
 import '../../core/call/call_manager.dart';
 import '../../core/call/group_call_manager.dart';
 import '../../core/chat/chat_manager.dart';
+import '../../core/features/riogram_features_manager.dart';
 import '../../core/secret/secret_chat_manager.dart';
 import '../../core/user/profile_manager.dart';
 import '../../widgets/scroll_to_bottom_button.dart';
@@ -33,6 +34,7 @@ import '../../widgets/inline_query_results_sheet.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
+import '../../widgets/riogram_features_widgets.dart';
 import '../../widgets/poll_message_body.dart';
 import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
@@ -414,6 +416,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _openMediaViewer(ChatMessage anchor) {
     final manager = context.read<ChatManager>();
+    manager.openMessageContentIfAllowed(anchor.chatId, anchor.id);
     final items = manager.messages
         .where((message) => MediaAlbumGrouper.isMediaKind(message.content.kind))
         .map(MediaViewerItem.fromMessage)
@@ -501,6 +504,13 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (message.content.kind == MessageKind.text ||
+                (message.content.caption?.isNotEmpty ?? false))
+              ListTile(
+                leading: const Icon(Icons.translate),
+                title: const Text('Перевести'),
+                onTap: () => Navigator.pop(context, 'translate'),
+              ),
             ListTile(
               leading: const Icon(Icons.reply),
               title: const Text('Ответить'),
@@ -600,6 +610,14 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     switch (action) {
+      case 'translate':
+        final targetLanguage =
+            context.read<RioGramMediaFeaturesManager>().translatorTargetLanguage;
+        await MessageTranslationSheet.show(
+          context,
+          message: message,
+          targetLanguage: targetLanguage,
+        );
       case 'reply':
         _clearComposer();
         manager.setReplyToMessage(message);

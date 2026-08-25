@@ -16,6 +16,9 @@ import 'core/call/group_call_manager.dart';
 import 'core/chat/chat_manager.dart';
 import 'core/chat/sticker_manager.dart';
 import 'core/config/app_config.dart';
+import 'core/features/anti_recall_store.dart';
+import 'core/features/riogram_features_manager.dart';
+import 'core/features/riogram_features_preferences.dart';
 import 'core/locale/app_locale_manager.dart';
 import 'core/notifications/notification_settings_manager.dart';
 import 'core/privacy/privacy_settings_manager.dart';
@@ -190,6 +193,11 @@ class _AppScopeState extends State<_AppScope> {
   late final SecretChatManager _secretChatManager;
   late final StoryManager _storyManager;
   late final ChatManager _chatManager;
+  late final GhostModeManager _ghostModeManager;
+  late final RioGramMediaFeaturesManager _mediaFeaturesManager;
+  late final AntiRecallStore _antiRecallStore;
+  late final MessageTranslator _messageTranslator;
+  late final RioGramFeaturesPreferences _featuresPreferences;
 
   @override
   void initState() {
@@ -231,11 +239,29 @@ class _AppScopeState extends State<_AppScope> {
       mediaCache: _mediaCacheManager,
     );
 
+    _featuresPreferences = RioGramFeaturesPreferences();
+    _ghostModeManager = GhostModeManager(
+      client: _client,
+      preferences: _featuresPreferences,
+    );
+    _mediaFeaturesManager = RioGramMediaFeaturesManager(
+      preferences: _featuresPreferences,
+    );
+    _antiRecallStore = AntiRecallStore(
+      accountSuffix: widget.accountDirectorySuffix,
+    );
+    _messageTranslator = MessageTranslator(client: _client);
+
+    unawaited(_loadFeatureSettings());
+
     _chatManager = ChatManager(
       client: _client,
       notificationService: _notificationService,
       notificationSettings: _notificationSettingsManager,
       mediaCache: _mediaCacheManager,
+      ghostMode: _ghostModeManager,
+      antiRecallStore: _antiRecallStore,
+      mediaFeatures: _mediaFeaturesManager,
     );
 
     _profileManager.addListener(_registerAccountIfNeeded);
@@ -251,7 +277,17 @@ class _AppScopeState extends State<_AppScope> {
     );
   }
 
+  Future<void> _loadFeatureSettings() async {
+    await Future.wait([
+      _ghostModeManager.load(),
+      _mediaFeaturesManager.load(),
+      _antiRecallStore.load(),
+    ]);
+  }
+
   void _onAuthorized() {
+    _ghostModeManager.onAuthorized();
+    _messageTranslator.startListening();
     _appLocaleManager.startListening();
     _mediaCacheManager.startListening();
     _stickerManager.startListening();
@@ -312,6 +348,7 @@ class _AppScopeState extends State<_AppScope> {
     _botManager.dispose();
     _secretChatManager.dispose();
     _storyManager.dispose();
+    _messageTranslator.dispose();
     _stickerManager.dispose();
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
@@ -373,6 +410,18 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<StoryManager>.value(
           value: _storyManager,
+        ),
+        ChangeNotifierProvider<GhostModeManager>.value(
+          value: _ghostModeManager,
+        ),
+        ChangeNotifierProvider<RioGramMediaFeaturesManager>.value(
+          value: _mediaFeaturesManager,
+        ),
+        ChangeNotifierProvider<AntiRecallStore>.value(
+          value: _antiRecallStore,
+        ),
+        ChangeNotifierProvider<MessageTranslator>.value(
+          value: _messageTranslator,
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),

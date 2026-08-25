@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../models/anti_recall_models.dart';
 import '../../models/audio_models.dart';
 import '../../models/chat_models.dart';
 import '../../models/channel_models.dart';
@@ -11,6 +12,8 @@ import '../../models/formatted_text.dart';
 import '../../models/group_models.dart';
 import '../../models/location_models.dart';
 import '../../models/message_enrichment.dart';
+import '../features/anti_recall_store.dart';
+import '../features/riogram_features_manager.dart';
 import '../location/live_location_tracker.dart';
 import '../media/media_cache_manager.dart';
 import '../notifications/notification_settings_manager.dart';
@@ -31,15 +34,24 @@ class ChatManager extends ChangeNotifier {
     NotificationService? notificationService,
     NotificationSettingsManager? notificationSettings,
     MediaCacheManager? mediaCache,
+    GhostModeManager? ghostMode,
+    AntiRecallStore? antiRecallStore,
+    RioGramMediaFeaturesManager? mediaFeatures,
   })  : _client = client,
         _notifications = notificationService ?? NotificationService(),
         _notificationSettings = notificationSettings,
-        _mediaCache = mediaCache;
+        _mediaCache = mediaCache,
+        _ghostMode = ghostMode,
+        _antiRecallStore = antiRecallStore,
+        _mediaFeatures = mediaFeatures;
 
   final TdlibClient _client;
   final NotificationService _notifications;
   final NotificationSettingsManager? _notificationSettings;
   final MediaCacheManager? _mediaCache;
+  final GhostModeManager? _ghostMode;
+  final AntiRecallStore? _antiRecallStore;
+  final RioGramMediaFeaturesManager? _mediaFeatures;
   final LiveLocationTracker _liveLocationTracker = LiveLocationTracker();
 
   final Map<int, ChatSummary> _chatsById = {};
@@ -314,6 +326,21 @@ class ChatManager extends ChangeNotifier {
         userName: (userId) => _userDisplayNames[userId] ?? '',
         chatTitle: (chatId) => _chatsById[chatId]?.title ?? '',
       );
+
+  bool get _isAntiRecallEnabled =>
+      _mediaFeatures?.antiRecallEnabled == true && _antiRecallStore != null;
+
+  /// Открывает содержимое сообщения (таймер самоуничтожения), если не включён скрытый просмотр.
+  void openMessageContentIfAllowed(int chatId, int messageId) {
+    if (_ghostMode?.shouldStealthViewSelfDestruct == true) {
+      return;
+    }
+    _client.send({
+      '@type': 'openMessageContent',
+      'chat_id': chatId,
+      'message_id': messageId,
+    });
+  }
 
   ChatMessage _enrichGroupMessage(
     Map<String, dynamic> json,
@@ -2024,6 +2051,10 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    if (_ghostMode?.shouldHideTyping == true && action != OutgoingChatAction.cancel) {
+      return;
+    }
+
     final actionType = switch (action) {
       OutgoingChatAction.typing => 'chatActionTyping',
       OutgoingChatAction.recordingVoice => 'chatActionRecordingVoiceNote',
@@ -3088,6 +3119,10 @@ class ChatManager extends ChangeNotifier {
   }
 
   void _markMessagesRead(int chatId, List<ChatMessage> messages) {
+    if (_ghostMode?.shouldHideReadReceipts == true) {
+      return;
+    }
+
     final ids = messages.map((message) => message.id).where((id) => id > 0).toList();
     if (ids.isEmpty) {
       return;
@@ -3180,12 +3215,21 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index >= 0 && _isAntiRecallEnabled) {
+      unawaited(
+        _antiRecallStore?.captureMessage(
+          _messages[index],
+          reason: AntiRecallSnapshotReason.edited,
+        ),
+      );
+    }
+
     final editDateSeconds = tdIntOr(update['edit_date']);
     final editDate = editDateSeconds > 0
         ? DateTime.fromMillisecondsSinceEpoch(editDateSeconds * 1000)
         : null;
 
-    final index = _messages.indexWhere((message) => message.id == messageId);
     if (index >= 0) {
       _messages[index] = _messages[index].copyWith(editDate: editDate);
       notifyListeners();
@@ -3203,6 +3247,15 @@ class ChatManager extends ChangeNotifier {
     final index = _messages.indexWhere((message) => message.id == messageId);
     if (index < 0) {
       return;
+    }
+
+    if (_isAntiRecallEnabled) {
+      unawaited(
+        _antiRecallStore?.captureMessage(
+          _messages[index],
+          reason: AntiRecallSnapshotReason.edited,
+        ),
+      );
     }
 
     final current = _messages[index];
@@ -3232,7 +3285,23 @@ class ChatManager extends ChangeNotifier {
     }
 
     final isPermanent = update['is_permanent'] as bool? ?? true;
-    if (isPermanent) {
+    if (isPermanent && _isAntiRecallEnabled) {
+      for (final id in ids) {
+        final index = _messages.indexWhere((message) => message.id == id);
+        if (index < 0) {
+          continue;
+        }
+        final message = _messages[index];
+        unawaited(_antiRecallStore?.markDeleted(message));
+        _messages[index] = message.copyWith(
+          isDeleted: true,
+          content: const MessageContent(
+            kind: MessageKind.text,
+            preview: 'Сообщение удалено отправителем',
+          ),
+        );
+      }
+    } else if (isPermanent) {
       _messages.removeWhere((message) => ids.contains(message.id));
       _selectedMessageIds.removeWhere((id) => ids.contains(id));
       if (_selectedMessageIds.isEmpty) {
@@ -3482,6 +3551,10 @@ class ChatManager extends ChangeNotifier {
   void _insertMessage(ChatMessage message) {
     if (message.chatId != _activeChatId) {
       return;
+    }
+
+    if (_isAntiRecallEnabled) {
+      unawaited(_antiRecallStore?.captureMessage(message));
     }
 
     final index = _messages.indexWhere((item) => item.id == message.id);

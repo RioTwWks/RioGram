@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
+import '../core/features/riogram_features_manager.dart';
 import '../core/theme/telegram_theme.dart';
+import 'video_playback_speed_controls.dart';
 
 /// Inline-воспроизведение видео в пузыре сообщения.
 class InlineVideoPlayer extends StatefulWidget {
@@ -28,11 +31,23 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
   VideoPlayerController? _controller;
   var _initialized = false;
   var _hasError = false;
+  var _playbackSpeed = 1.0;
+  var _speedLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _initController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_speedLoaded) {
+      _playbackSpeed =
+          context.read<RioGramMediaFeaturesManager>().defaultVideoSpeed;
+      _speedLoaded = true;
+    }
   }
 
   @override
@@ -49,6 +64,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
     _controller = controller;
     try {
       await controller.initialize();
+      await controller.setPlaybackSpeed(_playbackSpeed);
       if (!mounted) {
         return;
       }
@@ -173,6 +189,16 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
                 ),
               ),
             ),
+          Positioned(
+            left: 4,
+            bottom: 8,
+            child: VideoPlaybackSpeedControls(
+              controller: controller,
+              speed: _playbackSpeed,
+              compact: true,
+              onSpeedChanged: (value) => setState(() => _playbackSpeed = value),
+            ),
+          ),
         ],
       ),
     );
