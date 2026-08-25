@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 
 /// Действие из TG-style attach sheet composer.
@@ -54,7 +55,7 @@ class ComposerAttachSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: Icon(Icons.attach_file, color: tg.textSecondary),
+            leading: Icon(TelegramIcons.attach, color: tg.textSecondary),
             title: Text('Медиа и файлы', style: TextStyle(color: tg.textPrimary)),
             subtitle: Text(
               'Фото, видео, документы, геолокация',
@@ -64,24 +65,24 @@ class ComposerAttachSheet extends StatelessWidget {
           ),
           if (showPoll)
             ListTile(
-              leading: Icon(Icons.poll_outlined, color: tg.textSecondary),
+              leading: Icon(TelegramIcons.pollOutlined, color: tg.textSecondary),
               title: Text('Опрос', style: TextStyle(color: tg.textPrimary)),
               onTap: () => Navigator.pop(context, ComposerAttachAction.poll),
             ),
           if (showVoice)
             ListTile(
-              leading: Icon(Icons.mic_outlined, color: tg.textSecondary),
+              leading: Icon(TelegramIcons.micOutlined, color: tg.textSecondary),
               title: Text('Голосовое', style: TextStyle(color: tg.textPrimary)),
               onTap: () => Navigator.pop(context, ComposerAttachAction.voice),
             ),
           if (showSticker)
             ListTile(
-              leading: Icon(Icons.emoji_emotions_outlined, color: tg.textSecondary),
+              leading: Icon(TelegramIcons.emoji, color: tg.textSecondary),
               title: Text('Стикер', style: TextStyle(color: tg.textPrimary)),
               onTap: () => Navigator.pop(context, ComposerAttachAction.sticker),
             ),
           ListTile(
-            leading: Icon(Icons.schedule_outlined, color: tg.textSecondary),
+            leading: Icon(TelegramIcons.scheduleOutlined, color: tg.textSecondary),
             title: Text(
               scheduledAt != null
                   ? 'Изменить отложенную отправку'

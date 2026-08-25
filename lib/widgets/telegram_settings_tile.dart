@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/navigation/telegram_routes.dart';
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 import 'chat_avatar.dart';
 
@@ -26,6 +27,38 @@ double telegramSettingsGroupRadius(BuildContext context) {
   return telegramSettingsUseFlatGroups(context)
       ? TelegramRadii.settingsGroupFlat
       : TelegramRadii.buttonPill;
+}
+
+EdgeInsets telegramSettingsListPadding(BuildContext context) {
+  if (telegramSettingsUseFlatGroups(context)) {
+    return const EdgeInsets.fromLTRB(0, 8, 0, 24);
+  }
+  return const EdgeInsets.fromLTRB(16, 8, 16, 24);
+}
+
+TextStyle? telegramSettingsTitleStyle(BuildContext context, {bool destructive = false}) {
+  final theme = Theme.of(context);
+  return theme.textTheme.titleMedium?.copyWith(
+    color: destructive ? theme.colorScheme.error : null,
+  );
+}
+
+TextStyle? telegramSettingsSubtitleStyle(BuildContext context) =>
+    Theme.of(context).textTheme.bodySmall;
+
+TextStyle? telegramSettingsValueStyle(BuildContext context) {
+  final tg = context.telegramTheme;
+  return Theme.of(context).textTheme.bodyMedium?.copyWith(color: tg.textSecondary);
+}
+
+TextStyle? telegramSettingsSectionHeaderStyle(BuildContext context) {
+  final tg = context.telegramTheme;
+  return Theme.of(context).textTheme.labelSmall?.copyWith(
+        fontSize: TelegramFontSizes.sectionHeader,
+        fontWeight: FontWeight.w500,
+        color: tg.textSecondary,
+        letterSpacing: 0.2,
+      );
 }
 
 class TelegramSettingsScaffold extends StatelessWidget {
@@ -59,27 +92,30 @@ class TelegramSettingsListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: padding ?? const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: padding ?? telegramSettingsListPadding(context),
       children: children,
     );
   }
 }
 
 class TelegramSettingsSectionHeader extends StatelessWidget {
-  const TelegramSettingsSectionHeader(this.title, {super.key, this.padding = const EdgeInsets.fromLTRB(16, 20, 16, 6)});
+  const TelegramSettingsSectionHeader(this.title, {super.key, EdgeInsetsGeometry? padding})
+      : padding = padding ??
+            const EdgeInsets.fromLTRB(
+              TelegramSpacing.settingsSectionHeaderHorizontalPadding,
+              TelegramSpacing.settingsSectionHeaderTopPadding,
+              TelegramSpacing.settingsSectionHeaderHorizontalPadding,
+              TelegramSpacing.settingsSectionHeaderBottomPadding,
+            );
 
   final String title;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
-    final tg = context.telegramTheme;
     return Padding(
       padding: padding,
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(fontSize: TelegramFontSizes.sectionHeader, fontWeight: FontWeight.w500, color: tg.textSecondary, letterSpacing: 0.2),
-      ),
+      child: Text(title.toUpperCase(), style: telegramSettingsSectionHeaderStyle(context)),
     );
   }
 }
@@ -97,13 +133,16 @@ class TelegramSettingsGroup extends StatelessWidget {
     final radius = telegramSettingsGroupRadius(context);
     final borderRadius = BorderRadius.circular(radius);
     final flat = telegramSettingsUseFlatGroups(context);
+    final dividerColor = context.telegramTheme.chatListDivider;
     return Padding(
       padding: margin,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: telegramSettingsGroupBackground(context),
           borderRadius: borderRadius,
-          border: flat ? Border.all(color: context.telegramTheme.chatListDivider) : null,
+          border: flat
+              ? Border(top: BorderSide(color: dividerColor), bottom: BorderSide(color: dividerColor))
+              : null,
         ),
         child: ClipRRect(
           borderRadius: borderRadius,
@@ -115,10 +154,11 @@ class TelegramSettingsGroup extends StatelessWidget {
 }
 
 class TelegramSettingsDivider extends StatelessWidget {
-  const TelegramSettingsDivider({super.key, this.inset = 16});
+  const TelegramSettingsDivider({super.key, this.inset = TelegramSpacing.settingsDividerInset});
   final double inset;
   @override
-  Widget build(BuildContext context) => Divider(height: 1, thickness: 1, indent: inset, color: context.telegramTheme.chatListDivider);
+  Widget build(BuildContext context) =>
+      Divider(height: 1, thickness: 1, indent: inset, color: context.telegramTheme.chatListDivider);
 }
 
 class TelegramSettingsTile extends StatelessWidget {
@@ -132,7 +172,7 @@ class TelegramSettingsTile extends StatelessWidget {
     this.showChevron = true,
     this.onTap,
     this.showDivider = true,
-    this.dividerInset = 16,
+    this.dividerInset,
     this.dense = false,
     this.destructive = false,
   });
@@ -145,24 +185,34 @@ class TelegramSettingsTile extends StatelessWidget {
   final bool showChevron;
   final VoidCallback? onTap;
   final bool showDivider;
-  final double dividerInset;
+  final double? dividerInset;
   final bool dense;
   final bool destructive;
 
   @override
   Widget build(BuildContext context) {
     final tg = context.telegramTheme;
-    final effectiveInset = leading != null ? 56.0 : dividerInset;
+    final effectiveInset = dividerInset ??
+        (leading != null
+            ? TelegramSpacing.settingsDividerInsetWithLeading
+            : TelegramSpacing.settingsDividerInset);
     Widget? effectiveTrailing = trailing;
     if (effectiveTrailing == null && (value != null || showChevron)) {
       effectiveTrailing = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (value != null)
-            Flexible(child: Text(value!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: TelegramFontSizes.preview, color: tg.textSecondary))),
+            Flexible(
+              child: Text(
+                value!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: telegramSettingsValueStyle(context),
+              ),
+            ),
           if (showChevron && onTap != null) ...[
             if (value != null) const SizedBox(width: 4),
-            Icon(Icons.chevron_right, size: 20, color: tg.textSecondary.withValues(alpha: 0.65)),
+            Icon(TelegramIcons.chevronRight, size: 20, color: tg.textSecondary.withValues(alpha: 0.65)),
           ],
         ],
       );
@@ -174,22 +224,29 @@ class TelegramSettingsTile extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: dense ? 10 : 12),
-              child: Row(
-                children: [
-                  if (leading != null) ...[leading!, const SizedBox(width: 12)],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title, style: TextStyle(fontSize: TelegramFontSizes.chatTitle, color: destructive ? Theme.of(context).colorScheme.error : tg.textPrimary)),
-                        if (subtitle != null) ...[const SizedBox(height: 2), Text(subtitle!, style: TextStyle(fontSize: TelegramFontSizes.chatSubtitle, color: tg.textSecondary))],
-                      ],
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: TelegramSpacing.settingsRowHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    if (leading != null) ...[leading!, const SizedBox(width: 12)],
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: telegramSettingsTitleStyle(context, destructive: destructive)),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(subtitle!, style: telegramSettingsSubtitleStyle(context)),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
-                  ?effectiveTrailing,
-                ],
+                    ?effectiveTrailing,
+                  ],
+                ),
               ),
             ),
           ),
@@ -215,53 +272,81 @@ class TelegramSettingsSwitch extends StatelessWidget {
 }
 
 class TelegramSettingsSwitchTile extends StatelessWidget {
-  const TelegramSettingsSwitchTile({super.key, required this.title, this.subtitle, required this.value, required this.onChanged, this.showDivider = true, this.dividerInset = 16});
+  const TelegramSettingsSwitchTile({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.onChanged,
+    this.showDivider = true,
+    this.dividerInset,
+  });
+
   final String title;
   final String? subtitle;
   final bool value;
   final ValueChanged<bool>? onChanged;
   final bool showDivider;
-  final double dividerInset;
+  final double? dividerInset;
+
   @override
   Widget build(BuildContext context) {
-    final tg = context.telegramTheme;
+    final effectiveInset = dividerInset ?? TelegramSpacing.settingsDividerInset;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: TextStyle(fontSize: TelegramFontSizes.chatTitle, color: tg.textPrimary)),
-                    if (subtitle != null) ...[const SizedBox(height: 2), Text(subtitle!, style: TextStyle(fontSize: TelegramFontSizes.chatSubtitle, color: tg.textSecondary))],
-                  ],
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: TelegramSpacing.settingsRowHeight),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: telegramSettingsTitleStyle(context)),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(subtitle!, style: telegramSettingsSubtitleStyle(context)),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-              TelegramSettingsSwitch(value: value, onChanged: onChanged),
-            ],
+                TelegramSettingsSwitch(value: value, onChanged: onChanged),
+              ],
+            ),
           ),
         ),
-        if (showDivider) TelegramSettingsDivider(inset: dividerInset),
+        if (showDivider) TelegramSettingsDivider(inset: effectiveInset),
       ],
     );
   }
 }
 
 class TelegramSettingsProfileHeader extends StatelessWidget {
-  const TelegramSettingsProfileHeader({super.key, required this.displayName, this.username, this.phone, this.avatarLocalPath, this.onTap, this.showChevron = true});
+  const TelegramSettingsProfileHeader({
+    super.key,
+    required this.displayName,
+    this.username,
+    this.phone,
+    this.avatarLocalPath,
+    this.onTap,
+    this.showChevron = true,
+  });
+
   final String displayName;
   final String? username;
   final String? phone;
   final String? avatarLocalPath;
   final VoidCallback? onTap;
   final bool showChevron;
+
   @override
   Widget build(BuildContext context) {
     final tg = context.telegramTheme;
+    final theme = Theme.of(context);
     return TelegramSettingsGroup(
       children: [
         Material(
@@ -269,24 +354,40 @@ class TelegramSettingsProfileHeader extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(telegramSettingsGroupRadius(context)),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-              child: Row(
-                children: [
-                  ChatAvatar(title: displayName, localPath: avatarLocalPath, radius: 30),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: tg.textPrimary)),
-                        if (username != null && username!.isNotEmpty) ...[const SizedBox(height: 2), Text('@$username', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: TelegramFontSizes.preview, color: tg.accent))],
-                        if (phone != null && phone!.isNotEmpty) ...[const SizedBox(height: 2), Text(phone!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: TelegramFontSizes.preview, color: tg.textSecondary))],
-                      ],
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: TelegramSpacing.settingsRowHeight),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+                child: Row(
+                  children: [
+                    ChatAvatar(title: displayName, localPath: avatarLocalPath, radius: 30),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: tg.textPrimary,
+                            ),
+                          ),
+                          if (username != null && username!.isNotEmpty)
+                            Text('@$username', style: theme.textTheme.bodyMedium?.copyWith(color: tg.accent)),
+                          if (phone != null && phone!.isNotEmpty)
+                            Text(phone!, style: theme.textTheme.bodyMedium?.copyWith(color: tg.textSecondary)),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (showChevron && onTap != null) Icon(Icons.chevron_right, size: 20, color: tg.textSecondary.withValues(alpha: 0.65)),
-                ],
+                    if (showChevron && onTap != null)
+                      Icon(TelegramIcons.chevronRight, size: 20, color: tg.textSecondary.withValues(alpha: 0.65)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -297,7 +398,17 @@ class TelegramSettingsProfileHeader extends StatelessWidget {
 }
 
 class TelegramProfileHeader extends StatelessWidget {
-  const TelegramProfileHeader({super.key, required this.displayName, this.username, this.phone, this.avatarLocalPath, this.subtitle, this.onUsernameTap, this.avatarRadius = 40});
+  const TelegramProfileHeader({
+    super.key,
+    required this.displayName,
+    this.username,
+    this.phone,
+    this.avatarLocalPath,
+    this.subtitle,
+    this.onUsernameTap,
+    this.avatarRadius = TelegramSpacing.profileScreenAvatarRadius,
+  });
+
   final String displayName;
   final String? username;
   final String? phone;
@@ -305,19 +416,30 @@ class TelegramProfileHeader extends StatelessWidget {
   final Widget? subtitle;
   final VoidCallback? onUsernameTap;
   final double avatarRadius;
+
   @override
   Widget build(BuildContext context) {
     final tg = context.telegramTheme;
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         children: [
           ChatAvatar(title: displayName, localPath: avatarLocalPath, radius: avatarRadius),
           const SizedBox(height: 12),
-          Text(displayName, textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: tg.textPrimary)),
+          Text(
+            displayName,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge?.copyWith(fontSize: 22, fontWeight: FontWeight.w600, color: tg.textPrimary),
+          ),
           if (subtitle != null) ...[const SizedBox(height: 4), subtitle!],
-          if (username != null && username!.isNotEmpty) ...[const SizedBox(height: 6), GestureDetector(onTap: onUsernameTap, child: Text('@$username', style: TextStyle(fontSize: TelegramFontSizes.preview, color: tg.accent)))],
-          if (phone != null && phone!.isNotEmpty) ...[const SizedBox(height: 4), Text(phone!, style: TextStyle(fontSize: TelegramFontSizes.preview, color: tg.textSecondary))],
+          if (username != null && username!.isNotEmpty)
+            GestureDetector(
+              onTap: onUsernameTap,
+              child: Text('@$username', style: theme.textTheme.bodyMedium?.copyWith(color: tg.accent)),
+            ),
+          if (phone != null && phone!.isNotEmpty)
+            Text(phone!, style: theme.textTheme.bodyMedium?.copyWith(color: tg.textSecondary)),
         ],
       ),
     );

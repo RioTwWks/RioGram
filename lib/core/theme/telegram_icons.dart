@@ -90,4 +90,24 @@ abstract final class TelegramIcons {
   static const IconData deliverySent = Icons.check;
   static const IconData deliveryDelivered = Icons.done_all;
   static const IconData visibility = Icons.visibility_outlined;
+  static const IconData reply = Icons.reply;
+  static const IconData chevronRight = Icons.chevron_right;
+  static const IconData arrowDown = Icons.arrow_downward;
+  static const IconData addReaction = Icons.add_reaction_outlined;
+  static const IconData archive = Icons.archive_outlined;
+  static const IconData folder = Icons.folder_outlined;
+  static const IconData searchPrompt = Icons.search_outlined;
+  static const IconData searchOff = Icons.search_off_outlined;
+  static const IconData message = Icons.message_outlined;
+  static const IconData bookmark = Icons.bookmark_outline;
+  static const IconData play = Icons.play_arrow;
+  static const IconData pause = Icons.pause;
+  static const IconData vpn = Icons.vpn_lock_outlined;
+  static const IconData http = Icons.http_outlined;
+  static const IconData add = Icons.add;
+  static const IconData swap = Icons.swap_horiz;
+  static const IconData networkCheck = Icons.network_check;
+  static const IconData pollOutlined = Icons.poll_outlined;
+  static const IconData micOutlined = Icons.mic_outlined;
+  static const IconData scheduleOutlined = Icons.schedule_outlined;
 }

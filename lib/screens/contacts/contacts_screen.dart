@@ -150,9 +150,9 @@ class _ContactsBody extends StatelessWidget {
     final users = contacts.contacts;
     if (users.isEmpty) {
       return EmptyStateWidget(
-        icon: contacts.searchQuery.isEmpty
-            ? Icons.contacts_outlined
-            : Icons.search_off_outlined,
+        illustration: contacts.searchQuery.isEmpty
+            ? EmptyStateIllustration.contacts
+            : EmptyStateIllustration.searchNoResults,
         title: contacts.searchQuery.isEmpty
             ? 'Контактов пока нет'
             : 'Ничего не найдено',

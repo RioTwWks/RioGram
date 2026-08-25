@@ -73,8 +73,15 @@ void main() {
   });
 
   group('TelegramTheme flat surfaces §9.11', () {
-    test('AppBar и карточки без elevation', () {
+    test('AppBar и карточки без elevation (светлая)', () {
       final theme = TelegramTheme.build(brightness: Brightness.light);
+      expect(theme.appBarTheme.elevation, 0);
+      expect(theme.cardTheme.elevation, 0);
+      expect(theme.cardTheme.shadowColor, Colors.transparent);
+    });
+
+    test('AppBar и карточки без elevation (тёмная)', () {
+      final theme = TelegramTheme.build(brightness: Brightness.dark);
       expect(theme.appBarTheme.elevation, 0);
       expect(theme.cardTheme.elevation, 0);
       expect(theme.cardTheme.shadowColor, Colors.transparent);

@@ -779,8 +779,8 @@ MVP — прочный фундамент. Ниже — направления, 
 ### 9.9. Иконография и иллюстрации
 
 - [x] Иконки: outline style, 24dp, единый stroke (Material Icons / Lucide — близко к TG)
-- [x] Пустые состояния: иллюстрация + короткий текст («Нет чатов», «Выберите чат»)
-- [x] Иконка приложения RioGram: узнаваемая, но не копия официального логотипа Telegram (юридически) — см. [docs/APP_ICON.md](docs/APP_ICON.md), концепт `assets/icons/riogram_icon_concept.svg`
+- [x] Пустые состояния: SVG-иллюстрации (`assets/illustrations/`, `empty_state.dart`) («Нет чатов», «Выберите чат»)
+- [x] Иконка приложения RioGram: launcher pipeline — [docs/APP_ICON.md](docs/APP_ICON.md), `flutter_launcher_icons`
 
 ---
 
@@ -885,9 +885,9 @@ MVP — прочный фундамент. Ниже — направления, 
 #### 9.11.9. Регрессия и аудит
 
 - [x] Unit/widget тесты констант и виджетов §9.11 (`telegram_refinement_test`, `date_separator_test`, `message_delivery_icon_test`)
-- [ ] Ручной side-by-side чеклист: список чатов | переписка | ввод | настройки | звонок
-- [ ] Тёмная тема: второй проход pixel parity
-- [ ] Desktop 800px / 840px breakpoints — без layout overflow
+- [ ] Ручной side-by-side чеклист: список чатов | переписка | ввод | настройки | звонок — [docs/SIDE_BY_SIDE_CHECKLIST.md](docs/SIDE_BY_SIDE_CHECKLIST.md)
+- [x] Тёмная тема: второй проход pixel parity — widget-тесты
+- [x] Desktop 800px / 840px breakpoints — `desktop_layout_regression_test.dart`
 
 #### 9.11.10. Flat shell (устранение M3-утечек)
 

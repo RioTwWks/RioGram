@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_icons.dart';
 import '../models/chat_models.dart';
 import '../models/ui_customization_models.dart';
 
@@ -92,17 +93,17 @@ class _SwipeBackground extends StatelessWidget {
 
     final (icon, label, color) = switch (action) {
       MessageSwipeAction.reply => (
-          Icons.reply,
+          TelegramIcons.reply,
           'Ответить',
           Colors.blue,
         ),
       MessageSwipeAction.forward => (
-          Icons.forward,
+          TelegramIcons.forward,
           'Переслать',
           Colors.teal,
         ),
       MessageSwipeAction.delete => (
-          Icons.delete_outline,
+          TelegramIcons.delete,
           'Удалить',
           Colors.red,
         ),

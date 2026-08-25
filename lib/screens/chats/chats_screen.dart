@@ -381,7 +381,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   Widget _buildConversationPane(ChatManager chatManager) {
     if (_selectedChatId == null) {
       return const EmptyStateWidget(
-        icon: Icons.chat_bubble_outline,
+        illustration: EmptyStateIllustration.selectChat,
         title: 'Выберите чат',
         subtitle: 'Выберите чат из списка слева',
       );
@@ -615,17 +615,17 @@ class _ChatsList extends StatelessWidget {
     if (chats.isEmpty && !showSavedMessagesShortcut) {
       return switch (activeList) {
         ChatListArchive() => const EmptyStateWidget(
-            icon: Icons.archive_outlined,
+            illustration: EmptyStateIllustration.archive,
             title: 'Архив пуст',
             subtitle: 'Архивированные чаты появятся здесь',
           ),
         ChatListFolder() => const EmptyStateWidget(
-            icon: Icons.folder_outlined,
+            illustration: EmptyStateIllustration.folder,
             title: 'В папке нет чатов',
             subtitle: 'Добавьте чаты в эту папку в настройках',
           ),
         _ => const EmptyStateWidget(
-            icon: Icons.chat_bubble_outline,
+            illustration: EmptyStateIllustration.noChats,
             title: 'Нет чатов',
             subtitle: 'Начните новую переписку',
           ),
