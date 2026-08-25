@@ -13,7 +13,7 @@
 │   Browser   │ ───────────► │  RU VPS          │ ──────────► │  EU VPS (127.0.0.1 only)   │
 │  RioGram Web│  domain.ru   │  Nginx :443      │  :8080      │  nginx :8080 (aggregator)  │
 └─────────────┘              │  LE certificate  │             │    ├─ :5001 wss-proxy      │
-                             └──────────────────┘             │    └─ :5000 static web      │
+                             └──────────────────┘             │    └─ /opt/riogram/web static │
                                                               └─────────────┬──────────────┘
                                                                             │ WSS
                                                                             ▼
@@ -46,7 +46,8 @@ sudo nano /etc/riogram/web.env   # TUNNEL_RU_HOST, TUNNEL_SSH_USER, ...
 sudo ssh-keygen -t ed25519 -f /var/lib/riogram/.ssh/id_ed25519 -N ''
 sudo cat /var/lib/riogram/.ssh/id_ed25519.pub   # → добавить на RU
 
-sudo systemctl start riogram-wss-proxy riogram-eu-backend riogram-static-placeholder
+sudo systemctl start riogram-wss-proxy riogram-eu-backend
+sudo ./scripts/deploy-web-eu.sh
 sudo systemctl start autossh-riogram-tunnel
 sudo ./deploy/ufw/riogram-eu.sh
 ```

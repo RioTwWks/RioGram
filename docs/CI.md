@@ -8,6 +8,8 @@
 |-----|----------------|
 | **flutter** | `flutter analyze --no-fatal-infos`, `flutter test` |
 | **tdlib-linux** | Сборка модифицированного TDLib, артефакт `libtdjson.so` |
+| **flutter-web** | `build-tdweb` + `flutter build web --release` (§8.5) |
+| **web-e2e** | Локальный stack + WSS stability + Playwright (§8.6) |
 | **flutter-linux** | Полная сборка `flutter build linux --release` с libtdjson из артефакта |
 
 Триггеры: push и pull request в `main`.
@@ -55,6 +57,8 @@
 | Скрипт | Назначение |
 |--------|------------|
 | `scripts/ci-flutter.sh` | Локальный CI (analyze + test) |
+| `scripts/build-web.sh` | Flutter Web production build (§8.5) |
+| `scripts/run-web-e2e.sh` | Web E2E suite (§8.6) |
 | `scripts/build-tdlib.sh` | TDLib Linux |
 | `scripts/build-tdlib-macos.sh` | TDLib macOS |
 | `scripts/build-tdlib-windows.ps1` | TDLib Windows (vcpkg OpenSSL) |
@@ -78,6 +82,8 @@
 ```bash
 ./scripts/ci-flutter.sh
 CC=gcc CXX=g++ TD_ENABLE_LTO=OFF ./scripts/build-tdlib.sh
+./scripts/build-web.sh
+WSS_STABILITY_SECONDS=30 ./scripts/run-web-e2e.sh
 ```
 
 Секреты для релизных сборок: [docs/SECRETS.md](SECRETS.md)

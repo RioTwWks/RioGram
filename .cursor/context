@@ -7,7 +7,7 @@
 
 С 2025–2026 РКН блокирует MTProto и SOCKS5. Fake TLS на прокси недостаточен: DPI анализирует TLS ClientHello, fingerprints и паттерны трафика. Нужен форк клиента + каскадная прокси-схема.
 
-## Архитектура
+## Архитектура (native)
 
 ```
 Flutter UI (Dart)
@@ -20,6 +20,30 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
                                                       ↓
                                               Telegram DC
 ```
+
+## Архитектура (Web, §8)
+
+В браузере нет FFI/Fake TLS — MTProto туннелируется через **WSS** и схему **RU Frontend → EU Backend**:
+
+```
+Browser (Flutter Web + tdweb WASM)
+    ↓ wss://your-domain.ru/venus.web.telegram.org/apiws
+RU VPS (Nginx TLS :443) → SSH reverse tunnel :8080
+    ↓
+EU VPS nginx :8080 (aggregator)
+    ├─ /opt/riogram/web/          Flutter static (§8.5)
+    └─ riogram-wss-proxy :5001     → venus/pluto.web.telegram.org
+```
+
+| Компонент | Репозиторий / путь |
+|-----------|-------------------|
+| WSS hook + tdweb bridge | `web/js/`, `lib/core/tdlib/tdlib_client_web.dart` |
+| WSS reverse proxy | `server/wss-proxy/` → `bin/riogram-wss-proxy` |
+| Инфра RU/EU | `deploy/nginx/`, `scripts/setup-web-infra-*.sh` |
+| E2E | `scripts/run-web-e2e.sh`, `e2e/web/` |
+
+Документация: `docs/WEB.md` (оглавление §8), `WEB_TRANSPORT.md`, `WEB_PROXY.md`, `WEB_INFRA.md`, `WEB_E2E.md`.  
+Команды Cursor: `.cursor/commands/web.md`.
 
 ## Прокси-стратегия
 
@@ -68,9 +92,9 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 
 ## CI/CD
 
-- **CI** (`.github/workflows/ci.yml`): `flutter analyze/test`, сборка TDLib Linux
+- **CI** (`.github/workflows/ci.yml`): `flutter analyze/test`, TDLib Linux, `flutter-web`, `web-e2e`
 - **Release** (`.github/workflows/release.yml`): при публикации GitHub Release — пакеты для Linux, Windows, macOS, Android, iOS
-- Локально: `./scripts/ci-flutter.sh`, `@release` — см. `.cursor/commands/release.md`
+- Локально: `./scripts/ci-flutter.sh`, `./scripts/run-web-e2e.sh`, `@release` — см. `.cursor/commands/release.md`
 - Документация: `docs/CI.md`
 
 ## Текущий статус
@@ -85,6 +109,7 @@ PhantomProxy (основной, RU VPS) ──failover──► StealthGate Fron
 - **Signing** ✅ Android/iOS release-подпись (docs/SIGNING.md, CI secrets)
 - **§6.2 Список чатов** ✅ Отображение, действия, десктопная навигация (см. `docs/CHATS.md`)
 - **§6.3+** ⏳ Сообщения, медиа, группы — в работе по TODO.md
+- **§8 Web** ✅ PoC, WSS transport, proxy, infra, deploy; E2E автоматизация (§8.6); ручные чеклисты auth/RU — открыты
 - **§9** ⏳ Классический дизайн Telegram — не начат
 
 ## Лицензия

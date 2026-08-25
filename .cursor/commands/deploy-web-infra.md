@@ -13,7 +13,8 @@ command: Развернуть инфраструктуру RioGram Web RU+EU (§
 sudo ./scripts/setup-web-infra-eu.sh
 sudo nano /etc/riogram/web.env
 sudo ssh-keygen -t ed25519 -f /var/lib/riogram/.ssh/id_ed25519 -N ''
-sudo systemctl enable --now riogram-wss-proxy riogram-eu-backend riogram-static-placeholder autossh-riogram-tunnel
+sudo systemctl enable --now riogram-wss-proxy riogram-eu-backend autossh-riogram-tunnel
+sudo ./scripts/deploy-web-eu.sh   # Flutter static → /opt/riogram/web
 sudo ./deploy/ufw/riogram-eu.sh
 ```
 
