@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -107,6 +108,12 @@ abstract final class TelegramSpacing {
   static const double chatListDividerInset = 72;
   static const double unreadBadgeMinWidth = 20;
   static const double unreadBadgeMinHeight = 20;
+
+  /// §9.11 — целевые размеры pixel parity (Telegram Desktop / Android).
+  static const double chatListRowHeight = 72;
+  static const double chatAppBarHeight = 56;
+  static const double settingsRowHeight = 48;
+  static const double chatListHorizontalPadding = 12;
 
   /// §9.8 — звонки.
   static const double callAvatarRadius = 60;
