@@ -10,11 +10,13 @@ class FormattedTextWidget extends StatelessWidget {
     required this.formatted,
     this.style,
     this.linkColor,
+    this.trailingSpans = const [],
   });
 
   final FormattedText formatted;
   final TextStyle? style;
   final Color? linkColor;
+  final List<InlineSpan> trailingSpans;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +28,16 @@ class FormattedTextWidget extends StatelessWidget {
     );
 
     if (formatted.entities.isEmpty) {
-      return Text(formatted.text, style: baseStyle);
+      if (trailingSpans.isEmpty) {
+        return Text(formatted.text, style: baseStyle);
+      }
+      return Text.rich(
+        TextSpan(
+          text: formatted.text,
+          style: baseStyle,
+          children: trailingSpans,
+        ),
+      );
     }
 
     final spans = <InlineSpan>[];
@@ -56,6 +67,10 @@ class FormattedTextWidget extends StatelessWidget {
         text: _slice(formatted.text, cursor, formatted.text.length),
         style: baseStyle,
       ));
+    }
+
+    if (trailingSpans.isNotEmpty) {
+      spans.addAll(trailingSpans);
     }
 
     return RichText(

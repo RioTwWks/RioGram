@@ -5,6 +5,8 @@ import 'package:riogram/core/theme/telegram_theme.dart';
 import 'package:riogram/core/theme/theme_manager.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('TelegramColors', () {
     test('содержит классические цвета светлой темы', () {
       expect(TelegramColors.accent, const Color(0xFF3390EC));
@@ -16,6 +18,8 @@ void main() {
       expect(TelegramColors.textPrimaryLight, const Color(0xFF000000));
       expect(TelegramColors.textSecondaryLight, const Color(0xFF707579));
       expect(TelegramColors.textTimeLight, const Color(0xFF8E8E93));
+      expect(TelegramColors.dateSeparatorBackgroundLight, const Color(0x4D000000));
+      expect(TelegramColors.serviceMessageBackgroundLight, const Color(0x33000000));
     });
 
     test('содержит классические цвета тёмной темы', () {

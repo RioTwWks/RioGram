@@ -14,6 +14,7 @@ import '../models/chat_models.dart';
 import '../models/formatted_text.dart';
 import '../models/message_enrichment.dart';
 import '../models/sticker_models.dart';
+import '../core/chat/latex_parser.dart';
 import '../core/location/map_launcher.dart';
 import 'audio_message_player.dart';
 import 'document_message_body.dart';
@@ -203,6 +204,12 @@ class MessageBubble extends StatelessWidget {
                               onMediaTap: onMediaTap,
                               activeLiveLocationMessageId:
                                   activeLiveLocationMessageId,
+                              metaWidget: _BubbleMetaContent(
+                                message: message,
+                                showViewCount: showViewCount,
+                                timeColor: tg.textTime,
+                                accent: tg.accent,
+                              ),
                             ),
                             if (message.fileTransfer != null &&
                                 message.fileTransfer!.isActive)
@@ -248,13 +255,6 @@ class MessageBubble extends StatelessWidget {
                                 onSwitchInlineTap: onInlineSwitchTap,
                               ),
                             ],
-                            const SizedBox(height: 2),
-                            _BubbleMetaRow(
-                              message: message,
-                              showViewCount: showViewCount,
-                              timeColor: tg.textTime,
-                              accent: tg.accent,
-                            ),
                           ],
                         ),
                       ),
@@ -278,7 +278,7 @@ class _BubbleTail extends StatelessWidget {
   final Color color;
   @override
   Widget build(BuildContext context) => CustomPaint(
-        size: const Size(6, 10),
+        size: const Size(8, 12),
         painter: _BubbleTailPainter(isOutgoing: isOutgoing, color: color),
       );
 }
@@ -293,12 +293,20 @@ class _BubbleTailPainter extends CustomPainter {
     final path = Path();
     if (isOutgoing) {
       path.moveTo(0, 0);
-      path.lineTo(size.width, size.height * 0.35);
-      path.lineTo(0, size.height);
+      path.cubicTo(size.width * 0.55, size.height * 0.02, size.width * 1.05,
+          size.height * 0.38, size.width * 0.92, size.height * 0.62);
+      path.cubicTo(size.width * 0.72, size.height * 0.92, size.width * 0.28,
+          size.height * 1.02, 0, size.height * 0.58);
+      path.cubicTo(size.width * -0.08, size.height * 0.34, size.width * -0.02,
+          size.height * 0.12, 0, 0);
     } else {
       path.moveTo(size.width, 0);
-      path.lineTo(0, size.height * 0.35);
-      path.lineTo(size.width, size.height);
+      path.cubicTo(size.width * 0.45, size.height * 0.02, size.width * -0.05,
+          size.height * 0.38, size.width * 0.08, size.height * 0.62);
+      path.cubicTo(size.width * 0.28, size.height * 0.92, size.width * 0.72,
+          size.height * 1.02, size.width, size.height * 0.58);
+      path.cubicTo(size.width * 1.08, size.height * 0.34, size.width * 1.02,
+          size.height * 0.12, size.width, 0);
     }
     path.close();
     canvas.drawPath(path, paint);
@@ -308,8 +316,8 @@ class _BubbleTailPainter extends CustomPainter {
       o.color != color || o.isOutgoing != isOutgoing;
 }
 
-class _BubbleMetaRow extends StatelessWidget {
-  const _BubbleMetaRow({
+class _BubbleMetaContent extends StatelessWidget {
+  const _BubbleMetaContent({
     required this.message,
     required this.showViewCount,
     required this.timeColor,
@@ -324,41 +332,92 @@ class _BubbleMetaRow extends StatelessWidget {
     final time = DateFormat.Hm().format(message.date);
     final meta = TextStyle(
         fontSize: TelegramFontSizes.bubbleMeta, color: timeColor);
-    return Align(
-      alignment: Alignment.bottomRight,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (showViewCount &&
-              (message.interactionInfo?.viewCount ?? 0) > 0) ...[
-            MessageViewCountLabel(
-                viewCount: message.interactionInfo!.viewCount),
-            const SizedBox(width: 6),
-          ],
-          if (message.schedulingInfo != null) ...[
-            Icon(Icons.schedule, size: 12, color: timeColor),
-            const SizedBox(width: 3),
-          ],
-          if (message.isEdited) ...[
-            Text('изменено',
-                style: meta.copyWith(fontStyle: FontStyle.italic)),
-            const SizedBox(width: 4),
-          ],
-          Text(time, style: meta),
-          if (message.isOutgoing && message.deliveryStatus != null) ...[
-            const SizedBox(width: 3),
-            MessageDeliveryIcon(
-              status: message.deliveryStatus!,
-              size: 12,
-              readColor: accent,
-              defaultColor: timeColor,
-            ),
-          ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showViewCount && (message.interactionInfo?.viewCount ?? 0) > 0) ...[
+          MessageViewCountLabel(viewCount: message.interactionInfo!.viewCount),
+          const SizedBox(width: 6),
         ],
-      ),
+        if (message.schedulingInfo != null) ...[
+          Icon(Icons.schedule, size: 12, color: timeColor),
+          const SizedBox(width: 3),
+        ],
+        if (message.isEdited) ...[
+          Text('изменено', style: meta.copyWith(fontStyle: FontStyle.italic)),
+          const SizedBox(width: 4),
+        ],
+        Text(time, style: meta),
+        if (message.isOutgoing && message.deliveryStatus != null) ...[
+          const SizedBox(width: 3),
+          MessageDeliveryIcon(
+            status: message.deliveryStatus!,
+            size: 12,
+            readColor: accent,
+            defaultColor: timeColor,
+          ),
+        ],
+      ],
     );
   }
 }
+
+WidgetSpan _metaSpacerSpan(Widget meta) => WidgetSpan(
+      alignment: PlaceholderAlignment.bottom,
+      child: Opacity(opacity: 0, child: meta),
+    );
+
+Widget _textWithInlineMeta({
+  required String text,
+  TextStyle? style,
+  required Widget meta,
+}) {
+  return Stack(
+    clipBehavior: Clip.none,
+    children: [
+      Text.rich(TextSpan(text: text, style: style, children: [_metaSpacerSpan(meta)])),
+      Positioned(right: 0, bottom: 0, child: meta),
+    ],
+  );
+}
+
+Widget _formattedWithInlineMeta({
+  required FormattedText formatted,
+  TextStyle? style,
+  Color? linkColor,
+  required Widget meta,
+}) {
+  if (LatexParser.containsLatex(formatted.text)) {
+    return _overlayMeta(
+      LatexFormattedTextWidget(
+        formatted: formatted,
+        style: style,
+        linkColor: linkColor,
+      ),
+      meta,
+    );
+  }
+  return Stack(
+    clipBehavior: Clip.none,
+    children: [
+      FormattedTextWidget(
+        formatted: formatted,
+        style: style,
+        linkColor: linkColor,
+        trailingSpans: [_metaSpacerSpan(meta)],
+      ),
+      Positioned(right: 0, bottom: 0, child: meta),
+    ],
+  );
+}
+
+Widget _overlayMeta(Widget body, Widget meta) {
+  return Stack(
+    clipBehavior: Clip.none,
+    children: [body, Positioned(right: 0, bottom: 0, child: meta)],
+  );
+}
+
 
 class _ForwardHeader extends StatelessWidget {
   const _ForwardHeader({required this.info, required this.accent});
@@ -400,9 +459,10 @@ class _ReplyQuote extends StatelessWidget {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: accent, width: 2)),
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,6 +494,7 @@ class _ReplyQuote extends StatelessWidget {
 class _MessageBody extends StatelessWidget {
   const _MessageBody({
     required this.message,
+    required this.metaWidget,
     this.albumMessages,
     this.onPollVote,
     this.onMediaTap,
@@ -441,6 +502,7 @@ class _MessageBody extends StatelessWidget {
   });
 
   final ChatMessage message;
+  final Widget metaWidget;
   final List<ChatMessage>? albumMessages;
   final void Function(int optionId)? onPollVote;
   final void Function(ChatMessage message)? onMediaTap;
@@ -456,6 +518,7 @@ class _MessageBody extends StatelessWidget {
 
     Widget body;
     if (albumMessages != null && albumMessages!.length > 1) {
+      final caption = _albumCaption(albumMessages!);
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -465,12 +528,19 @@ class _MessageBody extends StatelessWidget {
                 ? null
                 : (item, _) => onMediaTap!(item),
           ),
-          if (_albumCaption(albumMessages!) != null) ...[
+          if (caption != null) ...[
             const SizedBox(height: 8),
-            Text(_albumCaption(albumMessages!)!),
+            _textWithInlineMeta(
+              text: caption,
+              style: Theme.of(context).textTheme.bodyMedium,
+              meta: metaWidget,
+            ),
           ],
         ],
       );
+      if (caption == null) {
+        body = _overlayMeta(body, metaWidget);
+      }
     } else {
       body = _buildPrimaryBody(context, snapshot);
     }
@@ -506,26 +576,28 @@ class _MessageBody extends StatelessWidget {
     final localPath = message.localFilePath ?? content.localPath;
 
     if (message.isDeleted && snapshot == null) {
-      return Text(
-        content.preview,
+      return _textWithInlineMeta(
+        text: content.preview,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontStyle: FontStyle.italic,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
+        meta: metaWidget,
       );
     }
 
     if (message.isDeleted && snapshot != null) {
-      return Text(
-        snapshot.content.preview,
+      return _textWithInlineMeta(
+        text: snapshot.content.preview,
         style: Theme.of(context).textTheme.bodyMedium,
+        meta: metaWidget,
       );
     }
 
     if (content.kind == MessageKind.poll && content.poll != null) {
-      return PollMessageBody(
-        poll: content.poll!,
-        onVote: onPollVote,
+      return _overlayMeta(
+        PollMessageBody(poll: content.poll!, onVote: onPollVote),
+        metaWidget,
       );
     }
 
@@ -537,15 +609,15 @@ class _MessageBody extends StatelessWidget {
           : Theme.of(context).colorScheme.primary;
       return Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 8),
           Flexible(
-            child: Text(
-              info.preview(isOutgoing: message.isOutgoing),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: color,
-                  ),
+            child: _textWithInlineMeta(
+              text: info.preview(isOutgoing: message.isOutgoing),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
+              meta: metaWidget,
             ),
           ),
         ],
@@ -556,41 +628,49 @@ class _MessageBody extends StatelessWidget {
             content.kind == MessageKind.liveLocation) &&
         content.locationInfo != null) {
       final info = content.locationInfo!;
-      return LocationMessageBody(
-        preview: info.preview(),
-        point: info.point,
-        subtitle: info.liveMeta?.periodLabel,
-        isLive: info.isLive,
-        isExpired: info.isExpired,
-        isBroadcasting: activeLiveLocationMessageId == message.id,
-        onOpenMap: () => MapLauncher.openLocation(info.point),
+      return _overlayMeta(
+        LocationMessageBody(
+          preview: info.preview(),
+          point: info.point,
+          subtitle: info.liveMeta?.periodLabel,
+          isLive: info.isLive,
+          isExpired: info.isExpired,
+          isBroadcasting: activeLiveLocationMessageId == message.id,
+          onOpenMap: () => MapLauncher.openLocation(info.point),
+        ),
+        metaWidget,
       );
     }
 
     if (content.kind == MessageKind.venue && content.venueInfo != null) {
       final venue = content.venueInfo!.venue;
-      return LocationMessageBody(
-        preview: venue.preview(),
-        point: venue.location,
-        subtitle: venue.address,
-        onOpenMap: () => MapLauncher.openLocation(
-          venue.location,
-          label: venue.title,
+      return _overlayMeta(
+        LocationMessageBody(
+          preview: venue.preview(),
+          point: venue.location,
+          subtitle: venue.address,
+          onOpenMap: () => MapLauncher.openLocation(venue.location, label: venue.title),
         ),
+        metaWidget,
       );
     }
 
     if (content.kind == MessageKind.text) {
       final formatted = content.formattedText;
       if (formatted != null && formatted.text.isNotEmpty) {
-        return LatexFormattedTextWidget(formatted: formatted);
+        return _formattedWithInlineMeta(formatted: formatted, meta: metaWidget);
       }
-      return Text(content.preview);
+      return _textWithInlineMeta(
+        text: content.preview,
+        style: Theme.of(context).textTheme.bodyMedium,
+        meta: metaWidget,
+      );
     }
 
     if (content.kind == MessageKind.photo && localPath != null) {
       final mediaFeatures = context.read<RioGramMediaFeaturesManager>();
-      return Column(
+      final captionWidgets = _captionWidgets(context, content);
+      final photoBody = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           MediaHoverPreview(
@@ -610,27 +690,30 @@ class _MessageBody extends StatelessWidget {
               ),
             ),
           ),
-          ..._captionWidgets(content),
+          ...captionWidgets,
         ],
       );
+      return captionWidgets.isEmpty ? _overlayMeta(photoBody, metaWidget) : photoBody;
     }
 
     if (content.kind == MessageKind.photo && localPath == null) {
-      return Column(
+      final captionWidgets = _captionWidgets(context, content);
+      final placeholderBody = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _MediaPlaceholder(
-            icon: Icons.image_outlined,
-            label: content.preview,
-          ),
-          ..._captionWidgets(content),
+          _MediaPlaceholder(icon: Icons.image_outlined, label: content.preview),
+          ...captionWidgets,
         ],
       );
+      return captionWidgets.isEmpty
+          ? _overlayMeta(placeholderBody, metaWidget)
+          : placeholderBody;
     }
 
     if (content.kind == MessageKind.video) {
       final mediaFeatures = context.read<RioGramMediaFeaturesManager>();
-      return Column(
+      final captionWidgets = _captionWidgets(context, content);
+      final videoBody = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (localPath != null)
@@ -642,8 +725,7 @@ class _MessageBody extends StatelessWidget {
               child: InlineVideoPlayer(
                 filePath: localPath,
                 durationLabel: content.videoInfo?.durationLabel,
-                onOpenFullscreen:
-                    onMediaTap == null ? null : () => onMediaTap!(message),
+                onOpenFullscreen: onMediaTap == null ? null : () => onMediaTap!(message),
               ),
             )
           else
@@ -652,31 +734,35 @@ class _MessageBody extends StatelessWidget {
               label: content.preview,
               durationLabel: content.videoInfo?.durationLabel,
             ),
-          ..._captionWidgets(content),
+          ...captionWidgets,
         ],
       );
+      return captionWidgets.isEmpty ? _overlayMeta(videoBody, metaWidget) : videoBody;
     }
 
     if (content.kind == MessageKind.videoNote) {
-      return Align(
-        alignment: Alignment.center,
-        child: localPath != null
-            ? VideoNotePlayer(
-                filePath: localPath,
-                videoInfo: content.videoInfo,
-                onOpenFullscreen:
-                    onMediaTap == null ? null : () => onMediaTap!(message),
-              )
-            : _MediaPlaceholder(
-                icon: Icons.radio_button_checked_outlined,
-                label: content.preview,
-              ),
+      return _overlayMeta(
+        Align(
+          alignment: Alignment.center,
+          child: localPath != null
+              ? VideoNotePlayer(
+                  filePath: localPath,
+                  videoInfo: content.videoInfo,
+                  onOpenFullscreen: onMediaTap == null ? null : () => onMediaTap!(message),
+                )
+              : _MediaPlaceholder(
+                  icon: Icons.radio_button_checked_outlined,
+                  label: content.preview,
+                ),
+        ),
+        metaWidget,
       );
     }
 
     if (content.kind == MessageKind.voice) {
       final voiceInfo = content.voiceInfo ?? const VoiceNoteInfo(durationSeconds: 0);
-      return Column(
+      final captionWidgets = _captionWidgets(context, content);
+      final voiceBody = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (localPath != null)
@@ -693,14 +779,16 @@ class _MessageBody extends StatelessWidget {
                 Text('${content.preview} · ${voiceInfo.durationLabel}'),
               ],
             ),
-          ..._captionWidgets(content),
+          ...captionWidgets,
         ],
       );
+      return captionWidgets.isEmpty ? _overlayMeta(voiceBody, metaWidget) : voiceBody;
     }
 
     if (content.kind == MessageKind.audio) {
       final audioInfo = content.audioInfo ?? const AudioTrackInfo(durationSeconds: 0);
-      return Column(
+      final captionWidgets = _captionWidgets(context, content);
+      final audioBody = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (localPath != null)
@@ -729,35 +817,40 @@ class _MessageBody extends StatelessWidget {
                 ),
               ],
             ),
-          ..._captionWidgets(content),
+          ...captionWidgets,
         ],
       );
+      return captionWidgets.isEmpty ? _overlayMeta(audioBody, metaWidget) : audioBody;
     }
 
     if (content.kind == MessageKind.document) {
-      return Column(
+      final captionWidgets = _captionWidgets(context, content);
+      final documentBody = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DocumentMessageBody(
             fileName: content.fileName ?? content.preview,
             documentInfo: content.documentInfo,
           ),
-          ..._captionWidgets(content),
+          ...captionWidgets,
         ],
       );
+      return captionWidgets.isEmpty
+          ? _overlayMeta(documentBody, metaWidget)
+          : documentBody;
     }
 
     if (content.kind == MessageKind.animation) {
       final info = content.animationInfo;
-      return Column(
+      final captionWidgets = _captionWidgets(context, content);
+      final animationBody = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (localPath != null)
             InlineVideoPlayer(
               filePath: localPath,
               durationLabel: info?.animation.durationLabel,
-              onOpenFullscreen:
-                  onMediaTap == null ? null : () => onMediaTap!(message),
+              onOpenFullscreen: onMediaTap == null ? null : () => onMediaTap!(message),
             )
           else
             _MediaPlaceholder(
@@ -765,25 +858,39 @@ class _MessageBody extends StatelessWidget {
               label: content.preview,
               durationLabel: info?.animation.durationLabel,
             ),
-          ..._captionWidgets(content),
+          ...captionWidgets,
         ],
       );
+      return captionWidgets.isEmpty
+          ? _overlayMeta(animationBody, metaWidget)
+          : animationBody;
     }
 
-    return Text(content.preview);
+    return _textWithInlineMeta(
+      text: content.preview,
+      style: Theme.of(context).textTheme.bodyMedium,
+      meta: metaWidget,
+    );
   }
 
-  List<Widget> _captionWidgets(MessageContent content) {
+  List<Widget> _captionWidgets(BuildContext context, MessageContent content) {
     if (content.formattedCaption != null) {
       return [
         const SizedBox(height: 8),
-        LatexFormattedTextWidget(formatted: content.formattedCaption!),
+        _formattedWithInlineMeta(
+          formatted: content.formattedCaption!,
+          meta: metaWidget,
+        ),
       ];
     }
     if (content.caption != null) {
       return [
         const SizedBox(height: 8),
-        Text(content.caption!),
+        _textWithInlineMeta(
+          text: content.caption!,
+          style: Theme.of(context).textTheme.bodyMedium,
+          meta: metaWidget,
+        ),
       ];
     }
     return const [];
@@ -1005,18 +1112,33 @@ class _ServiceMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = isDark
+        ? TelegramColors.serviceMessageBackgroundDark
+        : TelegramColors.serviceMessageBackgroundLight;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
       child: Center(
-        child: Text(
-          message.content.preview,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Text(
+              message.content.preview,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: TelegramFontSizes.preview,
+                color: TelegramColors.dateSeparatorText,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 }
+
