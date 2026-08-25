@@ -105,9 +105,10 @@ curl -s https://your-domain.ru:16443/health | jq .
 | `TUNNEL_SSH_USER` | SSH-пользователь на RU (рекомендуется `tunnel`) |
 | `TUNNEL_RU_HOST` | IP RU VPS |
 | `TUNNEL_RU_PORT` | Порт на RU localhost (8080) |
-| `TUNNEL_EU_PORT` | Порт EU backend aggregator (8080) |
+| `TUNNEL_EU_PORT` | Порт EU backend aggregator (по умолчанию `8080`; должен совпадать с `EU_BACKEND_PORT`) |
 | `TUNNEL_RU_BIND` | `127.0.0.1` — туннель только на localhost RU |
 | `EU_UFW_ALLOW_SSH_FROM` | Ограничить SSH на EU IP RU VPS |
+| `EU_BACKEND_PORT` | Listen EU nginx (`127.0.0.1`, по умолчанию `8080`; при занятости — `18080`) |
 
 При `RIOGRAM_HTTPS_PORT≠443` браузер и WSS-база должны включать порт:
 `https://domain:16443/`, в настройках клиента — `wss://domain:16443`.
@@ -190,6 +191,7 @@ proxy_buffering off;
 |---------|----------|
 | **502 Bad Gateway** (RU) | `curl http://127.0.0.1:8080/health` на RU; `systemctl status autossh-riogram-tunnel` на EU |
 | **Port 8080 closed** (RU) | Проверить `GatewayPorts`, SSH ключ, `journalctl -u autossh-riogram-tunnel` |
+| **bind() …:8080 Address already in use** (EU) | `ss -lptn 'sport = :8080'` — кто занял. Свободный порт: `EU_BACKEND_PORT=18080 TUNNEL_EU_PORT=18080` в `web.env`, перезапуск `setup-web-infra-eu.sh`, `systemctl restart riogram-eu-backend`. На RU `TUNNEL_RU_PORT` / nginx upstream могут остаться `8080`. |
 | **WebSocket closes immediately** | Nginx: `Upgrade` + `Connection` + `proxy_http_version 1.1` |
 | **WS drops after ~60s** | Увеличить `proxy_read_timeout` (86400 в шаблоне) |
 | **Tunnel keeps dying** | autossh `Restart=always`; `ServerAliveInterval=30` |

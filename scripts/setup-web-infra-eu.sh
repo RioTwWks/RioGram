@@ -36,7 +36,37 @@ if [[ ! -f /etc/riogram/web.env ]]; then
   echo "Created /etc/riogram/web.env — edit before starting tunnel"
 fi
 
-install -m 644 "${ROOT_DIR}/deploy/nginx/riogram-eu-backend.conf" /etc/riogram/nginx-eu-backend.conf
+# Prefer env override, else value from web.env, else 8080.
+if [[ -z "${EU_BACKEND_PORT:-}" && -f /etc/riogram/web.env ]]; then
+  # shellcheck disable=SC1091
+  set -a
+  # shellcheck source=/dev/null
+  source /etc/riogram/web.env
+  set +a
+fi
+EU_BACKEND_PORT="${EU_BACKEND_PORT:-8080}"
+if ! [[ "${EU_BACKEND_PORT}" =~ ^[0-9]+$ ]] || (( EU_BACKEND_PORT < 1 || EU_BACKEND_PORT > 65535 )); then
+  echo "EU_BACKEND_PORT must be an integer 1–65535 (got: ${EU_BACKEND_PORT})" >&2
+  exit 1
+fi
+
+# Keep tunnel target in sync with nginx listen.
+if grep -q '^TUNNEL_EU_PORT=' /etc/riogram/web.env; then
+  sed -i "s/^TUNNEL_EU_PORT=.*/TUNNEL_EU_PORT=${EU_BACKEND_PORT}/" /etc/riogram/web.env
+else
+  printf '\nTUNNEL_EU_PORT=%s\n' "${EU_BACKEND_PORT}" >>/etc/riogram/web.env
+fi
+if grep -q '^EU_BACKEND_PORT=' /etc/riogram/web.env; then
+  sed -i "s/^EU_BACKEND_PORT=.*/EU_BACKEND_PORT=${EU_BACKEND_PORT}/" /etc/riogram/web.env
+else
+  printf 'EU_BACKEND_PORT=%s\n' "${EU_BACKEND_PORT}" >>/etc/riogram/web.env
+fi
+
+echo "==> Nginx EU backend (127.0.0.1:${EU_BACKEND_PORT})"
+sed -e "s/__EU_BACKEND_PORT__/${EU_BACKEND_PORT}/g" \
+  "${ROOT_DIR}/deploy/nginx/riogram-eu-backend.conf" \
+  >/etc/riogram/nginx-eu-backend.conf
+
 install -m 755 "${ROOT_DIR}/scripts/autossh-riogram-tunnel.sh" /opt/riogram/bin/
 install -m 644 "${ROOT_DIR}/deploy/systemd/riogram-eu-backend.service" /etc/systemd/system/
 install -m 644 "${ROOT_DIR}/deploy/systemd/autossh-riogram-tunnel.service" /etc/systemd/system/
@@ -70,9 +100,11 @@ echo "✅ EU bootstrap complete."
 echo ""
 echo "Next steps:"
 echo "  1. Edit /etc/riogram/web.env (TUNNEL_RU_HOST, TUNNEL_SSH_USER, domain)"
+echo "     EU backend listen: 127.0.0.1:${EU_BACKEND_PORT} (set EU_BACKEND_PORT if 8080 is busy)"
 echo "  2. ssh-keygen -t ed25519 -f /var/lib/riogram/.ssh/id_ed25519 -N ''"
 echo "  3. Add public key to RU tunnel user authorized_keys"
 echo "  4. systemctl start riogram-wss-proxy riogram-eu-backend"
 echo "  5. sudo ${ROOT_DIR}/scripts/deploy-web-eu.sh"
 echo "  6. systemctl start autossh-riogram-tunnel"
 echo "  7. ${ROOT_DIR}/deploy/ufw/riogram-eu.sh"
+echo "  8. Local check: curl -s http://127.0.0.1:${EU_BACKEND_PORT}/health"
