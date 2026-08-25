@@ -9,6 +9,7 @@
 | 8.3 | [WEB_PROXY.md](WEB_PROXY.md) | `riogram-wss-proxy` |
 | 8.4 | [WEB_INFRA.md](WEB_INFRA.md) | SSH tunnel, Nginx RU/EU, UFW |
 | 8.5 | этот документ | Flutter build + деплой |
+| 8.6 | [WEB_E2E.md](WEB_E2E.md) | E2E автоматизация + ручные чеклисты |
 
 ---
 
@@ -145,7 +146,10 @@ GitHub Actions job **`Flutter build (Web)`**:
 
 ---
 
-## Следующие шаги
+## E2E (§8.6)
 
-- **§8.6** — E2E тестирование (авторизация, стабильность WSS)
-- **§8.8** — расширение документации по мере E2E
+```bash
+./scripts/run-web-e2e.sh
+```
+
+См. [WEB_E2E.md](WEB_E2E.md) — автоматизация + ручные чеклисты (auth, RU, tunnel).

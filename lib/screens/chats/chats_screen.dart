@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
+import '../../core/search/search_manager.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../core/notifications/notification_settings_manager.dart';
@@ -177,8 +178,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
             width: _chatListWidth,
             child: Column(
               children: [
-                Material(
-                  elevation: 1,
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: context.telegramTheme.chatListBackground,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: context.telegramTheme.chatListDivider,
+                      ),
+                    ),
+                  ),
                   child: SafeArea(
                     bottom: false,
                     child: _buildChatListHeader(context, chatManager, proxy),
@@ -229,8 +237,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
             width: _chatListWidth,
             child: Column(
               children: [
-                Material(
-                  elevation: 1,
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: context.telegramTheme.chatListBackground,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: context.telegramTheme.chatListDivider,
+                      ),
+                    ),
+                  ),
                   child: SafeArea(
                     bottom: false,
                     child: _buildChatListHeader(context, chatManager, proxy),

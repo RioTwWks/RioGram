@@ -77,7 +77,6 @@ class ThemeManager extends ChangeNotifier {
     return theme.copyWith(
       textTheme: themed,
       primaryTextTheme: themed,
-      fontFamily: themed.bodyLarge?.fontFamily,
     );
   }
 

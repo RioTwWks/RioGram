@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
@@ -18,6 +19,8 @@ import '../location/live_location_tracker.dart';
 import '../media/media_cache_manager.dart';
 import '../notifications/notification_settings_manager.dart';
 import '../notifications/notification_service.dart';
+import '../privacy/ad_block_filter.dart';
+import '../privacy/security_privacy_manager.dart';
 import '../../models/sticker_models.dart';
 import '../tdlib/tdlib_client.dart';
 import 'formatted_text_builder.dart';
@@ -37,13 +40,15 @@ class ChatManager extends ChangeNotifier {
     GhostModeManager? ghostMode,
     AntiRecallStore? antiRecallStore,
     RioGramMediaFeaturesManager? mediaFeatures,
+    SecurityPrivacyManager? securityPrivacy,
   })  : _client = client,
         _notifications = notificationService ?? NotificationService(),
         _notificationSettings = notificationSettings,
         _mediaCache = mediaCache,
         _ghostMode = ghostMode,
         _antiRecallStore = antiRecallStore,
-        _mediaFeatures = mediaFeatures;
+        _mediaFeatures = mediaFeatures,
+        _securityPrivacy = securityPrivacy;
 
   final TdlibClient _client;
   final NotificationService _notifications;
@@ -52,6 +57,7 @@ class ChatManager extends ChangeNotifier {
   final GhostModeManager? _ghostMode;
   final AntiRecallStore? _antiRecallStore;
   final RioGramMediaFeaturesManager? _mediaFeatures;
+  final SecurityPrivacyManager? _securityPrivacy;
   final LiveLocationTracker _liveLocationTracker = LiveLocationTracker();
 
   final Map<int, ChatSummary> _chatsById = {};
@@ -216,9 +222,15 @@ class ChatManager extends ChangeNotifier {
   List<ChatSummary> get _visibleChats {
     final visible = _chatsById.values
         .where((chat) => chat.isInList(_activeChatList))
+        .where((chat) => !_shouldHideSponsoredChat(chat))
         .toList()
       ..sort((a, b) => ChatSummary.compareInList(a, b, _activeChatList));
     return visible;
+  }
+
+  bool _shouldHideSponsoredChat(ChatSummary chat) {
+    return _securityPrivacy?.shouldBlockAds == true &&
+        AdBlockFilter.isSponsoredChat(chat);
   }
 
   ChatSummary? get activeChat {
@@ -1371,10 +1383,16 @@ class ChatManager extends ChangeNotifier {
   }
 
   Future<void> sendFile(String path) async {
+    if (!_canUploadPath(path)) {
+      return;
+    }
     await sendDocument(path);
   }
 
   Future<void> sendDocument(String path, {FormattedText? caption}) async {
+    if (!_canUploadPath(path)) {
+      return;
+    }
     final chatId = _activeChatId;
     if (chatId == null || !canSendInActiveChat) {
       return;
@@ -1396,6 +1414,9 @@ class ChatManager extends ChangeNotifier {
   }
 
   Future<void> sendPhoto(String path, {FormattedText? caption}) async {
+    if (!_canUploadPath(path)) {
+      return;
+    }
     final chatId = _activeChatId;
     if (chatId == null) {
       return;
@@ -1417,6 +1438,9 @@ class ChatManager extends ChangeNotifier {
   }
 
   Future<void> sendVideo(String path, {FormattedText? caption}) async {
+    if (!_canUploadPath(path)) {
+      return;
+    }
     final chatId = _activeChatId;
     if (chatId == null) {
       return;
@@ -1439,6 +1463,9 @@ class ChatManager extends ChangeNotifier {
   }
 
   Future<void> sendVideoNote(String path) async {
+    if (!_canUploadPath(path)) {
+      return;
+    }
     final chatId = _activeChatId;
     if (chatId == null) {
       return;
@@ -2025,6 +2052,24 @@ class ChatManager extends ChangeNotifier {
       'scheduling_state':
           MessageSchedulingAtDate(sendAt: _scheduledSendAt!).toTdlib(),
     };
+  }
+
+  bool _canUploadPath(String path) {
+    final privacy = _securityPrivacy;
+    if (privacy == null || kIsWeb) {
+      return true;
+    }
+    final file = File(path);
+    if (!file.existsSync()) {
+      return true;
+    }
+    final error = privacy.validateUploadFileSize(file.lengthSync());
+    if (error == null) {
+      return true;
+    }
+    _messagesError = error;
+    notifyListeners();
+    return false;
   }
 
   void _clearComposerStateAfterSend() {
@@ -2684,17 +2729,26 @@ class ChatManager extends ChangeNotifier {
 
     String? preview = chat.lastMessage;
     DateTime? date = chat.lastMessageDate;
+    var lastMessageIsOutgoing = chat.lastMessageIsOutgoing;
+    MessageDeliveryStatus? lastMessageDeliveryStatus = chat.lastMessageDeliveryStatus;
     if (lastMessage != null) {
       final content = lastMessage['content'] as Map<String, dynamic>? ?? {};
       preview = MessageContent.fromTdlib(content).preview;
       final dateSeconds = tdIntOr(lastMessage['date']);
       date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
+      lastMessageIsOutgoing = lastMessage['is_outgoing'] as bool? ?? false;
+      lastMessageDeliveryStatus = MessageEnrichmentParser.parseDeliveryStatus(
+        lastMessage,
+        lastReadOutboxMessageId: _lastReadOutboxMessageId[chatId] ?? 0,
+      );
     }
 
     final positions = TdlibChatParser.parsePositions(update['positions'] as List<dynamic>?);
     _chatsById[chatId] = chat.copyWith(
       lastMessage: preview,
       lastMessageDate: date,
+      lastMessageIsOutgoing: lastMessageIsOutgoing,
+      lastMessageDeliveryStatus: lastMessageDeliveryStatus,
       positions: positions.isNotEmpty ? positions : chat.positions,
     );
     notifyListeners();
@@ -2787,6 +2841,15 @@ class ChatManager extends ChangeNotifier {
 
     _lastReadOutboxMessageId[chatId] =
         tdIntOr(update['last_read_outbox_message_id']);
+    final chat = _chatsById[chatId];
+    if (chat != null &&
+        chat.lastMessageIsOutgoing &&
+        chat.lastMessageDeliveryStatus != null &&
+        chat.lastMessageDeliveryStatus != MessageDeliveryStatus.sending &&
+        chat.lastMessageDeliveryStatus != MessageDeliveryStatus.failed) {
+      _chatsById[chatId] = chat.copyWith(lastMessageDeliveryStatus: MessageDeliveryStatus.read);
+      notifyListeners();
+    }
     if (chatId == _activeChatId) {
       _refreshDeliveryStatuses();
     }
@@ -3085,9 +3148,15 @@ class ChatManager extends ChangeNotifier {
     if (batch.isEmpty) {
       return 0;
     }
+    final filtered = _securityPrivacy?.shouldBlockAds == true
+        ? AdBlockFilter.filterMessages(batch)
+        : batch;
+    if (filtered.isEmpty) {
+      return 0;
+    }
     final existingIds = {for (final message in _messages) message.id};
     var added = 0;
-    for (final message in batch) {
+    for (final message in filtered) {
       if (existingIds.add(message.id)) {
         _messages.add(message);
         added += 1;
@@ -3552,6 +3621,10 @@ class ChatManager extends ChangeNotifier {
     if (message.chatId != _activeChatId) {
       return;
     }
+    if (_securityPrivacy?.shouldBlockAds == true &&
+        AdBlockFilter.isSponsoredMessage(message)) {
+      return;
+    }
 
     if (_isAntiRecallEnabled) {
       unawaited(_antiRecallStore?.captureMessage(message));
@@ -3596,6 +3669,8 @@ class ChatManager extends ChangeNotifier {
     _chatsById[message.chatId] = chat.copyWith(
       lastMessage: message.content.preview,
       lastMessageDate: message.date,
+      lastMessageIsOutgoing: message.isOutgoing,
+      lastMessageDeliveryStatus: message.deliveryStatus,
       unreadCount: message.chatId == _activeChatId ? 0 : chat.unreadCount + 1,
     );
     notifyListeners();

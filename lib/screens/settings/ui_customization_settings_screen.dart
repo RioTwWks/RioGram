@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/theme_manager.dart';
 import '../../core/theme/theme_preferences.dart';
 import '../../core/theme/ui_customization_manager.dart';
 import '../../models/ui_customization_models.dart';

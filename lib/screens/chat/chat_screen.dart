@@ -9,14 +9,17 @@ import '../../core/call/call_manager.dart';
 import '../../core/call/group_call_manager.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../core/features/riogram_features_manager.dart';
+import '../../core/user/profile_manager.dart';
 import '../../core/secret/secret_chat_manager.dart';
 import '../../core/theme/ui_customization_manager.dart';
 import '../../widgets/message_swipe_wrapper.dart';
+import '../../widgets/chat_wallpaper.dart';
 import '../../widgets/scroll_to_bottom_button.dart';
 import '../../widgets/message_bubble_grouping.dart';
 import '../../widgets/date_separator.dart';
 import '../../widgets/chat_app_bar_title.dart';
 import '../../models/secret_chat_models.dart';
+import '../../core/theme/telegram_icons.dart';
 import '../../core/theme/telegram_theme.dart';
 import '../../models/bot_models.dart';
 import '../../models/message_enrichment.dart';
@@ -986,32 +989,32 @@ class _ChatScreenState extends State<ChatScreen> {
           if (showGroupCallActions) ...[
             IconButton(
               tooltip: 'Video chat',
-              icon: const Icon(Icons.groups),
+              icon: const Icon(TelegramIcons.groupCall),
               onPressed: () => _startGroupCall(isVideo: false),
             ),
             IconButton(
               tooltip: 'Video chat с камерой',
-              icon: const Icon(Icons.video_chat),
+              icon: const Icon(TelegramIcons.videoChat),
               onPressed: () => _startGroupCall(isVideo: true),
             ),
           ],
           if (showCallActions) ...[
             IconButton(
               tooltip: 'Аудиозвонок',
-              icon: const Icon(Icons.call),
+              icon: const Icon(TelegramIcons.call),
               onPressed: () => _startCall(isVideo: false),
             ),
             if (callCaps.supportsVideoCalls)
               IconButton(
                 tooltip: 'Видеозвонок',
-                icon: const Icon(Icons.videocam),
+                icon: const Icon(TelegramIcons.videocam),
                 onPressed: () => _startCall(isVideo: true),
               ),
           ],
           if (!selectionMode && widget.forumTopicId == null)
             IconButton(
               tooltip: 'Поиск в чате',
-              icon: const Icon(Icons.search),
+              icon: const Icon(TelegramIcons.search),
               onPressed: () {
                 TelegramRoutes.push(context, ChatMessageSearchScreen(chatId: widget.chatId, chatTitle: chat?.title, forumTopicId: widget.forumTopicId));
               },
@@ -1019,13 +1022,13 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!selectionMode && widget.forumTopicId == null)
             IconButton(
               tooltip: 'Меню',
-              icon: const Icon(Icons.more_vert),
+              icon: const Icon(TelegramIcons.moreVert),
               onPressed: _openChatMenu,
             ),
           if (selectionMode) ...[
             IconButton(
               tooltip: 'Удалить',
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(TelegramIcons.delete),
               onPressed: chatManager.selectedMessageCount > 0 &&
                       (chatManager.canDeleteSelectedForSelf ||
                           chatManager.canDeleteSelectedForAll)
@@ -1034,7 +1037,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             IconButton(
               tooltip: 'Переслать',
-              icon: const Icon(Icons.forward),
+              icon: const Icon(TelegramIcons.forward),
               onPressed: chatManager.selectedMessageCount > 0
                   ? _forwardSelected
                   : null,
@@ -1051,21 +1054,26 @@ class _ChatScreenState extends State<ChatScreen> {
               onSubscribe: () => _subscribeToChannel(chatManager, chat),
             ),
           Expanded(
-            child: chatManager.isLoadingMessages
-                ? const Center(child: CircularProgressIndicator())
-                : chatManager.messagesError != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            chatManager.messagesError!,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                    : listEntries.isEmpty
-                        ? const Center(child: Text('Нет сообщений'))
-                        : Stack(children: [ListView.builder(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const ChatWallpaper(),
+                if (chatManager.isLoadingMessages)
+                  const Center(child: CircularProgressIndicator())
+                else if (chatManager.messagesError != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        chatManager.messagesError!,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                else if (listEntries.isEmpty)
+                  const Center(child: Text('Нет сообщений'))
+                else
+                  Stack(children: [ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             itemCount: listEntries.length,
@@ -1160,6 +1168,8 @@ class _ChatScreenState extends State<ChatScreen> {
                               );
                             },
                           ), if (_newMessagesBelow > 0) Positioned(bottom: 12, left: 0, right: 0, child: Center(child: ScrollToBottomButton(newMessageCount: _newMessagesBelow, onPressed: () => _scrollToBottom()))), ],),
+              ],
+            ),
           ),
           if (!selectionMode) ...[
             if (showReadOnlyBar)

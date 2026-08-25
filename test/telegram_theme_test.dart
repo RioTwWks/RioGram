@@ -86,7 +86,7 @@ void main() {
       expect(darkExt!.bubbleOutgoing, TelegramColors.bubbleOutgoingDark);
     });
 
-    test('AppBar и карточки без elevation/shadow', () {
+    test('AppBar, карточки и FAB без elevation/shadow', () {
       final theme = TelegramTheme.build(brightness: Brightness.light);
 
       expect(theme.appBarTheme.elevation, 0);
@@ -94,6 +94,8 @@ void main() {
       expect(theme.appBarTheme.surfaceTintColor, Colors.transparent);
       expect(theme.cardTheme.elevation, 0);
       expect(theme.cardTheme.shadowColor, Colors.transparent);
+      expect(theme.floatingActionButtonTheme.elevation, 0);
+      expect(theme.floatingActionButtonTheme.highlightElevation, 0);
     });
 
     test('пузыри проходят WCAG AA по контрасту текста', () {

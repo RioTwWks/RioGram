@@ -95,20 +95,30 @@ final class ChatListFolder extends ChatListKey {
       };
 }
 
+/// Источник позиции чата в списке (для фильтрации рекламы).
+enum ChatPositionSource {
+  normal,
+  sponsored,
+  publicServiceAnnouncement,
+}
+
 /// Позиция чата в конкретном списке.
 class ChatPositionInfo {
   const ChatPositionInfo({
     required this.list,
     required this.order,
     required this.isPinned,
+    this.source = ChatPositionSource.normal,
   });
 
   final ChatListKey list;
   final int order;
   final bool isPinned;
+  final ChatPositionSource source;
 
   factory ChatPositionInfo.fromTdlib(Map<String, dynamic> json) {
     final listRaw = json['list'] as Map<String, dynamic>? ?? {};
+    final sourceRaw = json['source'] as Map<String, dynamic>?;
     return ChatPositionInfo(
       list: ChatListKey.fromTdlib(listRaw),
       order: tdInt(
@@ -118,7 +128,17 @@ class ChatPositionInfo {
           ) ??
           0,
       isPinned: json['is_pinned'] as bool? ?? false,
+      source: _parseSource(sourceRaw),
     );
+  }
+
+  static ChatPositionSource _parseSource(Map<String, dynamic>? source) {
+    return switch (source?['@type']) {
+      'chatSourceMtprotoProxy' => ChatPositionSource.sponsored,
+      'chatSourcePublicServiceAnnouncement' =>
+        ChatPositionSource.publicServiceAnnouncement,
+      _ => ChatPositionSource.normal,
+    };
   }
 }
 
@@ -519,6 +539,8 @@ class ChatSummary {
     required this.title,
     this.lastMessage,
     this.lastMessageDate,
+    this.lastMessageIsOutgoing = false,
+    this.lastMessageDeliveryStatus,
     this.unreadCount = 0,
     this.avatarFileId,
     this.avatarLocalPath,
@@ -541,6 +563,8 @@ class ChatSummary {
   final String title;
   final String? lastMessage;
   final DateTime? lastMessageDate;
+  final bool lastMessageIsOutgoing;
+  final MessageDeliveryStatus? lastMessageDeliveryStatus;
   final int unreadCount;
   final int? avatarFileId;
   final String? avatarLocalPath;
@@ -608,6 +632,9 @@ class ChatSummary {
     String? title,
     String? lastMessage,
     DateTime? lastMessageDate,
+    bool? lastMessageIsOutgoing,
+    MessageDeliveryStatus? lastMessageDeliveryStatus,
+    bool clearLastMessageDeliveryStatus = false,
     int? unreadCount,
     int? avatarFileId,
     String? avatarLocalPath,
@@ -631,6 +658,10 @@ class ChatSummary {
       title: title ?? this.title,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageDate: lastMessageDate ?? this.lastMessageDate,
+      lastMessageIsOutgoing: lastMessageIsOutgoing ?? this.lastMessageIsOutgoing,
+      lastMessageDeliveryStatus: clearLastMessageDeliveryStatus
+          ? null
+          : (lastMessageDeliveryStatus ?? this.lastMessageDeliveryStatus),
       unreadCount: unreadCount ?? this.unreadCount,
       avatarFileId: avatarFileId ?? this.avatarFileId,
       avatarLocalPath: avatarLocalPath ?? this.avatarLocalPath,

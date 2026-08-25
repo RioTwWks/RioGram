@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** §7.3 Глубокая кастомизация интерфейса.
+**Последнее обновление:** §9.11 визуальная полировка (merge main: icons #92, shell #93, wallpaper #91, input #89, chat-list preview).
 
 ---
 
@@ -485,9 +485,9 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 7.4. Безопасность и приватность
 
-- [ ] Local Premium: локальная разблокировка отдельных «премиум»-возможностей (например лимиты загрузки)
-- [ ] Блокировка рекламы в каналах и ботах
-- [ ] Отключение телеметрии Telegram (или только с явного согласия пользователя)
+- [x] Local Premium: локальная разблокировка отдельных «премиум»-возможностей (например лимиты загрузки)
+- [x] Блокировка рекламы в каналах и ботах
+- [x] Отключение телеметрии Telegram (или только с явного согласия пользователя)
 
 ### 7.5. Интеграции и фишки
 
@@ -600,12 +600,12 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 8.6. Тестирование
 
-- [ ] UI: интерфейс загружается, навигация работает
-- [ ] Авторизация: вход по номеру телефона через WSS-транспорт
-- [ ] WebSocket: соединение устанавливается (DevTools → Network → WS)
-- [ ] Стабильность: WSS не обрывается через 60+ секунд
-- [ ] Туннель: переподключение `autossh` после обрыва SSH
-- [ ] Доступ из РФ без VPN/прокси на устройстве пользователя
+- [x] UI: интерфейс загружается, навигация работает — Playwright `e2e/web/tests/smoke.spec.js`
+- [ ] Авторизация: вход по номеру телефона через WSS-транспорт — **ручной чеклист** [WEB_E2E.md](docs/WEB_E2E.md)
+- [x] WebSocket: соединение устанавливается — `e2e-wss-stability.sh`, Playwright hook test
+- [x] Стабильность: WSS не обрывается через 60+ сек — `WSS_STABILITY_SECONDS=65 ./scripts/e2e-wss-stability.sh`
+- [ ] Туннель: переподключение autossh после обрыва SSH — **ручной чеклист** [WEB_E2E.md](docs/WEB_E2E.md)
+- [ ] Доступ из РФ без VPN/прокси на устройстве пользователя — **ручной чеклист** [WEB_E2E.md](docs/WEB_E2E.md)
 
 ### 8.7. Устранение неполадок (чеклист)
 
@@ -678,7 +678,7 @@ MVP — прочный фундамент. Ниже — направления, 
 - [x] Строка чата: аватар слева → колонка (имя + preview) → время и badge справа
 - [x] Имя: semibold, одна строка, ellipsis
 - [x] Preview: иконка типа медиа (микрофон, фото, видео) + текст, серая обрезка
-- [ ] Preview: галочки статуса доставки исходящего сообщения (✓ отправлено / ✓✓ прочитано) — `lastMessageDeliveryStatus` в модели, UI в `ChatListTile` ещё нет
+- [x] Preview: галочки статуса доставки исходящего сообщения (✓ отправлено / ✓✓ прочитано) — `lastMessageDeliveryStatus` + `MessageDeliveryIcon` в `ChatListTile`
 - [x] Время: uppercase не использовать, формат «14:32» / «вчера»
 - [x] Badge непрочитанных: синий круг `#3390EC`, белый текст, min-width 20px
 - [x] Mute: перечёркнутый колокольчик, сниженная opacity preview
@@ -706,8 +706,8 @@ MVP — прочный фундамент. Ниже — направления, 
 - [x] Медиа без лишней рамки; caption под фото внутри того же пузыря
 
 #### Фон чата
-- [~] Опциональный wallpaper / doodle pattern (как в TG); дефолт — нейтральный серый/белый — **в работе** (отдельный PR; на `main` только однотонный фон)
-- [ ] Настройка фона чата — в информации о чате (низкий приоритет)
+- [x] Опциональный wallpaper / doodle pattern (как в TG); дефолт — нейтральный серый/белый — `ChatWallpaper`
+- [ ] Настройка пользовательского wallpaper в информации о чате (низкий приоритет)
 
 #### Лента
 - [x] Кнопка «↓ N новых сообщений» при скролле вверх
@@ -797,7 +797,6 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ---
 
-
 ### 9.11. Визуальная полировка (pixel parity)
 
 **Цель:** после §9.1–§9.10 довести отступы, размеры и микро-детали до side-by-side паритета с Telegram Desktop 4.x–5.x и Android (до Liquid Glass).  
@@ -810,21 +809,21 @@ MVP — прочный фундамент. Ниже — направления, 
 |------|---------|------------|-----------|
 | **R1** | Токены, шрифты, константы высот | `cursor/telegram-design-tokens-ca50` | Open Sans Desktop, `TelegramSpacing.chatListRowHeight` |
 | **R2** | Список чатов | `cursor/telegram-refine-chat-list-ca50` | Галочки preview, row height 72px, typing в preview |
-| **R3** | Переписка, фон | wallpaper PR | Doodle/wallpaper, bubble tail, delivery icons |
-| **R4** | Панель ввода | `cursor/telegram-refine-input-ca50` | Mic/send 48px, sticker panel height |
+| **R3** | Переписка, фон | #91 wallpaper | Doodle/wallpaper, bubble tail, delivery icons |
+| **R4** | Панель ввода | #89 input | Mic/send 48px, sticker panel height |
 | **R5** | Аудит + скриншоты | этот PR + ручной чеклист | Side-by-side ≤5 сек узнаваемости |
 
 #### 9.11.1. Дизайн-токены и типографика (доп. к §9.1)
 
 - [ ] Open Sans на Desktop (см. §9.1)
-- [ ] Константа `TelegramSpacing.chatListRowHeight` = 72px и применение в `ChatListTile`
+- [x] Константа `TelegramSpacing.chatListRowHeight` = 72px и применение в `ChatListTile`
 - [ ] Константа высоты AppBar переписки 56px (mobile)
 - [ ] Константа высоты строки настроек 48px
 - [ ] Единый `TelegramSpacing.chatListHorizontalPadding` = 12px (сверка с TG)
 
 #### 9.11.2. Список чатов (доп. к §9.2)
 
-- [ ] Галочки доставки в preview исходящих (✓ / ✓✓) — см. §9.2
+- [x] Галочки доставки в preview исходящих (✓ / ✓✓) — см. §9.2
 - [ ] Индикатор «печатает…» / «записывает голосовое…» в preview
 - [ ] Префикс имени отправителя в групповых чатах (`User:`)
 - [ ] Вертикальное выравнение времени и badge при одной строке preview
@@ -833,10 +832,10 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 9.11.3. Экран переписки (доп. к §9.3)
 
-- [~] Wallpaper / doodle pattern фона — отдельный PR (см. §9.3)
-- [ ] `ChatWallpaper` виджет: pattern tile + blur для фото-обоев
+- [x] Wallpaper / doodle pattern фона — #91 `ChatWallpaper`
+- [x] `ChatWallpaper` виджет: pattern tile (blur для фото-обоев — позже)
 - [ ] Bubble tail — SVG/path как в мобильном TG (сейчас упрощённый path)
-- [ ] Иконки доставки — кастомные thin double-check (не `Icons.check` / `Icons.done_all`)
+- [x] Иконки доставки — `TelegramIcons` (#92: sent / delivered / read)
 - [ ] Meta-строка (время + галочки) — baseline alignment в пузыре
 - [ ] Link preview card: скругление, thumbnail, домен
 - [ ] Service messages: центрированный серый текст без пузыря
@@ -846,8 +845,8 @@ MVP — прочный фундамент. Ниже — направления, 
 
 - [ ] Touch target микрофона / send ≥ 48×48px
 - [ ] Высота inline sticker panel ~320px (как TG Android)
-- [ ] Reply/edit strip — вертикальный accent bar 2px, отступы 8×12
-- [ ] Разделитель border-top: цвет divider темы, не `Colors.grey`
+- [x] Reply/edit strip — вертикальный accent bar 2px, отступы 8×12
+- [x] Разделитель border-top: цвет divider темы, не `Colors.grey`
 
 #### 9.11.5. Навигация (доп. к §9.5)
 
@@ -878,6 +877,15 @@ MVP — прочный фундамент. Ниже — направления, 
 - [ ] Ручной side-by-side чеклист: список чатов | переписка | ввод | настройки | звонок
 - [ ] Тёмная тема: второй проход pixel parity
 - [ ] Desktop 800px / 840px breakpoints — без layout overflow
+
+#### 9.11.10. Flat shell (устранение M3-утечек)
+
+- [x] Desktop chat-list header без elevation (`chats_screen.dart`)
+- [x] FAB elevation → 0 (`telegram_theme.dart`)
+- [x] Кнопка «↓ N новых» без elevation (`scroll_to_bottom_button.dart`)
+- [x] `ChatFolderSidebar`: цвета из `telegramTheme`, выделение — левая accent-полоса
+- [x] `MessageReactionsRow`: компактные pill-чипы вместо `ActionChip`
+- [x] `ChoiceChip` / `FilterChip` в chat UI → `TelegramFlatChip`
 
 **Критерий готовности §9.11:** два скриншота (светлая + тёмная) RioGram и TG Desktop — отличия только в логотипе и уникальных RioGram-фишках; отступы и размеры в пределах ±2px.
 
