@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_theme.dart';
 import '../models/location_models.dart';
+import 'static_map_preview.dart';
 
 /// Карточка геолокации / venue в пузыре сообщения.
 class LocationMessageBody extends StatelessWidget {
@@ -26,86 +28,88 @@ class LocationMessageBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = isExpired
-        ? theme.colorScheme.onSurfaceVariant
-        : theme.colorScheme.primary;
+    final tg = context.telegramTheme;
+    final accent = isExpired ? tg.textSecondary : tg.accent;
 
     return InkWell(
       onTap: onOpenMap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(TelegramRadii.mediaPreview),
       child: Container(
-        constraints: const BoxConstraints(minWidth: 180, maxWidth: 280),
-        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(minWidth: 200, maxWidth: 280),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: theme.dividerColor),
+          color: tg.elevatedSurface.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(TelegramRadii.mediaPreview),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Icon(
-                  isLive ? Icons.my_location : Icons.location_on_outlined,
-                  size: 20,
-                  color: accent,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    preview,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: accent,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              point.coordinatesLabel,
-              style: theme.textTheme.bodySmall,
-            ),
-            if (subtitle != null && subtitle!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                subtitle!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            if (isLive && isBroadcasting) ...[
-              const SizedBox(height: 8),
-              Row(
+            StaticMapPreview(point: point),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: theme.colorScheme.error,
-                    ),
+                  Row(
+                    children: [
+                      Icon(
+                        isLive ? Icons.my_location : Icons.location_on_outlined,
+                        size: 20,
+                        color: accent,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          preview,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: accent,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(height: 4),
                   Text(
-                    'Трансляция активна',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.error,
+                    point.coordinatesLabel,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: tg.textSecondary,
                     ),
                   ),
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: tg.textSecondary,
+                      ),
+                    ),
+                  ],
+                  if (isLive && isBroadcasting) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Трансляция активна',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
-            ],
-            if (onOpenMap != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Открыть на карте',
-                style: theme.textTheme.labelMedium?.copyWith(color: accent),
-              ),
-            ],
+            ),
           ],
         ),
       ),
