@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:riogram/core/theme/telegram_icons.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
 import 'package:riogram/models/message_enrichment.dart';
 import 'package:riogram/widgets/message_delivery_icon.dart';
@@ -13,67 +14,59 @@ void main() {
   }
 
   group('MessageDeliveryIcon', () {
-    testWidgets('sending — access_time', (tester) async {
+    testWidgets('sent — одна галочка', (tester) async {
       await tester.pumpWidget(
-        wrap(MessageDeliveryIcon(status: MessageDeliveryStatus.sending)),
-      );
-      expect(find.byIcon(Icons.access_time), findsOneWidget);
-    });
-
-    testWidgets('failed — error_outline', (tester) async {
-      await tester.pumpWidget(
-        wrap(MessageDeliveryIcon(status: MessageDeliveryStatus.failed)),
-      );
-      expect(find.byIcon(Icons.error_outline), findsOneWidget);
-    });
-
-    testWidgets('sent — check', (tester) async {
-      await tester.pumpWidget(
-        wrap(MessageDeliveryIcon(status: MessageDeliveryStatus.sent)),
-      );
-      expect(find.byIcon(Icons.check), findsOneWidget);
-    });
-
-    testWidgets('read — done_all с primary accent', (tester) async {
-      await tester.pumpWidget(
-        wrap(MessageDeliveryIcon(status: MessageDeliveryStatus.read)),
+        wrap(const MessageDeliveryIcon(status: MessageDeliveryStatus.sent)),
       );
 
-      expect(find.byIcon(Icons.done_all), findsOneWidget);
-
-      final icon = tester.widget<Icon>(find.byIcon(Icons.done_all));
-      expect(icon.color, TelegramColors.accent);
+      expect(find.byIcon(TelegramIcons.deliverySent), findsOneWidget);
+      expect(find.byIcon(TelegramIcons.deliveryDelivered), findsNothing);
     });
 
-    testWidgets('поддерживает кастомный size', (tester) async {
+    testWidgets('delivered — две серые галочки', (tester) async {
+      const gray = Color(0xFF8E8E93);
       await tester.pumpWidget(
         wrap(
-          MessageDeliveryIcon(
-            status: MessageDeliveryStatus.sent,
-            size: 11,
+          const MessageDeliveryIcon(
+            status: MessageDeliveryStatus.delivered,
+            defaultColor: gray,
           ),
         ),
       );
 
-      final icon = tester.widget<Icon>(find.byIcon(Icons.check));
-      expect(icon.size, 11);
-    });
-  });
-
-  group('MessageViewCountLabel', () {
-    testWidgets('скрывается при viewCount <= 0', (tester) async {
-      await tester.pumpWidget(
-        wrap(const MessageViewCountLabel(viewCount: 0)),
-      );
-      expect(find.byType(MessageViewCountLabel), findsOneWidget);
-      expect(find.byIcon(Icons.visibility_outlined), findsNothing);
+      final icon = tester.widget<Icon>(find.byIcon(TelegramIcons.deliveryDelivered));
+      expect(icon.color, gray);
     });
 
-    testWidgets('форматирует тысячи', (tester) async {
+    testWidgets('read — две синие галочки', (tester) async {
+      const blue = Color(0xFF3390EC);
       await tester.pumpWidget(
-        wrap(const MessageViewCountLabel(viewCount: 1500)),
+        wrap(
+          const MessageDeliveryIcon(
+            status: MessageDeliveryStatus.read,
+            readColor: blue,
+          ),
+        ),
       );
-      expect(find.text('1.5K'), findsOneWidget);
+
+      final icon = tester.widget<Icon>(find.byIcon(TelegramIcons.deliveryDelivered));
+      expect(icon.color, blue);
+    });
+
+    testWidgets('sending — часы', (tester) async {
+      await tester.pumpWidget(
+        wrap(const MessageDeliveryIcon(status: MessageDeliveryStatus.sending)),
+      );
+
+      expect(find.byIcon(TelegramIcons.deliverySending), findsOneWidget);
+    });
+
+    testWidgets('failed — иконка ошибки', (tester) async {
+      await tester.pumpWidget(
+        wrap(const MessageDeliveryIcon(status: MessageDeliveryStatus.failed)),
+      );
+
+      expect(find.byIcon(TelegramIcons.deliveryFailed), findsOneWidget);
     });
   });
 }

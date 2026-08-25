@@ -18,6 +18,7 @@ import '../../widgets/message_bubble_grouping.dart';
 import '../../widgets/date_separator.dart';
 import '../../widgets/chat_app_bar_title.dart';
 import '../../models/secret_chat_models.dart';
+import '../../core/theme/telegram_icons.dart';
 import '../../core/theme/telegram_theme.dart';
 import '../../models/bot_models.dart';
 import '../../models/message_enrichment.dart';
@@ -987,32 +988,32 @@ class _ChatScreenState extends State<ChatScreen> {
           if (showGroupCallActions) ...[
             IconButton(
               tooltip: 'Video chat',
-              icon: const Icon(Icons.groups),
+              icon: const Icon(TelegramIcons.groupCall),
               onPressed: () => _startGroupCall(isVideo: false),
             ),
             IconButton(
               tooltip: 'Video chat с камерой',
-              icon: const Icon(Icons.video_chat),
+              icon: const Icon(TelegramIcons.videoChat),
               onPressed: () => _startGroupCall(isVideo: true),
             ),
           ],
           if (showCallActions) ...[
             IconButton(
               tooltip: 'Аудиозвонок',
-              icon: const Icon(Icons.call),
+              icon: const Icon(TelegramIcons.call),
               onPressed: () => _startCall(isVideo: false),
             ),
             if (callCaps.supportsVideoCalls)
               IconButton(
                 tooltip: 'Видеозвонок',
-                icon: const Icon(Icons.videocam),
+                icon: const Icon(TelegramIcons.videocam),
                 onPressed: () => _startCall(isVideo: true),
               ),
           ],
           if (!selectionMode && widget.forumTopicId == null)
             IconButton(
               tooltip: 'Поиск в чате',
-              icon: const Icon(Icons.search),
+              icon: const Icon(TelegramIcons.search),
               onPressed: () {
                 TelegramRoutes.push(context, ChatMessageSearchScreen(chatId: widget.chatId, chatTitle: chat?.title, forumTopicId: widget.forumTopicId));
               },
@@ -1020,13 +1021,13 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!selectionMode && widget.forumTopicId == null)
             IconButton(
               tooltip: 'Меню',
-              icon: const Icon(Icons.more_vert),
+              icon: const Icon(TelegramIcons.moreVert),
               onPressed: _openChatMenu,
             ),
           if (selectionMode) ...[
             IconButton(
               tooltip: 'Удалить',
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(TelegramIcons.delete),
               onPressed: chatManager.selectedMessageCount > 0 &&
                       (chatManager.canDeleteSelectedForSelf ||
                           chatManager.canDeleteSelectedForAll)
@@ -1035,7 +1036,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             IconButton(
               tooltip: 'Переслать',
-              icon: const Icon(Icons.forward),
+              icon: const Icon(TelegramIcons.forward),
               onPressed: chatManager.selectedMessageCount > 0
                   ? _forwardSelected
                   : null,

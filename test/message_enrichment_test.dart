@@ -25,11 +25,11 @@ void main() {
       );
       expect(failed, MessageDeliveryStatus.failed);
 
-      final sent = MessageEnrichmentParser.parseDeliveryStatus(
+      final delivered = MessageEnrichmentParser.parseDeliveryStatus(
         {'is_outgoing': true, 'id': 12},
         lastReadOutboxMessageId: 11,
       );
-      expect(sent, MessageDeliveryStatus.sent);
+      expect(delivered, MessageDeliveryStatus.delivered);
 
       final read = MessageEnrichmentParser.parseDeliveryStatus(
         {'is_outgoing': true, 'id': 12},

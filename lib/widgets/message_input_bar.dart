@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 import '../models/formatted_text.dart';
 import 'sticker_panel_sheet.dart';
@@ -219,7 +220,7 @@ class _LeftInputButton extends StatelessWidget {
       return IconButton(
         tooltip: 'Клавиатура',
         onPressed: onEmojiOrKeyboard,
-        icon: Icon(Icons.keyboard, color: tg.textSecondary),
+        icon: Icon(TelegramIcons.keyboard, color: tg.textSecondary),
         visualDensity: VisualDensity.compact,
       );
     }
@@ -228,14 +229,14 @@ class _LeftInputButton extends StatelessWidget {
       return IconButton(
         tooltip: 'Стикеры и GIF',
         onPressed: onEmojiOrKeyboard,
-        icon: Icon(Icons.emoji_emotions_outlined, color: tg.textSecondary),
+        icon: Icon(TelegramIcons.emoji, color: tg.textSecondary),
         visualDensity: VisualDensity.compact,
       );
     }
 
     return PopupMenuButton<String>(
       tooltip: 'Прикрепить',
-      icon: Icon(Icons.attach_file, color: tg.textSecondary),
+      icon: Icon(TelegramIcons.attach, color: tg.textSecondary),
       onSelected: (value) {
         switch (value) {
           case 'attach':
@@ -312,7 +313,7 @@ class _MessageTextField extends StatelessWidget {
           if (showAttachButton && onAttach != null)
             PopupMenuButton<String>(
               tooltip: 'Прикрепить',
-              icon: Icon(Icons.attach_file, color: tg.textSecondary, size: 22),
+              icon: Icon(TelegramIcons.attach, color: tg.textSecondary, size: 22),
               padding: const EdgeInsets.only(left: 4),
               onSelected: (value) {
                 switch (value) {
@@ -408,14 +409,14 @@ class _RightInputButton extends StatelessWidget {
       return IconButton(
         tooltip: 'Голосовое сообщение',
         onPressed: onVoiceAction,
-        icon: Icon(Icons.mic, color: tg.textSecondary),
+        icon: Icon(TelegramIcons.mic, color: tg.textSecondary),
         visualDensity: VisualDensity.compact,
       );
     }
 
     final icon = editDraft != null
-        ? Icons.check
-        : (scheduledAt != null ? Icons.schedule_send : Icons.send);
+        ? TelegramIcons.check
+        : (scheduledAt != null ? TelegramIcons.scheduleSend : TelegramIcons.send);
 
     return Material(
       color: tg.accent,
@@ -494,7 +495,7 @@ class _ComposerDraftBar extends StatelessWidget {
           IconButton(
             tooltip: 'Отмена',
             onPressed: onClose,
-            icon: Icon(Icons.close, size: 20, color: tg.textSecondary),
+            icon: Icon(TelegramIcons.close, size: 20, color: tg.textSecondary),
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.all(8),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -532,7 +533,7 @@ class _ScheduleBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.schedule, size: 18, color: tg.accent),
+          Icon(TelegramIcons.schedule, size: 18, color: tg.accent),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -548,7 +549,7 @@ class _ScheduleBar extends StatelessWidget {
           IconButton(
             tooltip: 'Отмена',
             onPressed: onClose,
-            icon: Icon(Icons.close, size: 20, color: tg.textSecondary),
+            icon: Icon(TelegramIcons.close, size: 20, color: tg.textSecondary),
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.all(8),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
