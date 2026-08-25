@@ -74,8 +74,8 @@ class AntiRecallStore extends ChangeNotifier {
       message,
       reason: AntiRecallSnapshotReason.deleted,
       capturedAt: existing?.capturedAt ?? DateTime.now(),
-      preservedContent: existing?.content ?? message.content,
-      editDate: message.editDate,
+      preservedContent: existing?.content ??
+          AntiRecallContent.fromMessageContent(message.content),
     );
     await _persist();
     notifyListeners();
