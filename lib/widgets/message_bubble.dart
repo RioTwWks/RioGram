@@ -19,6 +19,7 @@ import 'audio_message_player.dart';
 import 'document_message_body.dart';
 import 'file_transfer_progress_bar.dart';
 import 'formatted_text_widget.dart';
+import 'latex_formatted_text_widget.dart';
 import 'inline_keyboard_widget.dart';
 import 'inline_video_player.dart';
 import 'location_message_body.dart';
@@ -582,7 +583,7 @@ class _MessageBody extends StatelessWidget {
     if (content.kind == MessageKind.text) {
       final formatted = content.formattedText;
       if (formatted != null && formatted.text.isNotEmpty) {
-        return FormattedTextWidget(formatted: formatted);
+        return LatexFormattedTextWidget(formatted: formatted);
       }
       return Text(content.preview);
     }
@@ -776,7 +777,7 @@ class _MessageBody extends StatelessWidget {
     if (content.formattedCaption != null) {
       return [
         const SizedBox(height: 8),
-        FormattedTextWidget(formatted: content.formattedCaption!),
+        LatexFormattedTextWidget(formatted: content.formattedCaption!),
       ];
     }
     if (content.caption != null) {
