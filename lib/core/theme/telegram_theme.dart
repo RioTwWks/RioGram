@@ -47,6 +47,23 @@ abstract final class TelegramColors {
   static const Color dateSeparatorBackgroundDark = Color(0x33FFFFFF);
 
   static const Color unreadBadgeText = Color(0xFFFFFFFF);
+
+  // --- Звонки (§9.8) ---
+
+  /// Полноэкранный фон активного / входящего звонка.
+  static const Color callBackground = Color(0xFF000000);
+
+  static const Color callTextPrimary = Color(0xFFFFFFFF);
+  static const Color callTextSecondary = Color(0xFFAAAAAA);
+
+  /// Кнопка «Принять» на входящем звонке.
+  static const Color callAcceptGreen = Color(0xFF4CB050);
+
+  /// Кнопка «Отклонить» / завершить звонок.
+  static const Color callDeclineRed = Color(0xFFE53935);
+
+  /// Фон круглых кнопок управления на активном звонке.
+  static const Color callControlBackground = Color(0x33FFFFFF);
 }
 
 /// Размеры шрифтов в стиле Telegram.
@@ -88,6 +105,11 @@ abstract final class TelegramSpacing {
   static const double chatListDividerInset = 72;
   static const double unreadBadgeMinWidth = 20;
   static const double unreadBadgeMinHeight = 20;
+
+  /// §9.8 — звонки.
+  static const double callAvatarRadius = 60;
+  static const double callPrimaryButtonSize = 72;
+  static const double callControlButtonSize = 64;
 }
 
 /// Платформенный шрифт как у Telegram.
