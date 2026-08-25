@@ -4,7 +4,7 @@ import '../models/chat_models.dart';
 class ChatFolderSidebar extends StatelessWidget {
   const ChatFolderSidebar({super.key, required this.activeList, required this.folders, required this.onSelected, required this.onSettings, this.onSavedMessages, this.hasSavedMessages = false});
   final ChatListKey activeList; final List<ChatFolderTab> folders; final ValueChanged<ChatListKey> onSelected; final VoidCallback onSettings; final VoidCallback? onSavedMessages; final bool hasSavedMessages;
-  static const width = 72.0;
+  static const width = TelegramSpacing.folderSidebarWidth;
   @override Widget build(BuildContext context) {
     final tg = context.telegramTheme;
     return Container(width: width, color: tg.chatListBackground, child: SafeArea(child: Column(children: [

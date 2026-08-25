@@ -19,6 +19,8 @@ void main() {
       expect(TelegramSpacing.chatAppBarHeight, 56);
       expect(TelegramSpacing.settingsRowHeight, 48);
       expect(TelegramSpacing.chatListHorizontalPadding, 12);
+      expect(TelegramSpacing.folderSidebarWidth, 68);
+      expect(TelegramSpacing.callControlSpacing, 24);
     });
 
     test('avatar + inset совпадают с TG chat list', () {
@@ -37,6 +39,8 @@ void main() {
       expect(TelegramLayoutBreakpoints.mobile, 800);
       expect(TelegramLayoutBreakpoints.threeColumn, 840);
       expect(TelegramLayoutBreakpoints.chatListWidth, 340);
+      expect(TelegramLayoutBreakpoints.chatListWidthMin, 280);
+      expect(TelegramLayoutBreakpoints.chatListWidthMax, 480);
     });
   });
 

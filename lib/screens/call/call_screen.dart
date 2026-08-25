@@ -5,9 +5,12 @@ import 'package:provider/provider.dart';
 import '../../core/call/call_manager.dart';
 import '../../core/call/group_call_manager.dart';
 import '../../core/call/tdlib_call_parser.dart';
+import '../../core/chat/chat_manager.dart';
 import '../../core/theme/telegram_theme.dart';
+import '../../core/user/profile_manager.dart';
 import '../../models/call_models.dart';
 import '../../models/group_call_models.dart';
+import '../../widgets/call_incoming_background.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/call_device_picker_sheet.dart';
 
@@ -50,9 +53,10 @@ class CallScreen extends StatelessWidget {
     final engine = callManager.signalingBridge.mediaEngine;
     final isIncoming = call.isIncomingRinging;
 
-    return ColoredBox(
-      color: TelegramColors.callBackground,
-      child: SafeArea(
+    final avatarPath = isIncoming ? _avatarPathForUser(context, call.userId) : null;
+    return Stack(fit: StackFit.expand, children: [
+      if (isIncoming) CallIncomingBackground(title: name, avatarLocalPath: avatarPath, colorKey: '${call.userId}') else const ColoredBox(color: TelegramColors.callBackground),
+      SafeArea(
         child: Column(
           children: [
             if (!isIncoming) ...[
@@ -73,10 +77,7 @@ class CallScreen extends StatelessWidget {
                 remoteRenderer: engine?.remoteRenderer,
               )
             else
-              ChatAvatar(
-                title: name,
-                radius: TelegramSpacing.callAvatarRadius,
-              ),
+              ChatAvatar(title: name, localPath: avatarPath, colorKey: '${call.userId}', radius: TelegramSpacing.callAvatarRadius),
             const SizedBox(height: 24),
             Text(
               name,
@@ -122,8 +123,13 @@ class CallScreen extends StatelessWidget {
             const SizedBox(height: 32),
           ],
         ),
-      ),
-    );
+    ]);
+  }
+  static String? _avatarPathForUser(BuildContext c, int id) {
+    final p = c.read<ProfileManager>().userById(id);
+    if (p?.avatarLocalPath?.isNotEmpty == true) return p!.avatarLocalPath;
+    for (final chat in c.read<ChatManager>().chats) { if (chat.privateUserId == id) return chat.avatarLocalPath; }
+    return null;
   }
 }
 
@@ -141,9 +147,10 @@ class GroupCallScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final engine = context.read<CallManager>().signalingBridge.mediaEngine;
 
-    return ColoredBox(
-      color: TelegramColors.callBackground,
-      child: SafeArea(
+    final avatarPath = isIncoming ? _avatarPathForUser(context, call.userId) : null;
+    return Stack(fit: StackFit.expand, children: [
+      if (isIncoming) CallIncomingBackground(title: name, avatarLocalPath: avatarPath, colorKey: '${call.userId}') else const ColoredBox(color: TelegramColors.callBackground),
+      SafeArea(
         child: Column(
           children: [
             Padding(
@@ -231,7 +238,7 @@ class GroupCallScreen extends StatelessWidget {
                 ),
               ),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _CallRoundButton(
                   icon: manager.isMuted ? Icons.mic_off : Icons.mic,
@@ -337,7 +344,7 @@ class _IncomingControls extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _CallRoundButton(
             icon: Icons.call_end,
@@ -347,14 +354,9 @@ class _IncomingControls extends StatelessWidget {
             size: TelegramSpacing.callPrimaryButtonSize,
             onPressed: callManager.declineCall,
           ),
-          _CallRoundButton(
-            icon: Icons.call,
-            label: 'Принять',
-            backgroundColor: TelegramColors.callAcceptGreen,
-            iconColor: TelegramColors.callTextPrimary,
-            size: TelegramSpacing.callPrimaryButtonSize,
-            onPressed: callManager.acceptCall,
-          ),
+          const SizedBox(width: TelegramSpacing.callControlSpacing * 2),
+          _CallRoundButton(icon: Icons.call, label: 'Принять', backgroundColor: TelegramColors.callAcceptGreen, iconColor: TelegramColors.callTextPrimary, size: TelegramSpacing.callPrimaryButtonSize, onPressed: callManager.acceptCall),
+
         ],
       ),
     );
@@ -375,7 +377,7 @@ class _ActiveControls extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _CallRoundButton(
             icon: callManager.isMuted ? Icons.mic_off : Icons.mic,

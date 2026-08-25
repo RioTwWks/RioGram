@@ -18,6 +18,7 @@ void main() {
       expect(TelegramSpacing.callAvatarRadius, 60);
       expect(TelegramSpacing.callPrimaryButtonSize, 72);
       expect(TelegramSpacing.callControlButtonSize, 64);
+      expect(TelegramSpacing.callControlSpacing, 24);
     });
   });
 

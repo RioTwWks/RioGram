@@ -18,6 +18,7 @@ class UiCustomizationManager extends ChangeNotifier {
   var _hideMuteIcons = false;
   var _hideNavigationBar = false;
   var _hideListIcons = false;
+  var _hideStoriesStrip = false;
   var _chatSwipeEndToStart = ChatSwipeAction.archive;
   var _chatSwipeStartToEnd = ChatSwipeAction.none;
   var _messageSwipeEndToStart = MessageSwipeAction.reply;
@@ -31,6 +32,7 @@ class UiCustomizationManager extends ChangeNotifier {
   bool get hideMuteIcons => _hideMuteIcons;
   bool get hideNavigationBar => _hideNavigationBar;
   bool get hideListIcons => _hideListIcons;
+  bool get hideStoriesStrip => _hideStoriesStrip;
   ChatSwipeAction get chatSwipeEndToStart => _chatSwipeEndToStart;
   ChatSwipeAction get chatSwipeStartToEnd => _chatSwipeStartToEnd;
   MessageSwipeAction get messageSwipeEndToStart => _messageSwipeEndToStart;
@@ -45,6 +47,7 @@ class UiCustomizationManager extends ChangeNotifier {
     _hideMuteIcons = _preferences.hideMuteIcons;
     _hideNavigationBar = _preferences.hideNavigationBar;
     _hideListIcons = _preferences.hideListIcons;
+    _hideStoriesStrip = _preferences.hideStoriesStrip;
     _chatSwipeEndToStart = _preferences.chatSwipeEndToStart;
     _chatSwipeStartToEnd = _preferences.chatSwipeStartToEnd;
     _messageSwipeEndToStart = _preferences.messageSwipeEndToStart;
@@ -93,6 +96,12 @@ class UiCustomizationManager extends ChangeNotifier {
   Future<void> setHideListIcons(bool value) async {
     _hideListIcons = value;
     await _preferences.setHideListIcons(value);
+    notifyListeners();
+  }
+
+  Future<void> setHideStoriesStrip(bool value) async {
+    _hideStoriesStrip = value;
+    await _preferences.setHideStoriesStrip(value);
     notifyListeners();
   }
 

@@ -160,10 +160,14 @@ abstract final class TelegramSpacing {
   static const double settingsRowHeight = 48;
   static const double chatListHorizontalPadding = 12;
 
-  /// §9.8 — звонки.
+  static const double folderSidebarWidth = 68;
+  static const double tabBarLabelFontSize = 10;
+  static const double tabBarIconSize = 24;
+  static const double chatListResizeHandleWidth = 4;
   static const double callAvatarRadius = 60;
   static const double callPrimaryButtonSize = 72;
   static const double callControlButtonSize = 64;
+  static const double callControlSpacing = 24;
 }
 
 /// Платформенный шрифт как у Telegram.
