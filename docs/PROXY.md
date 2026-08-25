@@ -230,6 +230,7 @@ go test -tags=integration ./internal/proxy/...
 
 ## Связанные документы
 
+- [RioGram Web (§8.5)](WEB.md)
 - [Web WSS proxy (§8.3)](WEB_PROXY.md)
 - [Web infrastructure (§8.4)](WEB_INFRA.md)
 - [Патчи TDLib](TDLIB_PATCHES.md)

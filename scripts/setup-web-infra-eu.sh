@@ -47,32 +47,19 @@ if [[ ! -f /etc/systemd/system/riogram-wss-proxy.service ]]; then
   install -m 644 "${ROOT_DIR}/deploy/systemd/riogram-wss-proxy.service" /etc/systemd/system/
 fi
 
-echo "==> Placeholder static server (§8.5) on :5000 until Flutter web deploy"
-cat >/etc/systemd/system/riogram-static-placeholder.service <<'UNIT'
-[Unit]
-Description=RioGram static web placeholder (§8.5)
-After=network-online.target
-
-[Service]
-Type=simple
-User=riogram
-WorkingDirectory=/opt/riogram/web
-ExecStart=/usr/bin/python3 -m http.server 5000 --bind 127.0.0.1
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
+echo "==> Web static root (§8.5)"
 install -d -m 755 /opt/riogram/web
 if [[ ! -f /opt/riogram/web/index.html ]]; then
-  echo '<!DOCTYPE html><html><body><h1>RioGram Web</h1><p>Deploy build/web here (§8.5)</p></body></html>' \
-    >/opt/riogram/web/index.html
+  cat >/opt/riogram/web/index.html <<'HTML'
+<!DOCTYPE html>
+<html><body><h1>RioGram Web</h1>
+<p>Deploy with: <code>sudo ./scripts/deploy-web-eu.sh</code></p></body></html>
+HTML
 fi
-chown -R riogram:riogram /opt/riogram/web
+chown -R riogram:riogram /opt/riogram/web 2>/dev/null || true
 
 systemctl daemon-reload
-systemctl enable riogram-wss-proxy riogram-eu-backend riogram-static-placeholder
+systemctl enable riogram-wss-proxy riogram-eu-backend
 
 echo ""
 echo "✅ EU bootstrap complete."
@@ -81,6 +68,7 @@ echo "Next steps:"
 echo "  1. Edit /etc/riogram/web.env (TUNNEL_RU_HOST, TUNNEL_SSH_USER, domain)"
 echo "  2. ssh-keygen -t ed25519 -f /var/lib/riogram/.ssh/id_ed25519 -N ''"
 echo "  3. Add public key to RU tunnel user authorized_keys"
-echo "  4. systemctl start riogram-wss-proxy riogram-eu-backend riogram-static-placeholder"
-echo "  5. systemctl start autossh-riogram-tunnel"
-echo "  6. ${ROOT_DIR}/deploy/ufw/riogram-eu.sh"
+echo "  4. systemctl start riogram-wss-proxy riogram-eu-backend"
+echo "  5. sudo ${ROOT_DIR}/scripts/deploy-web-eu.sh"
+echo "  6. systemctl start autossh-riogram-tunnel"
+echo "  7. ${ROOT_DIR}/deploy/ufw/riogram-eu.sh"
