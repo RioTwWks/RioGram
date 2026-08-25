@@ -106,9 +106,14 @@ abstract final class TelegramSpacing {
   static const double avatarList = 48;
   static const double avatarGroup = 40;
   static const double chatListDividerInset = 72;
-  static const double chatListRowHeight = 72;
   static const double unreadBadgeMinWidth = 20;
   static const double unreadBadgeMinHeight = 20;
+
+  /// §9.11 — целевые размеры pixel parity (Telegram Desktop / Android).
+  static const double chatListRowHeight = 72;
+  static const double chatAppBarHeight = 56;
+  static const double settingsRowHeight = 48;
+  static const double chatListHorizontalPadding = 12;
 
   /// §9.8 — звонки.
   static const double callAvatarRadius = 60;
@@ -597,7 +602,8 @@ abstract final class TelegramTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: telegram.accent,
         foregroundColor: TelegramColors.unreadBadgeText,
-        elevation: 2,
+        elevation: 0,
+        highlightElevation: 0,
         shape: const CircleBorder(),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
@@ -672,6 +678,50 @@ abstract final class TelegramTheme {
 }
 
 /// Удобный доступ к [TelegramThemeData] из BuildContext.
+
+
+/// Плоский chip в стиле Telegram (без M3 elevation/shadow).
+class TelegramFlatChip extends StatelessWidget {
+  const TelegramFlatChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
+    return Material(
+      color: selected
+          ? tg.accent.withValues(alpha: 0.12)
+          : tg.searchFieldBackground,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(TelegramRadii.buttonPill),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(TelegramRadii.buttonPill),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: TelegramFontSizes.preview,
+              color: selected ? tg.accent : tg.textSecondary,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 extension TelegramThemeContext on BuildContext {
   TelegramThemeData get telegramTheme =>
       Theme.of(this).extension<TelegramThemeData>() ??
