@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../core/chat/chat_manager.dart';
 import '../core/search/search_manager.dart';
-import '../core/user/profile_manager.dart';
 import '../models/chat_models.dart';
 import '../models/search_models.dart';
 import 'chat_list_tile.dart';
