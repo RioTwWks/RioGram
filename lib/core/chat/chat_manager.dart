@@ -2684,17 +2684,26 @@ class ChatManager extends ChangeNotifier {
 
     String? preview = chat.lastMessage;
     DateTime? date = chat.lastMessageDate;
+    var lastMessageIsOutgoing = chat.lastMessageIsOutgoing;
+    MessageDeliveryStatus? lastMessageDeliveryStatus = chat.lastMessageDeliveryStatus;
     if (lastMessage != null) {
       final content = lastMessage['content'] as Map<String, dynamic>? ?? {};
       preview = MessageContent.fromTdlib(content).preview;
       final dateSeconds = tdIntOr(lastMessage['date']);
       date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
+      lastMessageIsOutgoing = lastMessage['is_outgoing'] as bool? ?? false;
+      lastMessageDeliveryStatus = MessageEnrichmentParser.parseDeliveryStatus(
+        lastMessage,
+        lastReadOutboxMessageId: _lastReadOutboxMessageId[chatId] ?? 0,
+      );
     }
 
     final positions = TdlibChatParser.parsePositions(update['positions'] as List<dynamic>?);
     _chatsById[chatId] = chat.copyWith(
       lastMessage: preview,
       lastMessageDate: date,
+      lastMessageIsOutgoing: lastMessageIsOutgoing,
+      lastMessageDeliveryStatus: lastMessageDeliveryStatus,
       positions: positions.isNotEmpty ? positions : chat.positions,
     );
     notifyListeners();
@@ -2787,6 +2796,15 @@ class ChatManager extends ChangeNotifier {
 
     _lastReadOutboxMessageId[chatId] =
         tdIntOr(update['last_read_outbox_message_id']);
+    final chat = _chatsById[chatId];
+    if (chat != null &&
+        chat.lastMessageIsOutgoing &&
+        chat.lastMessageDeliveryStatus != null &&
+        chat.lastMessageDeliveryStatus != MessageDeliveryStatus.sending &&
+        chat.lastMessageDeliveryStatus != MessageDeliveryStatus.failed) {
+      _chatsById[chatId] = chat.copyWith(lastMessageDeliveryStatus: MessageDeliveryStatus.read);
+      notifyListeners();
+    }
     if (chatId == _activeChatId) {
       _refreshDeliveryStatuses();
     }
@@ -3596,6 +3614,8 @@ class ChatManager extends ChangeNotifier {
     _chatsById[message.chatId] = chat.copyWith(
       lastMessage: message.content.preview,
       lastMessageDate: message.date,
+      lastMessageIsOutgoing: message.isOutgoing,
+      lastMessageDeliveryStatus: message.deliveryStatus,
       unreadCount: message.chatId == _activeChatId ? 0 : chat.unreadCount + 1,
     );
     notifyListeners();

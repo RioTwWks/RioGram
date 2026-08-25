@@ -106,6 +106,7 @@ abstract final class TelegramSpacing {
   static const double avatarList = 48;
   static const double avatarGroup = 40;
   static const double chatListDividerInset = 72;
+  static const double chatListRowHeight = 72;
   static const double unreadBadgeMinWidth = 20;
   static const double unreadBadgeMinHeight = 20;
 
