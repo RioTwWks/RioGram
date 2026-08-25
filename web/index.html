@@ -31,6 +31,12 @@
 
   <title>RioGram</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- RioGram Web transport (§8.2): WSS hook до Flutter -->
+  <script src="js/wss_proxy_hook.js"></script>
+  <script src="js/tdlib_bridge.js"></script>
+  <!-- Опционально: tdweb после сборки td/example/web → web/tdweb/ -->
+  <!-- <script src="tdweb/tdweb.js"></script> -->
 </head>
 <body>
   <!--
