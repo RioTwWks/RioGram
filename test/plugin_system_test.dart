@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:riogram/core/plugins/builtin/reading_time_plugin.dart';
 import 'package:riogram/core/plugins/builtin/signature_plugin.dart';
@@ -6,6 +7,8 @@ import 'package:riogram/core/plugins/plugin_manager.dart';
 import 'package:riogram/models/plugin_models.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
   group('PluginManager', () {
     test('signature plugin appends outgoing text when enabled', () async {
       final manager = PluginManager();
