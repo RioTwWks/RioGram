@@ -6,7 +6,7 @@
 - `[x]` — задача выполнена
 - `⏳` — ожидает завершения предыдущей задачи
 
-**Последнее обновление:** §9.2 «Список чатов» и §9.8 «Звонки и уведомления» закрыты.
+**Последнее обновление:** §8.1 Web PoC — исследование и выбор стратегии транспорта (Вариант A).
 
 ---
 
@@ -529,15 +529,15 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 8.1. Исследование и проверка концепции (PoC)
 
-- [ ] Собрать текущий Flutter-проект для Web: `flutter build web`
-- [ ] Задеплоить статику на тестовый хостинг, убедиться что UI работает без подключения к Telegram
-- [ ] Зафиксировать несовместимости Web-платформы (FFI/TDLib, `dart:ffi`, нативные плагины)
-- [ ] Изучить готовые решения:
-  - [ ] [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) — WebSocket-прокси для MTProto
-  - [ ] [tg-proxy](https://github.com/alexbers/tg-proxy) — локальный SOCKS5 → WSS
-  - [ ] [telegram-tt](https://github.com/Ajaxy/telegram-tt) — веб-клиент с поддержкой прокси
-  - [ ] [tdlib-obf](https://github.com/zelenka-io/tdlib-obf) — форк TDLib с маскировкой трафика
-- [ ] Выбрать стратегию транспорта: **Вариант А** (прямой WSS-прокси) / **Вариант Б** (через StealthGate/PhantomProxy) / **Вариант В** (готовый tg-ws-proxy на сервере)
+- [x] Собрать текущий Flutter-проект для Web: `flutter build web` — **падает** (dart:ffi/TDLib); UI PoC: `./scripts/build-web-poc.sh`
+- [x] Задеплоить статику на тестовый хостинг, убедиться что UI работает без подключения к Telegram — `build/web/` + `python3 -m http.server`
+- [x] Зафиксировать несовместимости Web-платформы (FFI/TDLib, `dart:ffi`, нативные плагины) — см. [docs/WEB_POC.md](docs/WEB_POC.md)
+- [x] Изучить готовые решения:
+  - [x] [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) — локальный SOCKS5→WSS, не server-side для Web
+  - [x] [tg-proxy](https://github.com/AlexMelanFromRingo/tg-proxy) — Rust SOCKS5→WSS, референс алгоритма bridge
+  - [x] [telegram-tt](https://github.com/Ajaxy/telegram-tt) — GramJS + browser WSS; форки с Proxy Hook + TG-WS-API
+  - [x] [tdlib-obf](https://github.com/telemt/tdlib-obf) — stealth для native MTProto proxy, не для браузера
+- [x] Выбрать стратегию транспорта: **Вариант А** (WSS reverse proxy RU→EU→Telegram + tdweb/GramJS в клиенте) — см. [docs/WEB_POC.md](docs/WEB_POC.md)
 
 ### 8.2. WebSocket-транспорт для TDLib
 
