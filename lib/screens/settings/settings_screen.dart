@@ -12,6 +12,10 @@ import '../../widgets/chat_avatar.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../../widgets/storage_settings_section.dart';
 import '../profile/own_profile_screen.dart';
+import 'accounts_screen.dart';
+import 'active_sessions_screen.dart';
+import 'app_lock_settings_screen.dart';
+import 'change_phone_screen.dart';
 import 'blocked_users_screen.dart';
 import 'notification_settings_screen.dart';
 
@@ -76,6 +80,59 @@ class SettingsScreen extends StatelessWidget {
           _ProxySettings(proxyManager: proxyManager),
         const SizedBox(height: 24),
         Text('Аккаунт', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.switch_account_outlined),
+          title: const Text('Аккаунты'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AccountsScreen(),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.devices_other_outlined),
+          title: const Text('Активные сессии'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ActiveSessionsScreen(),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.phone_android_outlined),
+          title: const Text('Смена номера'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ChangePhoneScreen(),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.lock_clock_outlined),
+          title: const Text('Блокировка приложения'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AppLockSettingsScreen(),
+              ),
+            );
+          },
+        ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: () => _confirmLogout(context),

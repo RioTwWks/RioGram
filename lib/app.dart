@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/auth/account_manager.dart';
 import 'core/auth/auth_manager.dart';
+import 'core/auth/phone_change_manager.dart';
+import 'core/auth/session_manager.dart';
 import 'core/bot/bot_manager.dart';
 import 'core/stories/story_manager.dart';
 import 'core/secret/secret_chat_manager.dart';
@@ -15,6 +18,7 @@ import 'core/locale/app_locale_manager.dart';
 import 'core/notifications/notification_settings_manager.dart';
 import 'core/privacy/privacy_settings_manager.dart';
 import 'core/search/search_manager.dart';
+import 'core/security/app_lock_manager.dart';
 import 'core/security/security_settings_manager.dart';
 import 'core/user/contact_manager.dart';
 import 'core/user/profile_manager.dart';
@@ -25,9 +29,13 @@ import 'core/theme/theme_manager.dart';
 import 'core/tdlib/tdlib_client.dart';
 import 'models/auth_models.dart';
 import 'screens/auth/code_screen.dart';
+import 'screens/auth/email_auth_screen.dart';
 import 'screens/auth/password_screen.dart';
 import 'screens/auth/phone_screen.dart';
+import 'screens/auth/qr_auth_screen.dart';
+import 'screens/auth/registration_screen.dart';
 import 'screens/chats/chats_screen.dart';
+import 'widgets/app_lock_overlay.dart';
 import 'widgets/call_overlay_host.dart';
 
 class RioGramApp extends StatelessWidget {
@@ -37,11 +45,11 @@ class RioGramApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _AppScope(
+    return _BootstrapScope(
       config: config,
-      child: Consumer<ThemeManager>(
-        builder: (context, themeManager, _) {
-          if (!themeManager.isLoaded) {
+      child: Consumer2<ThemeManager, AppLockManager>(
+        builder: (context, themeManager, appLock, _) {
+          if (!themeManager.isLoaded || !appLock.isLoaded) {
             return const MaterialApp(
               home: Scaffold(
                 body: Center(child: CircularProgressIndicator()),
@@ -54,8 +62,10 @@ class RioGramApp extends StatelessWidget {
             theme: themeManager.lightTheme,
             darkTheme: themeManager.darkTheme,
             themeMode: themeManager.themeMode,
-            home: const CallOverlayHost(
-              child: _RootScreen(),
+            home: AppLockOverlay(
+              child: const CallOverlayHost(
+                child: _AccountScopedApp(),
+              ),
             ),
           );
         },
@@ -64,10 +74,89 @@ class RioGramApp extends StatelessWidget {
   }
 }
 
-class _AppScope extends StatefulWidget {
-  const _AppScope({required this.config, required this.child});
+class _BootstrapScope extends StatefulWidget {
+  const _BootstrapScope({required this.config, required this.child});
 
   final AppConfig config;
+  final Widget child;
+
+  @override
+  State<_BootstrapScope> createState() => _BootstrapScopeState();
+}
+
+class _BootstrapScopeState extends State<_BootstrapScope> {
+  late final ThemeManager _themeManager;
+  late final AppLockManager _appLockManager;
+  late final AccountManager _accountManager;
+  var _scopeGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _themeManager = ThemeManager()..load();
+    _appLockManager = AppLockManager()..load();
+    _accountManager = AccountManager(
+      onAccountChanged: () {
+        setState(() => _scopeGeneration += 1);
+      },
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    _themeManager.dispose();
+    _appLockManager.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_accountManager.isLoaded) {
+      return const MaterialApp(
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
+
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ThemeManager>.value(value: _themeManager),
+        ChangeNotifierProvider<AppLockManager>.value(value: _appLockManager),
+        ChangeNotifierProvider<AccountManager>.value(value: _accountManager),
+      ],
+      child: KeyedSubtree(
+        key: ValueKey(
+          '${_accountManager.activeAccountId ?? 'default'}_$_scopeGeneration',
+        ),
+        child: _AppScope(
+          config: widget.config,
+          accountDirectorySuffix: _accountManager.directorySuffixFor(
+            _accountManager.activeAccountId,
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountScopedApp extends StatelessWidget {
+  const _AccountScopedApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _RootScreen();
+  }
+}
+
+class _AppScope extends StatefulWidget {
+  const _AppScope({
+    required this.config,
+    required this.accountDirectorySuffix,
+    required this.child,
+  });
+
+  final AppConfig config;
+  final String accountDirectorySuffix;
   final Widget child;
 
   @override
@@ -76,7 +165,6 @@ class _AppScope extends StatefulWidget {
 
 class _AppScopeState extends State<_AppScope> {
   late final TdlibClient _client;
-  late final ThemeManager _themeManager;
   late final NotificationService _notificationService;
   ProxyManager? _proxyManager;
   late final AuthManager _authManager;
@@ -91,6 +179,8 @@ class _AppScopeState extends State<_AppScope> {
   late final NotificationSettingsManager _notificationSettingsManager;
   late final PrivacySettingsManager _privacySettingsManager;
   late final SecuritySettingsManager _securitySettingsManager;
+  late final SessionManager _sessionManager;
+  late final PhoneChangeManager _phoneChangeManager;
   late final AppLocaleManager _appLocaleManager;
   late final BotManager _botManager;
   late final SecretChatManager _secretChatManager;
@@ -101,7 +191,6 @@ class _AppScopeState extends State<_AppScope> {
   void initState() {
     super.initState();
     _client = TdlibClient();
-    _themeManager = ThemeManager()..load();
     _notificationService = NotificationService()..init();
 
     _proxyManager = ProxyManager(client: _client, config: widget.config);
@@ -128,6 +217,8 @@ class _AppScopeState extends State<_AppScope> {
     );
     _privacySettingsManager = PrivacySettingsManager(client: _client);
     _securitySettingsManager = SecuritySettingsManager(client: _client);
+    _sessionManager = SessionManager(client: _client);
+    _phoneChangeManager = PhoneChangeManager(client: _client);
     _appLocaleManager = AppLocaleManager(client: _client)..load();
     _botManager = BotManager(client: _client);
     _secretChatManager = SecretChatManager(client: _client);
@@ -143,37 +234,64 @@ class _AppScopeState extends State<_AppScope> {
       mediaCache: _mediaCacheManager,
     );
 
+    _profileManager.addListener(_registerAccountIfNeeded);
+
     _authManager = AuthManager(
       client: _client,
       config: widget.config,
       proxyManager: _proxyManager,
-      onAuthorized: () {
-        _appLocaleManager.startListening();
-        _mediaCacheManager.startListening();
-        _stickerManager.startListening();
-        _callManager.startListening();
-        _groupCallManager.startListening();
-        _contactManager.startListening();
-        _profileManager.startListening();
-        _searchManager.startListening();
-        _notificationSettingsManager.startListening();
-        _privacySettingsManager.startListening();
-        _securitySettingsManager.startListening();
-        _botManager.startListening();
-        _secretChatManager.startListening();
-        _storyManager.startListening();
-        _storyManager.setSavedMessagesChatId(_chatManager.savedMessagesChatId);
-        _storyManager.loadMainStoryList();
-        _profileManager.loadOwnProfile();
-        _contactManager.loadContacts();
-        _chatManager.startListening();
-        _chatManager.loadChats();
-      },
+      accountDirectorySuffix: widget.accountDirectorySuffix.isEmpty
+          ? null
+          : widget.accountDirectorySuffix,
+      onAuthorized: _onAuthorized,
+    );
+  }
+
+  void _onAuthorized() {
+    _appLocaleManager.startListening();
+    _mediaCacheManager.startListening();
+    _stickerManager.startListening();
+    _callManager.startListening();
+    _groupCallManager.startListening();
+    _contactManager.startListening();
+    _profileManager.startListening();
+    _searchManager.startListening();
+    _notificationSettingsManager.startListening();
+    _privacySettingsManager.startListening();
+    _securitySettingsManager.startListening();
+    _sessionManager.startListening();
+    _phoneChangeManager.startListening();
+    _botManager.startListening();
+    _secretChatManager.startListening();
+    _storyManager.startListening();
+    _storyManager.setSavedMessagesChatId(_chatManager.savedMessagesChatId);
+    _storyManager.loadMainStoryList();
+    _profileManager.loadOwnProfile();
+    _contactManager.loadContacts();
+    _chatManager.startListening();
+    _chatManager.loadChats();
+    _registerAccountIfNeeded();
+  }
+
+  void _registerAccountIfNeeded() {
+    if (!mounted) {
+      return;
+    }
+    final user = _profileManager.ownUser;
+    if (user == null) {
+      return;
+    }
+    final accountManager = context.read<AccountManager>();
+    accountManager.upsertCurrentAccount(
+      userId: user.id,
+      phoneNumber: _authManager.phoneNumber ?? user.phoneNumber,
+      displayName: user.displayName,
     );
   }
 
   @override
   void dispose() {
+    _profileManager.removeListener(_registerAccountIfNeeded);
     _authManager.dispose();
     _chatManager.dispose();
     _groupCallManager.dispose();
@@ -184,6 +302,8 @@ class _AppScopeState extends State<_AppScope> {
     _notificationSettingsManager.dispose();
     _privacySettingsManager.dispose();
     _securitySettingsManager.dispose();
+    _sessionManager.dispose();
+    _phoneChangeManager.dispose();
     _appLocaleManager.dispose();
     _botManager.dispose();
     _secretChatManager.dispose();
@@ -200,7 +320,6 @@ class _AppScopeState extends State<_AppScope> {
     return MultiProvider(
       providers: [
         Provider<TdlibClient>.value(value: _client),
-        ChangeNotifierProvider<ThemeManager>.value(value: _themeManager),
         ChangeNotifierProvider<AuthManager>.value(value: _authManager),
         ChangeNotifierProvider<ChatManager>.value(value: _chatManager),
         ChangeNotifierProvider<MediaCacheManager>.value(
@@ -232,6 +351,12 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<SecuritySettingsManager>.value(
           value: _securitySettingsManager,
+        ),
+        ChangeNotifierProvider<SessionManager>.value(
+          value: _sessionManager,
+        ),
+        ChangeNotifierProvider<PhoneChangeManager>.value(
+          value: _phoneChangeManager,
         ),
         ChangeNotifierProvider<AppLocaleManager>.value(
           value: _appLocaleManager,
@@ -278,6 +403,10 @@ class _RootScreenState extends State<_RootScreen> {
           body: Center(child: CircularProgressIndicator()),
         ),
       AuthPhase.waitPhoneNumber => const PhoneScreen(),
+      AuthPhase.waitQrConfirmation => const QrAuthScreen(),
+      AuthPhase.waitRegistration => const RegistrationScreen(),
+      AuthPhase.waitEmailAddress => const EmailAuthScreen(),
+      AuthPhase.waitEmailCode => const EmailAuthScreen(isCodeStep: true),
       AuthPhase.waitCode => const CodeScreen(),
       AuthPhase.waitPassword => const PasswordScreen(),
       AuthPhase.ready => const ChatsScreen(),
