@@ -18,7 +18,7 @@ class ScrollToBottomButton extends StatelessWidget {
         ? '1 новое сообщение'
         : '$newMessageCount новых сообщений';
     return Material(
-      elevation: 2,
+      elevation: 0,
       color: tg.elevatedSurface,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
