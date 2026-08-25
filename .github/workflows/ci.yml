@@ -115,6 +115,51 @@ jobs:
           path: build/web/
           retention-days: 7
 
+  web-e2e:
+    name: Web E2E (§8.6)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nginx
+          pip install websockets
+
+      - name: Prepare build
+        run: |
+          ./scripts/generate-env.sh
+          flutter pub get
+          SKIP_TDWEB_CHECK=1 ./scripts/build-web.sh
+          ./scripts/build-wss-proxy.sh
+
+      - name: Install Playwright
+        working-directory: e2e/web
+        run: |
+          npm install --no-save
+          npx playwright install chromium --with-deps
+
+      - name: Run Web E2E
+        run: WSS_STABILITY_SECONDS=30 ./scripts/run-web-e2e.sh
+
   flutter-linux:
     name: Flutter build (Linux)
     needs: tdlib-linux
