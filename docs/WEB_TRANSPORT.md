@@ -184,6 +184,6 @@ cd build/web && python3 -m http.server 8765
 
 ## Следующие шаги
 
-- **§8.3** — server-side WSS reverse proxy на EU
+- **§8.3** — server-side WSS reverse proxy на EU — см. [WEB_PROXY.md](WEB_PROXY.md)
 - **§8.4** — RU Nginx + SSH-туннель
 - **§8.5** — CI `flutter build web` для production

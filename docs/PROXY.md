@@ -216,7 +216,20 @@ go test -tags=integration ./internal/proxy/...
 - **Anti-replay** при частых reconnect — подождать или перезапустить прокси
 - **`kDpiBypassStableProxyMode = false`** — нестабильный handshake с прокси
 
+## Web WSS reverse proxy (§8.3)
+
+Для **браузерного** RioGram используется отдельный транспорт — не PhantomProxy/StealthGate.
+
+| | Native (этот документ) | Web |
+|---|------------------------|-----|
+| Протокол | Fake TLS MTProto | Browser WSS |
+| Сервер | PhantomProxy / StealthGate | `riogram-wss-proxy` |
+| Edge | RU VPS :15443 | RU Nginx :443 |
+
+Подробнее: [WEB_PROXY.md](WEB_PROXY.md), [WEB_TRANSPORT.md](WEB_TRANSPORT.md).
+
 ## Связанные документы
 
+- [Web WSS proxy (§8.3)](WEB_PROXY.md)
 - [Патчи TDLib](TDLIB_PATCHES.md)
 - [Быстрый старт](QUICKSTART.md)
