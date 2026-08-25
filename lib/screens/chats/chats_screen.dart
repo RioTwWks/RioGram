@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
+import '../../core/search/search_manager.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/chat_desktop_shortcuts.dart';
 import '../../widgets/chat_folder_sidebar.dart';
@@ -14,6 +15,7 @@ import '../../widgets/proxy_status_indicator.dart';
 import '../chat/chat_screen.dart';
 import '../chat/forum_topics_screen.dart';
 import '../contacts/contacts_screen.dart';
+import '../profile/user_profile_screen.dart';
 import '../settings/settings_screen.dart';
 
 /// Адаптивный экран чатов: mobile / master-detail / три колонки (desktop).
@@ -50,23 +52,24 @@ class _ChatsScreenState extends State<ChatsScreen> {
   @override
   Widget build(BuildContext context) {
     final chatManager = context.watch<ChatManager>();
+    final searchManager = context.watch<SearchManager>();
     final proxy = context.watch<ProxyManager?>();
     final width = MediaQuery.sizeOf(context).width;
 
     if (width < _wideBreakpoint) {
-      return _buildMobileLayout(context, chatManager, proxy);
+      return _buildMobileLayout(context, chatManager, searchManager, proxy);
     }
     if (width < _threeColumnBreakpoint) {
       return _wrapDesktopShortcuts(
         context,
         chatManager,
-        _buildTwoColumnLayout(context, chatManager, proxy),
+        _buildTwoColumnLayout(context, chatManager, searchManager, proxy),
       );
     }
     return _wrapDesktopShortcuts(
       context,
       chatManager,
-      _buildThreeColumnLayout(context, chatManager, proxy),
+      _buildThreeColumnLayout(context, chatManager, searchManager, proxy),
     );
   }
 
@@ -87,6 +90,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   Widget _buildMobileLayout(
     BuildContext context,
     ChatManager chatManager,
+    SearchManager searchManager,
     ProxyManager? proxy,
   ) {
     return Scaffold(
@@ -130,6 +134,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         _ => _buildChatListPanel(
             context,
             chatManager,
+            searchManager,
             showFolderTabs: true,
           ),
       },
@@ -162,6 +167,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   Widget _buildTwoColumnLayout(
     BuildContext context,
     ChatManager chatManager,
+    SearchManager searchManager,
     ProxyManager? proxy,
   ) {
     return Scaffold(
@@ -182,6 +188,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                   child: _buildChatListPanel(
                     context,
                     chatManager,
+                    searchManager,
                     showFolderTabs: true,
                   ),
                 ),
@@ -198,6 +205,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   Widget _buildThreeColumnLayout(
     BuildContext context,
     ChatManager chatManager,
+    SearchManager searchManager,
     ProxyManager? proxy,
   ) {
     return Scaffold(
@@ -232,6 +240,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                   child: _buildChatListPanel(
                     context,
                     chatManager,
+                    searchManager,
                     showFolderTabs: false,
                   ),
                 ),
@@ -292,7 +301,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   Widget _buildChatListPanel(
     BuildContext context,
-    ChatManager chatManager, {
+    ChatManager chatManager,
+    SearchManager searchManager, {
     required bool showFolderTabs,
   }) {
     return Column(
@@ -300,10 +310,18 @@ class _ChatsScreenState extends State<ChatsScreen> {
         ChatSearchBar(
           controller: _searchController,
           focusNode: _searchFocusNode,
-          onChanged: chatManager.setSearchQuery,
-          onClear: chatManager.clearSearch,
+          onChanged: searchManager.setGlobalQuery,
+          onClear: () {
+            _searchController.clear();
+            searchManager.clearGlobalSearch();
+          },
         ),
-        if (!chatManager.isSearchActive && showFolderTabs) ...[
+        if (searchManager.isGlobalSearchActive)
+          SearchFilterChips(
+            selected: searchManager.globalFilter,
+            onSelected: searchManager.setGlobalFilter,
+          ),
+        if (!searchManager.isGlobalSearchActive && showFolderTabs) ...[
           ChatListTabs(
             activeList: chatManager.activeChatList,
             folders: chatManager.chatFolders,
@@ -312,13 +330,21 @@ class _ChatsScreenState extends State<ChatsScreen> {
           const Divider(height: 1),
         ],
         Expanded(
-          child: chatManager.isSearchActive
+          child: searchManager.isGlobalSearchActive
               ? ChatSearchResults(
+                  searchManager: searchManager,
                   chatManager: chatManager,
                   onChatTap: (chatId) => _openChat(context, chatManager, chatId),
                   onMessageTap: (chatId, messageId) {
                     chatManager.openChatAtMessage(chatId, messageId);
                     _openChat(context, chatManager, chatId);
+                  },
+                  onUserTap: (userId) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => UserProfileScreen(userId: userId),
+                      ),
+                    );
                   },
                 )
               : _ChatsList(
@@ -433,7 +459,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     ChatManager chatManager,
     int delta,
   ) {
-    if (chatManager.isSearchActive) {
+    if (context.read<SearchManager>().isGlobalSearchActive) {
       return;
     }
 

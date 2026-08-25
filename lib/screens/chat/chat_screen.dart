@@ -26,6 +26,7 @@ import '../../widgets/sticker_panel_sheet.dart';
 import '../../widgets/user_status_subtitle.dart';
 import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
+import 'chat_message_search_screen.dart';
 import 'chat_info_screen.dart';
 import 'message_thread_screen.dart';
 
@@ -843,6 +844,22 @@ class _ChatScreenState extends State<ChatScreen> {
                 onPressed: () => _startCall(isVideo: true),
               ),
           ],
+          if (!selectionMode && widget.forumTopicId == null)
+            IconButton(
+              tooltip: 'Поиск в чате',
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ChatMessageSearchScreen(
+                      chatId: widget.chatId,
+                      chatTitle: chat?.title,
+                      forumTopicId: widget.forumTopicId,
+                    ),
+                  ),
+                );
+              },
+            ),
           if (!selectionMode && widget.forumTopicId == null)
             IconButton(
               tooltip: 'Информация',

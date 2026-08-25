@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/chat/chat_manager.dart';
+import '../core/search/search_manager.dart';
+import '../core/user/profile_manager.dart';
 import '../models/chat_models.dart';
+import '../models/search_models.dart';
 import 'chat_list_tile.dart';
 
 /// Поле поиска по чатам и сообщениям.
@@ -66,40 +70,97 @@ class _ChatSearchBarState extends State<ChatSearchBar> {
   }
 }
 
-/// Результаты глобального поиска: чаты и сообщения.
-class ChatSearchResults extends StatelessWidget {
-  const ChatSearchResults({
+/// Фильтры типа сообщений для поиска.
+class SearchFilterChips extends StatelessWidget {
+  const SearchFilterChips({
     super.key,
-    required this.chatManager,
-    required this.onChatTap,
-    required this.onMessageTap,
+    required this.selected,
+    required this.onSelected,
   });
 
-  final ChatManager chatManager;
-  final ValueChanged<int> onChatTap;
-  final void Function(int chatId, int messageId) onMessageTap;
+  final SearchMessageFilterKind selected;
+  final ValueChanged<SearchMessageFilterKind> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    if (chatManager.isSearchLoading) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        children: SearchMessageFilterKind.values.map((filter) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(filter.label),
+              selected: selected == filter,
+              onSelected: (_) => onSelected(filter),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+/// Результаты глобального поиска.
+class ChatSearchResults extends StatelessWidget {
+  const ChatSearchResults({
+    super.key,
+    required this.searchManager,
+    required this.chatManager,
+    required this.onChatTap,
+    required this.onMessageTap,
+    required this.onUserTap,
+  });
+
+  final SearchManager searchManager;
+  final ChatManager chatManager;
+  final ValueChanged<int> onChatTap;
+  final void Function(int chatId, int messageId) onMessageTap;
+  final ValueChanged<int> onUserTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (searchManager.isGlobalLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (chatManager.searchError != null) {
-      return Center(child: Text(chatManager.searchError!));
+    if (searchManager.globalError != null) {
+      return Center(child: Text(searchManager.globalError!));
     }
 
-    final chats = chatManager.searchChatResults;
-    final messages = chatManager.searchMessageResults;
+    final chats = searchManager.globalChatIds
+        .map((id) => chatManager.chatById(id))
+        .whereType<ChatSummary>()
+        .toList();
+    final publicChats = searchManager.publicChatIds
+        .where((id) => !searchManager.globalChatIds.contains(id))
+        .map((id) => chatManager.chatById(id))
+        .whereType<ChatSummary>()
+        .toList();
+    final messages = searchManager.globalMessageResults;
+    final user = searchManager.globalUserHit;
 
-    if (chats.isEmpty && messages.isEmpty) {
+    if (chats.isEmpty &&
+        publicChats.isEmpty &&
+        messages.isEmpty &&
+        user == null) {
       return const Center(child: Text('Ничего не найдено'));
     }
 
     return ListView(
       children: [
+        if (user != null) ...[
+          const _SectionHeader(title: 'Пользователь'),
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: Text(user.displayName),
+            subtitle: user.username != null ? Text('@${user.username}') : null,
+            onTap: () => onUserTap(user.userId),
+          ),
+        ],
         if (chats.isNotEmpty) ...[
-          _SectionHeader(title: 'Чаты'),
+          const _SectionHeader(title: 'Чаты'),
           ...chats.map(
             (chat) => ChatListTile(
               chat: chat,
@@ -109,13 +170,26 @@ class ChatSearchResults extends StatelessWidget {
             ),
           ),
         ],
+        if (publicChats.isNotEmpty) ...[
+          const _SectionHeader(title: 'Каналы и боты'),
+          ...publicChats.map(
+            (chat) => ChatListTile(
+              chat: chat,
+              selected: false,
+              activeList: const ChatListMain(),
+              onTap: () => onChatTap(chat.id),
+            ),
+          ),
+        ],
         if (messages.isNotEmpty) ...[
-          _SectionHeader(title: 'Сообщения'),
+          const _SectionHeader(title: 'Сообщения'),
           ...messages.map(
             (hit) => ListTile(
               leading: const Icon(Icons.message_outlined),
               title: Text(
-                hit.chatTitle ?? 'Чат ${hit.chatId}',
+                hit.chatTitle ??
+                    searchManager.chatTitleFor(hit.chatId) ??
+                    'Чат ${hit.chatId}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -131,8 +205,93 @@ class ChatSearchResults extends StatelessWidget {
               onTap: () => onMessageTap(hit.chatId, hit.messageId),
             ),
           ),
+          if (searchManager.globalHasMoreMessages)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: OutlinedButton(
+                onPressed: searchManager.isGlobalLoadingMore
+                    ? null
+                    : searchManager.loadMoreGlobalMessages,
+                child: searchManager.isGlobalLoadingMore
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Показать ещё'),
+              ),
+            ),
         ],
       ],
+    );
+  }
+}
+
+/// Результаты поиска сообщений внутри чата.
+class ChatMessageSearchResults extends StatelessWidget {
+  const ChatMessageSearchResults({
+    super.key,
+    required this.state,
+    required this.onMessageTap,
+    required this.onLoadMore,
+  });
+
+  final ChatMessageSearchState state;
+  final ValueChanged<int> onMessageTap;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.error != null) {
+      return Center(child: Text(state.error!));
+    }
+
+    if (!state.isActive) {
+      return const Center(child: Text('Введите запрос'));
+    }
+
+    if (state.results.isEmpty) {
+      return const Center(child: Text('Сообщения не найдены'));
+    }
+
+    return ListView.builder(
+      itemCount: state.results.length + (state.hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= state.results.length) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: OutlinedButton(
+              onPressed: state.isLoadingMore ? null : onLoadMore,
+              child: state.isLoadingMore
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Показать ещё'),
+            ),
+          );
+        }
+
+        final hit = state.results[index];
+        return ListTile(
+          leading: const Icon(Icons.message_outlined),
+          title: Text(
+            hit.preview,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: Text(
+            formatChatListTime(hit.date),
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+          onTap: () => onMessageTap(hit.messageId),
+        );
+      },
     );
   }
 }

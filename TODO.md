@@ -367,11 +367,11 @@
 
 ### 6.8. Поиск и обнаружение
 
-- [ ] Глобальный поиск сообщений (`searchMessages`, фильтры: медиа, ссылки, файлы)
-- [ ] Поиск по чату (`searchChatMessages`)
-- [ ] Поиск публичных каналов и ботов (`searchPublicChats`)
-- [ ] Поиск по username (`searchUserByPhoneNumber`, `searchUserByToken`)
-- [ ] Inline-результаты с прокруткой и переходом к сообщению в контексте
+- [x] Глобальный поиск сообщений (`searchMessages`, фильтры: медиа, ссылки, файлы)
+- [x] Поиск по чату (`searchChatMessages`)
+- [x] Поиск публичных каналов и ботов (`searchPublicChats`)
+- [x] Поиск по username (`searchUserByPhoneNumber`, `searchUserByToken`, `searchPublicChat`)
+- [x] Inline-результаты с прокруткой и переходом к сообщению в контексте
 
 ---
 
