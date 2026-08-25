@@ -529,26 +529,27 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 8.1. Исследование и проверка концепции (PoC)
 
-- [ ] Собрать текущий Flutter-проект для Web: `flutter build web`
-- [ ] Задеплоить статику на тестовый хостинг, убедиться что UI работает без подключения к Telegram
-- [ ] Зафиксировать несовместимости Web-платформы (FFI/TDLib, `dart:ffi`, нативные плагины)
-- [ ] Изучить готовые решения:
-  - [ ] [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) — WebSocket-прокси для MTProto
-  - [ ] [tg-proxy](https://github.com/alexbers/tg-proxy) — локальный SOCKS5 → WSS
-  - [ ] [telegram-tt](https://github.com/Ajaxy/telegram-tt) — веб-клиент с поддержкой прокси
-  - [ ] [tdlib-obf](https://github.com/zelenka-io/tdlib-obf) — форк TDLib с маскировкой трафика
-- [ ] Выбрать стратегию транспорта: **Вариант А** (прямой WSS-прокси) / **Вариант Б** (через StealthGate/PhantomProxy) / **Вариант В** (готовый tg-ws-proxy на сервере)
+- [x] Собрать текущий Flutter-проект для Web: `flutter build web` — **падает** (dart:ffi/TDLib); UI PoC: `./scripts/build-web-poc.sh`
+- [x] Задеплоить статику на тестовый хостинг, убедиться что UI работает без подключения к Telegram — `build/web/` + `python3 -m http.server`
+- [x] Зафиксировать несовместимости Web-платформы (FFI/TDLib, `dart:ffi`, нативные плагины) — см. [docs/WEB_POC.md](docs/WEB_POC.md)
+- [x] Изучить готовые решения:
+  - [x] [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) — локальный SOCKS5→WSS, не server-side для Web
+  - [x] [tg-proxy](https://github.com/AlexMelanFromRingo/tg-proxy) — Rust SOCKS5→WSS, референс алгоритма bridge
+  - [x] [telegram-tt](https://github.com/Ajaxy/telegram-tt) — GramJS + browser WSS; форки с Proxy Hook + TG-WS-API
+  - [x] [tdlib-obf](https://github.com/telemt/tdlib-obf) — stealth для native MTProto proxy, не для браузера
+- [x] Выбрать стратегию транспорта: **Вариант А** (WSS reverse proxy RU→EU→Telegram + tdweb/GramJS в клиенте) — см. [docs/WEB_POC.md](docs/WEB_POC.md)
 
 ### 8.2. WebSocket-транспорт для TDLib
 
 В браузере сетевой стек контролируется самим браузером — MTProto нужно туннелировать через **WSS (порт 443)**, чтобы для DPI это выглядело как обычный HTTPS к легитимному домену.
 
-- [ ] Спроектировать транспортный слой: TDLib ↔ WebSocket (WSS) вместо TCP/Fake TLS
-- [ ] Реализовать или интегрировать WSS-обёртку для исходящих/входящих пакетов TDLib
-- [ ] Адаптировать `TdlibClient` / FFI-слой для Web-платформы (отдельная реализация без нативного `libtdjson`)
-- [ ] Поддержать настройку адреса WSS-прокси в клиенте (например `wss://your-proxy-domain.ru/`)
-- [ ] Добавить в UI настройки поле для WebSocket-прокси (аналог экрана прокси, но для Web)
-- [ ] Обеспечить автоматическое переподключение при обрыве WSS-соединения
+- [x] Спроектировать транспортный слой: TDLib ↔ WebSocket (WSS) вместо TCP/Fake TLS — см. [docs/WEB_TRANSPORT.md](docs/WEB_TRANSPORT.md)
+- [x] Реализовать или интегрировать WSS-обёртку для исходящих/входящих пакетов TDLib — `web/js/wss_proxy_hook.js`
+- [x] Адаптировать `TdlibClient` / FFI-слой для Web-платформы (отдельная реализация без нативного `libtdjson`) — `tdlib_client_web.dart` + conditional imports
+- [x] Поддержать настройку адреса WSS-прокси в клиенте (например `wss://your-proxy-domain.ru/`) — `WebSocketProxyPreferences`, `WebProxyManager`
+- [x] Добавить в UI настройки поле для WebSocket-прокси (аналог экрана прокси, но для Web) — `WebSocketProxySettings`
+- [x] Обеспечить автоматическое переподключение при обрыве WSS-соединения — `WebProxyManager._scheduleReconnect()`
+- [ ] Собрать и подключить tdweb WASM (`td/example/web`) для полной авторизации в браузере
 
 ### 8.3. Web-прокси (серверная часть)
 
