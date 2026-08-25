@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 // §9.11.9 regression — TelegramSettingsTile (no golden; CI headless).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:riogram/core/navigation/telegram_routes.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
 import 'package:riogram/widgets/chat_avatar.dart';
 import 'package:riogram/widgets/telegram_settings_tile.dart';

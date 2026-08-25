@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riogram/core/navigation/telegram_routes.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
-import 'package:riogram/widgets/voice_waveform.dart';
 
 void main() {
   group('TelegramDesignConstraints §9.11', () {

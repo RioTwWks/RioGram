@@ -13,7 +13,11 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
+# shellcheck source=lib/wait-for-apt.sh
+source "${ROOT_DIR}/scripts/lib/wait-for-apt.sh"
+
 echo "==> Packages"
+wait_for_apt
 apt-get update
 apt-get install -y nginx autossh openssh-client ufw curl
 
