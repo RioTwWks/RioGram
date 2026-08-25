@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/chat/chat_manager.dart';
+import '../core/search/search_manager.dart';
 import '../models/chat_models.dart';
 import 'chat_avatar.dart';
 import 'chat_list_tile.dart';
@@ -43,20 +44,32 @@ class _NewChatDialogState extends State<NewChatDialog> {
 
   @override
   void deactivate() {
-    context.read<ChatManager>().clearNewChatSearch();
+    context.read<SearchManager>().clearNewChatSearch();
     super.deactivate();
   }
 
   void _onQueryChanged() {
-    context.read<ChatManager>().searchForNewChat(_controller.text);
+    context.read<SearchManager>().searchForNewChat(_controller.text);
+  }
+
+  bool _needsJoin(SearchManager search, ChatManager chatManager, int chatId) {
+    if (!search.isPublicDiscoveryChat(chatId)) {
+      return false;
+    }
+    final chat = chatManager.chatById(chatId);
+    if (chat == null) {
+      return true;
+    }
+    return !chat.isInList(const ChatListMain());
   }
 
   Future<void> _openOrJoinChat(ChatSummary chat) async {
-    final manager = context.read<ChatManager>();
-    if (manager.newChatSearchNeedsJoin(chat.id)) {
+    final chatManager = context.read<ChatManager>();
+    final search = context.read<SearchManager>();
+    if (_needsJoin(search, chatManager, chat.id)) {
       setState(() => _joiningChatId = chat.id);
       try {
-        final chatId = await manager.joinChat(chat.id);
+        final chatId = await chatManager.joinChat(chat.id);
         if (mounted) {
           Navigator.pop(context, chatId);
         }
@@ -83,7 +96,12 @@ class _NewChatDialogState extends State<NewChatDialog> {
   @override
   Widget build(BuildContext context) {
     final chatManager = context.watch<ChatManager>();
-    final results = chatManager.newChatSearchResults;
+    final search = context.watch<SearchManager>();
+    final results = search.newChatSearchIds
+        .map((id) => chatManager.chatById(id))
+        .whereType<ChatSummary>()
+        .toList();
+    final userHit = search.newChatUserHit;
 
     return AlertDialog(
       title: const Text('Новый чат'),
@@ -116,45 +134,70 @@ class _NewChatDialogState extends State<NewChatDialog> {
                   label: const Text('По ссылке'),
                   onPressed: () => _openCreateDialog(JoinInviteDialog.show),
                 ),
-                ActionChip(
-                  avatar: const Icon(Icons.groups_outlined, size: 18),
-                  label: const Text('Базовая'),
-                  onPressed: () =>
-                      _openCreateDialog(CreateBasicGroupDialog.show),
-                ),
               ],
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
-              autofocus: true,
               decoration: const InputDecoration(
-                hintText: 'Имя, @username или номер',
+                labelText: 'Поиск',
+                hintText: 'Имя, @username, телефон, канал',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
+                isDense: true,
               ),
-              textInputAction: TextInputAction.search,
+              autofocus: true,
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: chatManager.isNewChatSearchLoading
+              child: search.isNewChatSearchLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : results.isEmpty
+                  : results.isEmpty && userHit == null
                       ? Center(
                           child: Text(
-                            _controller.text.isEmpty
+                            _controller.text.trim().isEmpty
                                 ? 'Введите имя или @username'
                                 : 'Ничего не найдено',
-                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         )
                       : ListView.separated(
-                          itemCount: results.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemCount: results.length + (userHit != null ? 1 : 0),
+                          separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (context, index) {
-                            final chat = results[index];
+                            if (userHit != null && index == 0) {
+                              return ListTile(
+                                leading: const CircleAvatar(
+                                  child: Icon(Icons.person_outline),
+                                ),
+                                title: Text(userHit.displayName),
+                                subtitle: Text(
+                                  userHit.username != null
+                                      ? '@${userHit.username}'
+                                      : 'Пользователь',
+                                ),
+                                onTap: () async {
+                                  try {
+                                    final chatId = await chatManager
+                                        .createPrivateChat(userHit.userId);
+                                    if (context.mounted) {
+                                      Navigator.pop(context, chatId);
+                                    }
+                                  } catch (error) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(error.toString())),
+                                      );
+                                    }
+                                  }
+                                },
+                              );
+                            }
+
+                            final chatIndex =
+                                userHit != null ? index - 1 : index;
+                            final chat = results[chatIndex];
                             final needsJoin =
-                                chatManager.newChatSearchNeedsJoin(chat.id);
+                                _needsJoin(search, chatManager, chat.id);
                             final isJoining = _joiningChatId == chat.id;
 
                             return ListTile(
@@ -202,7 +245,9 @@ class _NewChatDialogState extends State<NewChatDialog> {
 
   String _chatSubtitle(ChatSummary chat, bool needsJoin) {
     if (needsJoin) {
-      return chat.kind == ChatKind.channel ? 'Канал · не подписан' : 'Группа · не участник';
+      return chat.kind == ChatKind.channel
+          ? 'Канал · не подписан'
+          : 'Группа · не участник';
     }
     if (chat.lastMessage != null) {
       return chat.lastMessage!;

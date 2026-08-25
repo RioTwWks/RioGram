@@ -8,6 +8,7 @@ import 'core/call/group_call_manager.dart';
 import 'core/chat/chat_manager.dart';
 import 'core/chat/sticker_manager.dart';
 import 'core/config/app_config.dart';
+import 'core/search/search_manager.dart';
 import 'core/user/contact_manager.dart';
 import 'core/user/profile_manager.dart';
 import 'core/media/media_cache_manager.dart';
@@ -79,6 +80,7 @@ class _AppScopeState extends State<_AppScope> {
   late final CallSignalingBridge _callSignalingBridge;
   late final ContactManager _contactManager;
   late final ProfileManager _profileManager;
+  late final SearchManager _searchManager;
   late final ChatManager _chatManager;
 
   @override
@@ -103,6 +105,7 @@ class _AppScopeState extends State<_AppScope> {
     );
     _contactManager = ContactManager(client: _client);
     _profileManager = ProfileManager(client: _client);
+    _searchManager = SearchManager(client: _client);
 
     _chatManager = ChatManager(
       client: _client,
@@ -121,6 +124,7 @@ class _AppScopeState extends State<_AppScope> {
         _groupCallManager.startListening();
         _contactManager.startListening();
         _profileManager.startListening();
+        _searchManager.startListening();
         _profileManager.loadOwnProfile();
         _contactManager.loadContacts();
         _chatManager.startListening();
@@ -137,6 +141,7 @@ class _AppScopeState extends State<_AppScope> {
     _callManager.dispose();
     _contactManager.dispose();
     _profileManager.dispose();
+    _searchManager.dispose();
     _stickerManager.dispose();
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
@@ -169,6 +174,9 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<ProfileManager>.value(
           value: _profileManager,
+        ),
+        ChangeNotifierProvider<SearchManager>.value(
+          value: _searchManager,
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),
