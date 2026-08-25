@@ -1,3 +1,5 @@
+// §9.11.9 regression — MessageBubble (no golden; CI headless).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -11,6 +13,7 @@ import 'package:riogram/models/formatted_text.dart';
 import 'package:riogram/models/message_enrichment.dart';
 import 'package:riogram/widgets/date_separator.dart';
 import 'package:riogram/widgets/message_bubble.dart';
+import 'package:riogram/widgets/message_bubble_grouping.dart';
 import 'package:riogram/widgets/message_delivery_icon.dart';
 
 void main() {
@@ -135,10 +138,21 @@ void main() {
         ),
       );
       final decoration = capsule.decoration as BoxDecoration;
-      expect(
-        decoration.color,
-        TelegramColors.serviceMessageBackgroundLight,
-      );
+      expect(decoration.color, TelegramColors.serviceMessageBackgroundLight);
+    });
+
+    testWidgets('group last shows Bezier tail', (tester) async {
+      final message = ChatMessage(id: 4, chatId: 1, date: DateTime(2025, 8, 15, 14, 36), isOutgoing: true, content: const MessageContent(kind: MessageKind.text, preview: 'Tail'));
+      await tester.pumpWidget(wrap(MessageBubble(message: message, groupPosition: BubbleGroupPosition.last)));
+      expect(find.byType(CustomPaint), findsWidgets);
+    });
+
+    testWidgets('grouped border radius', (tester) async {
+      final message = ChatMessage(id: 6, chatId: 1, date: DateTime(2025, 8, 15, 14, 38), isOutgoing: true, content: const MessageContent(kind: MessageKind.text, preview: 'R'));
+      await tester.pumpWidget(wrap(MessageBubble(message: message, groupPosition: BubbleGroupPosition.first, showTail: false)));
+      final expected = MessageBubbleGrouping.bubbleBorderRadius(isOutgoing: true, position: BubbleGroupPosition.first);
+      final decorated = tester.widget<DecoratedBox>(find.descendant(of: find.byType(MessageBubble), matching: find.byType(DecoratedBox)).first);
+      expect((decorated.decoration as BoxDecoration).borderRadius, expected);
     });
   });
 

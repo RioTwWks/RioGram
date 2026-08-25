@@ -1,3 +1,9 @@
+// §9.11.9 regression — design tokens and theme constraints.
+// Golden / screenshot tests are NOT run in CI: `.github/workflows/ci.yml` uses
+// headless `flutter test` on ubuntu-latest without golden baselines or font
+// parity with Telegram Desktop. Add `matchesGoldenFile` only after a dedicated
+// golden job (e.g. macOS + bundled fonts) — until then, rely on widget tests.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riogram/core/navigation/telegram_routes.dart';
@@ -78,6 +84,15 @@ void main() {
       expect(theme.appBarTheme.elevation, 0);
       expect(theme.cardTheme.elevation, 0);
       expect(theme.cardTheme.shadowColor, Colors.transparent);
+    });
+  });
+
+  group('TelegramTypography §9.11.11', () {
+    test('Open Sans на desktop-платформах', () {
+      expect(TelegramTypography.desktopFontFamily, 'Open Sans');
+      if (TelegramTypography.isDesktopPlatform) {
+        expect(TelegramTypography.platformFontFamily, 'Open Sans');
+      }
     });
   });
 }
