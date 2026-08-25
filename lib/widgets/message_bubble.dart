@@ -25,6 +25,7 @@ import 'formatted_text_widget.dart';
 import 'latex_formatted_text_widget.dart';
 import 'inline_keyboard_widget.dart';
 import 'inline_video_player.dart';
+import 'video_duration_badge.dart';
 import 'location_message_body.dart';
 import 'media_album_grid.dart';
 import 'message_bubble_grouping.dart';
@@ -956,19 +957,7 @@ class _MediaPlaceholder extends StatelessWidget {
             Positioned(
               right: 8,
               bottom: 8,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Text(
-                    durationLabel!,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ),
-              ),
+              child: VideoDurationBadge(label: durationLabel!),
             ),
         ],
       ),

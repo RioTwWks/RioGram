@@ -854,8 +854,8 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 9.11.4. Панель ввода (доп. к §9.4)
 
-- [ ] Touch target микрофона / send ≥ 48×48px
-- [ ] Высота inline sticker panel ~320px (как TG Android)
+- [x] Touch target микрофона / send ≥ 48×48px
+- [x] Высота inline sticker panel ~320px (как TG Android)
 - [x] Reply/edit strip — вертикальный accent bar 2px, отступы 8×12
 - [x] Разделитель border-top: цвет divider темы, не `Colors.grey`
 
@@ -873,9 +873,9 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 9.11.7. Медиа и спец-сообщения (доп. к §9.7)
 
-- [ ] Voice waveform: 5px bars, gap 2px, 34 bars
-- [ ] Video duration badge: padding 4×6, font 11sp
-- [ ] Document card min-height 56px
+- [x] Voice waveform: 5px bars, gap 2px, 34 bars
+- [x] Video duration badge: padding 4×6, font 11sp
+- [x] Document card min-height 56px
 
 #### 9.11.8. Звонки (доп. к §9.8)
 

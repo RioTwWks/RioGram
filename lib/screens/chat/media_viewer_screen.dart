@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
@@ -31,19 +32,24 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   late final PageController _pageController;
   late int _currentIndex;
   String? _statusMessage;
+  var _chromeVisible = true;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex.clamp(0, widget.items.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _pageController.dispose();
     super.dispose();
   }
+
+  void _toggleChrome() => setState(() => _chromeVisible = !_chromeVisible);
 
   MediaViewerItem get _current => widget.items[_currentIndex];
 
@@ -66,12 +72,17 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.black.withValues(alpha: _chromeVisible ? 0.85 : 0),
         foregroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text('${_currentIndex + 1} / ${widget.items.length}'),
+        title: AnimatedOpacity(
+          opacity: _chromeVisible ? 1 : 0,
+          duration: const Duration(milliseconds: 200),
+          child: Text('${_currentIndex + 1} / ${widget.items.length}'),
+        ),
         actions: [
           IconButton(
             tooltip: 'Сохранить',
@@ -94,7 +105,10 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
               ),
             ),
           Expanded(
-            child: PageView.builder(
+            child: GestureDetector(
+              onTap: _toggleChrome,
+              behavior: HitTestBehavior.translucent,
+              child: PageView.builder(
               controller: _pageController,
               itemCount: widget.items.length,
               onPageChanged: (index) {
@@ -106,6 +120,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
               itemBuilder: (context, index) {
                 return _MediaPage(item: widget.items[index]);
               },
+            ),
             ),
           ),
           if (_current.caption != null && _current.caption!.isNotEmpty)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riogram/core/navigation/telegram_routes.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
+import 'package:riogram/widgets/voice_waveform.dart';
 
 void main() {
   group('TelegramDesignConstraints §9.11', () {
@@ -72,6 +73,18 @@ void main() {
     });
   });
 
+  group('TelegramMediaSpacing §9.11.7', () {
+    test('media spacing constants', () {
+      expect(TelegramMediaSpacing.waveformBarCount, 34);
+      expect(TelegramMediaSpacing.documentCardMinHeight, 56);
+    });
+  });
+  group('TelegramSpacing §9.11.4 input', () {
+    test('touch target и sticker panel', () {
+      expect(TelegramSpacing.inputTouchTarget, 48);
+      expect(TelegramSpacing.stickerPanelHeight, 320);
+    });
+  });
   group('TelegramTheme flat surfaces §9.11', () {
     test('AppBar и карточки без elevation', () {
       final theme = TelegramTheme.build(brightness: Brightness.light);

@@ -164,6 +164,22 @@ abstract final class TelegramSpacing {
   static const double callAvatarRadius = 60;
   static const double callPrimaryButtonSize = 72;
   static const double callControlButtonSize = 64;
+
+  /// §9.11.4 — панель ввода.
+  static const double inputTouchTarget = 48;
+  static const double stickerPanelHeight = 320;
+}
+
+/// §9.11.7 — медиа и спец-сообщения (pixel parity).
+abstract final class TelegramMediaSpacing {
+  static const int waveformBarCount = 34;
+  static const double waveformBarWidth = 5;
+  static const double waveformBarGap = 2;
+
+  static const double videoDurationBadgePaddingH = 6;
+  static const double videoDurationBadgePaddingV = 4;
+
+  static const double documentCardMinHeight = 56;
 }
 
 /// Платформенный шрифт как у Telegram.
