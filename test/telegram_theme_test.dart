@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
 import 'package:riogram/core/theme/theme_manager.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('TelegramColors', () {
     test('содержит классические цвета светлой темы', () {
       expect(TelegramColors.accent, const Color(0xFF3390EC));
@@ -15,6 +18,8 @@ void main() {
       expect(TelegramColors.textPrimaryLight, const Color(0xFF000000));
       expect(TelegramColors.textSecondaryLight, const Color(0xFF707579));
       expect(TelegramColors.textTimeLight, const Color(0xFF8E8E93));
+      expect(TelegramColors.dateSeparatorBackgroundLight, const Color(0x4D000000));
+      expect(TelegramColors.serviceMessageBackgroundLight, const Color(0x33000000));
     });
 
     test('содержит классические цвета тёмной темы', () {
@@ -35,6 +40,16 @@ void main() {
       expect(TelegramFontSizes.time, 12);
     });
 
+    test('desktop использует Open Sans', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        expect(TelegramTypography.isDesktopPlatform, isTrue);
+        expect(TelegramTypography.platformFontFamily!.toLowerCase(), contains('open'));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
     test('textTheme использует semibold для заголовка чата', () {
       final theme = TelegramTypography.textTheme(
         brightness: Brightness.light,
@@ -46,6 +61,25 @@ void main() {
       expect(theme.titleMedium?.fontSize, TelegramFontSizes.chatTitle);
       expect(theme.titleMedium?.fontWeight, FontWeight.w600);
       expect(theme.bodyLarge?.height, TelegramLineHeights.message);
+    });
+  });
+
+  group('TelegramAvatarColors', () {
+    test('детерминированный цвет по ключу', () {
+      expect(
+        TelegramAvatarColors.colorForKey('Alice'),
+        TelegramAvatarColors.colorForKey('Alice'),
+      );
+      expect(
+        TelegramAvatarColors.colorForKey('Alice'),
+        isNot(equals(TelegramAvatarColors.colorForKey('Bob'))),
+      );
+    });
+
+    test('инициалы из названия', () {
+      expect(TelegramAvatarColors.initialsForTitle('Alice'), 'AL');
+      expect(TelegramAvatarColors.initialsForTitle('Alice Smith'), 'AS');
+      expect(TelegramAvatarColors.initialsForTitle(''), '?');
     });
   });
 
@@ -86,7 +120,7 @@ void main() {
       expect(darkExt!.bubbleOutgoing, TelegramColors.bubbleOutgoingDark);
     });
 
-    test('AppBar и карточки без elevation/shadow', () {
+    test('AppBar, карточки и FAB без elevation/shadow', () {
       final theme = TelegramTheme.build(brightness: Brightness.light);
 
       expect(theme.appBarTheme.elevation, 0);
@@ -94,6 +128,8 @@ void main() {
       expect(theme.appBarTheme.surfaceTintColor, Colors.transparent);
       expect(theme.cardTheme.elevation, 0);
       expect(theme.cardTheme.shadowColor, Colors.transparent);
+      expect(theme.floatingActionButtonTheme.elevation, 0);
+      expect(theme.floatingActionButtonTheme.highlightElevation, 0);
     });
 
     test('пузыри проходят WCAG AA по контрасту текста', () {

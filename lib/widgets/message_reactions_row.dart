@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_theme.dart';
 import '../models/message_enrichment.dart';
 
 /// Строка реакций под сообщением.
@@ -21,28 +22,72 @@ class MessageReactionsRow extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final theme = Theme.of(context);
     return Wrap(
       spacing: 6,
       runSpacing: 4,
       children: [
         ...reactions.map(
-          (reaction) => ActionChip(
-            label: Text('${reaction.emoji} ${reaction.count}'),
-            backgroundColor: reaction.isChosen
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.surfaceContainerHighest,
-            onPressed:
-                onReactionTap == null ? null : () => onReactionTap!(reaction.emoji),
+          (reaction) => _ReactionPill(
+            label: '${reaction.emoji} ${reaction.count}',
+            chosen: reaction.isChosen,
+            onTap: onReactionTap == null
+                ? null
+                : () => onReactionTap!(reaction.emoji),
           ),
         ),
         if (onAddReaction != null)
-          ActionChip(
-            avatar: const Icon(Icons.add_reaction_outlined, size: 16),
-            label: const Text(''),
-            onPressed: onAddReaction,
+          _ReactionPill(
+            icon: Icons.add_reaction_outlined,
+            onTap: onAddReaction,
           ),
       ],
+    );
+  }
+}
+
+class _ReactionPill extends StatelessWidget {
+  const _ReactionPill({
+    this.label,
+    this.icon,
+    this.chosen = false,
+    this.onTap,
+  });
+
+  final String? label;
+  final IconData? icon;
+  final bool chosen;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+    return Material(
+      color: chosen
+          ? tg.accent.withValues(alpha: 0.12)
+          : tg.searchFieldBackground,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: icon != null ? 8 : 10,
+            vertical: 4,
+          ),
+          child: icon != null
+              ? Icon(icon, size: 16, color: tg.textSecondary)
+              : Text(
+                  label!,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.2,
+                    color: chosen ? tg.accent : tg.textPrimary,
+                    fontWeight: chosen ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+        ),
+      ),
     );
   }
 }

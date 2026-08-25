@@ -2,21 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 import '../core/theme/ui_customization_manager.dart';
 import '../models/chat_models.dart';
+import '../models/message_enrichment.dart';
 import '../models/ui_customization_models.dart';
 import 'chat_avatar.dart';
+import 'message_delivery_icon.dart';
 
 /// Иконка типа чата в списке.
 IconData chatKindIcon(ChatKind kind) {
   return switch (kind) {
-    ChatKind.privateChat => Icons.person_outline,
-    ChatKind.group => Icons.group_outlined,
-    ChatKind.channel => Icons.campaign_outlined,
-    ChatKind.bot => Icons.smart_toy_outlined,
-    ChatKind.secret => Icons.lock_outline,
-    ChatKind.savedMessages => Icons.bookmark_outline,
+    ChatKind.privateChat => TelegramIcons.privateChat,
+    ChatKind.group => TelegramIcons.group,
+    ChatKind.channel => TelegramIcons.channel,
+    ChatKind.bot => TelegramIcons.bot,
+    ChatKind.secret => TelegramIcons.secretChat,
+    ChatKind.savedMessages => TelegramIcons.savedMessages,
   };
 }
 
@@ -43,32 +46,39 @@ String formatChatListTime(DateTime dateTime) {
   return DateFormat('dd.MM.yy').format(dateTime);
 }
 
-/// Разбор preview: иконка статуса + текст без emoji-префикса.
+/// Разбор preview: иконка статуса + текст без emoji-префикса + галочки исходящих.
 @visibleForTesting
-({IconData? icon, String text, bool isDraft}) parseChatPreviewParts(
+({
+  IconData? icon,
+  String text,
+  bool isDraft,
+  MessageDeliveryStatus? outgoingStatus,
+}) parseChatPreviewParts(
   String? previewText, {
   required bool hasDraft,
+  bool isOutgoing = false,
+  MessageDeliveryStatus? deliveryStatus,
 }) {
   if (previewText == null || previewText.isEmpty) {
-    return (icon: null, text: '', isDraft: false);
+    return (icon: null, text: '', isDraft: false, outgoingStatus: null);
   }
 
   if (hasDraft) {
     final text = previewText.startsWith('Черновик: ')
         ? previewText.substring('Черновик: '.length)
         : previewText;
-    return (icon: Icons.edit_outlined, text: text, isDraft: true);
+    return (icon: TelegramIcons.draft, text: text, isDraft: true, outgoingStatus: null);
   }
 
   const mediaPrefixes = <String, IconData>{
-    '📷 ': Icons.photo_camera_outlined,
-    '🎤 ': Icons.mic,
-    '🎬 ': Icons.videocam_outlined,
-    '⭕ ': Icons.videocam_outlined,
-    '📎 ': Icons.attach_file,
-    '🎵 ': Icons.music_note_outlined,
-    '🎞 ': Icons.gif_box_outlined,
-    '📊 ': Icons.poll_outlined,
+    '📷 ': TelegramIcons.photo,
+    '🎤 ': TelegramIcons.mic,
+    '🎬 ': TelegramIcons.video,
+    '⭕ ': TelegramIcons.video,
+    '📎 ': TelegramIcons.document,
+    '🎵 ': TelegramIcons.music,
+    '🎞 ': TelegramIcons.gif,
+    '📊 ': TelegramIcons.poll,
   };
 
   for (final entry in mediaPrefixes.entries) {
@@ -77,11 +87,17 @@ String formatChatListTime(DateTime dateTime) {
         icon: entry.value,
         text: previewText.substring(entry.key.length),
         isDraft: false,
+        outgoingStatus: isOutgoing ? deliveryStatus : null,
       );
     }
   }
 
-  return (icon: null, text: previewText, isDraft: false);
+  return (
+    icon: null,
+    text: previewText,
+    isDraft: false,
+    outgoingStatus: isOutgoing ? deliveryStatus : null,
+  );
 }
 
 /// Строка чата в списке с иконками типа, mute, pin и badge непрочитанных.
@@ -120,7 +136,12 @@ class ChatListTile extends StatelessWidget {
     final isPinned = chat.isPinnedIn(activeList);
     final preview = chat.previewText;
     final hasDraft = chat.draftPreview != null && chat.draftPreview!.isNotEmpty;
-    final previewParts = parseChatPreviewParts(preview, hasDraft: hasDraft);
+    final previewParts = parseChatPreviewParts(
+      preview,
+      hasDraft: hasDraft,
+      isOutgoing: chat.lastMessageIsOutgoing,
+      deliveryStatus: chat.lastMessageDeliveryStatus,
+    );
     final time = chat.lastMessageDate != null
         ? formatChatListTime(chat.lastMessageDate!)
         : null;
@@ -147,6 +168,8 @@ class ChatListTile extends StatelessWidget {
     final showPinIcon = !ui.hideListIcons && isPinned;
     final showMuteIcon = !ui.hideMuteIcons && chat.isMuted;
     final showPreviewIcon = !ui.hideListIcons && previewParts.icon != null;
+    final showOutgoingStatus =
+        previewParts.outgoingStatus != null && !hasDraft;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -156,34 +179,76 @@ class ChatListTile extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             onLongPress: () => _showActions(context),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ChatAvatar(
-                    title: chat.title,
-                    localPath: chat.avatarLocalPath,
-                    radius: TelegramRadii.avatarList,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: TelegramSpacing.chatListRowHeight,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ChatAvatar(
+                      title: chat.title,
+                      localPath: chat.avatarLocalPath,
+                      radius: TelegramRadii.avatarList,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            chat.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: titleStyle,
+                          ),
+                          if (previewParts.text.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                if (showOutgoingStatus) ...[
+                                  MessageDeliveryIcon(
+                                    status: previewParts.outgoingStatus!,
+                                    size: 16,
+                                    defaultColor: previewStyle?.color,
+                                    readColor: tg.accent,
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                if (showPreviewIcon) ...[
+                                  Icon(
+                                    previewParts.icon,
+                                    size: 16,
+                                    color: previewStyle?.color,
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Expanded(
+                                  child: Text(
+                                    previewParts.text,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: previewStyle,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: Text(
-                                chat.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: titleStyle,
-                              ),
-                            ),
                             if (showPinIcon) ...[
                               Icon(
-                                Icons.push_pin,
+                                TelegramIcons.pin,
                                 size: 14,
                                 color: tg.textSecondary,
                               ),
@@ -193,53 +258,21 @@ class ChatListTile extends StatelessWidget {
                               _MutedBellIcon(color: tg.textSecondary),
                               const SizedBox(width: 4),
                             ],
+                            if (time != null)
+                              Text(
+                                time,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: timeStyle,
+                              ),
                           ],
                         ),
-                        if (previewParts.text.isNotEmpty) ...[
-                          const SizedBox(height: 3),
-                          Row(
-                            children: [
-                              if (showPreviewIcon) ...[
-                                Icon(
-                                  previewParts.icon,
-                                  size: 16,
-                                  color: previewStyle?.color,
-                                ),
-                                const SizedBox(width: 4),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  previewParts.text,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: previewStyle,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 52,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (time != null)
-                          Text(
-                            time,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: timeStyle,
-                          ),
                         const SizedBox(height: 6),
                         _UnreadIndicator(chat: chat),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -398,7 +431,7 @@ class _MutedBellIcon extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Icon(Icons.notifications_off_outlined, size: 14, color: color),
+          Icon(TelegramIcons.mute, size: 14, color: color),
           Transform.rotate(
             angle: -0.7,
             child: Container(
@@ -637,6 +670,48 @@ class _ChatSwipeBackground extends StatelessWidget {
   }
 }
 
+/// Плоская вкладка с подчёркиванием в стиле Telegram.
+class TelegramUnderlineTab extends StatelessWidget {
+  const TelegramUnderlineTab({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: selected ? tg.accent : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? tg.accent : tg.textSecondary,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            fontSize: TelegramFontSizes.preview,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Горизонтальные вкладки: все чаты, папки, архив.
 class ChatListTabs extends StatelessWidget {
   const ChatListTabs({
@@ -659,28 +734,29 @@ class ChatListTabs extends StatelessWidget {
       (list: const ChatListArchive(), label: 'Архив'),
     ];
 
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        itemCount: tabs.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 4),
-        itemBuilder: (context, index) {
-          final tab = tabs[index];
-          final selected = tab.list.storageId == activeList.storageId;
-          return ChoiceChip(
-            label: Text(tab.label),
-            selected: selected,
-            selectedColor: tg.accent.withValues(alpha: 0.12),
-            labelStyle: TextStyle(
-              color: selected ? tg.accent : tg.textSecondary,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            ),
-            side: BorderSide.none,
-            onSelected: (_) => onSelected(tab.list),
-          );
-        },
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: tg.chatListDivider, width: 1),
+        ),
+      ),
+      child: SizedBox(
+        height: 44,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          itemCount: tabs.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 0),
+          itemBuilder: (context, index) {
+            final tab = tabs[index];
+            final selected = tab.list.storageId == activeList.storageId;
+            return TelegramUnderlineTab(
+              label: tab.label,
+              selected: selected,
+              onTap: () => onSelected(tab.list),
+            );
+          },
+        ),
       ),
     );
   }

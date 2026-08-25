@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../navigation/telegram_routes.dart';
 
@@ -29,7 +30,10 @@ abstract final class TelegramColors {
 
   static const Color inputFieldBackgroundLight = Color(0xFFF0F0F0);
   static const Color searchFieldBackgroundLight = Color(0xFFF0F0F0);
-  static const Color dateSeparatorBackgroundLight = Color(0x29000000);
+  static const Color dateSeparatorBackgroundLight = Color(0x4D000000);
+  static const Color dateSeparatorText = Color(0xFFFFFFFF);
+  static const Color serviceMessageBackgroundLight = Color(0x33000000);
+  static const Color serviceMessageBackgroundDark = Color(0x33FFFFFF);
 
   // --- Тёмная тема ---
 
@@ -99,6 +103,47 @@ abstract final class TelegramRadii {
   static const double searchField = 10;
   static const double mediaPreview = 8;
   static const double unreadBadge = 10;
+
+  static const double settingsGroupFlat = 0;
+}
+
+abstract final class TelegramAvatarColors {
+  static const List<Color> userpicPalette = [
+    Color(0xFFFF845E), Color(0xFF9AD164), Color(0xFFE5CA77), Color(0xFF5CAFFA),
+    Color(0xFFB694F9), Color(0xFFFF8AAC), Color(0xFF5BCBE3), Color(0xFFFEBB5B),
+  ];
+  static const List<int> _colorOrder = [0, 7, 4, 1, 6, 3, 5];
+
+  static Color colorForKey(String key) {
+    final hash = _hashKey(key);
+    return userpicPalette[_colorOrder[hash % _colorOrder.length]];
+  }
+
+  static int _hashKey(String key) {
+    var hash = 0;
+    for (final unit in key.runes) {
+      hash = (hash * 31 + unit) & 0x7FFFFFFF;
+    }
+    return hash;
+  }
+
+  static String initialsForTitle(String title) {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) return '?';
+    final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.length >= 2) {
+      return '${_firstGrapheme(words[0])}${_firstGrapheme(words[1])}'.toUpperCase();
+    }
+    final graphemes = trimmed.runes.map(String.fromCharCode).toList();
+    if (graphemes.length >= 2) return '${graphemes[0]}${graphemes[1]}'.toUpperCase();
+    return graphemes.first.toUpperCase();
+  }
+
+  static String _firstGrapheme(String word) {
+    final runes = word.runes;
+    if (runes.isEmpty) return '?';
+    return String.fromCharCode(runes.first);
+  }
 }
 
 /// Отступы и размеры компонентов.
@@ -109,6 +154,12 @@ abstract final class TelegramSpacing {
   static const double unreadBadgeMinWidth = 20;
   static const double unreadBadgeMinHeight = 20;
 
+  /// §9.11 — целевые размеры pixel parity (Telegram Desktop / Android).
+  static const double chatListRowHeight = 72;
+  static const double chatAppBarHeight = 56;
+  static const double settingsRowHeight = 48;
+  static const double chatListHorizontalPadding = 12;
+
   /// §9.8 — звонки.
   static const double callAvatarRadius = 60;
   static const double callPrimaryButtonSize = 72;
@@ -117,10 +168,21 @@ abstract final class TelegramSpacing {
 
 /// Платформенный шрифт как у Telegram.
 abstract final class TelegramTypography {
+  static const String desktopFontFamily = 'Open Sans';
+
+  static bool get isDesktopPlatform {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.windows || TargetPlatform.linux || TargetPlatform.macOS => true,
+      _ => false,
+    };
+  }
+
   static String? get platformFontFamily {
     return switch (defaultTargetPlatform) {
-      TargetPlatform.iOS || TargetPlatform.macOS => '.AppleSystemUIFont',
+      TargetPlatform.iOS => '.AppleSystemUIFont',
       TargetPlatform.android => 'Roboto',
+      TargetPlatform.macOS || TargetPlatform.windows || TargetPlatform.linux =>
+        desktopFontFamily,
       _ => null,
     };
   }
@@ -153,7 +215,7 @@ abstract final class TelegramTypography {
       );
     }
 
-    return base.copyWith(
+    final themed = base.copyWith(
       titleLarge: styled(
         base.titleLarge,
         size: TelegramFontSizes.chatTitle,
@@ -196,6 +258,11 @@ abstract final class TelegramTypography {
         color: time,
       ),
     );
+
+    if (isDesktopPlatform && fontFamily == null) {
+      return GoogleFonts.openSansTextTheme(themed);
+    }
+    return themed;
   }
 }
 
@@ -596,7 +663,8 @@ abstract final class TelegramTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: telegram.accent,
         foregroundColor: TelegramColors.unreadBadgeText,
-        elevation: 2,
+        elevation: 0,
+        highlightElevation: 0,
         shape: const CircleBorder(),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
@@ -671,6 +739,50 @@ abstract final class TelegramTheme {
 }
 
 /// Удобный доступ к [TelegramThemeData] из BuildContext.
+
+
+/// Плоский chip в стиле Telegram (без M3 elevation/shadow).
+class TelegramFlatChip extends StatelessWidget {
+  const TelegramFlatChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
+    return Material(
+      color: selected
+          ? tg.accent.withValues(alpha: 0.12)
+          : tg.searchFieldBackground,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(TelegramRadii.buttonPill),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(TelegramRadii.buttonPill),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: TelegramFontSizes.preview,
+              color: selected ? tg.accent : tg.textSecondary,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 extension TelegramThemeContext on BuildContext {
   TelegramThemeData get telegramTheme =>
       Theme.of(this).extension<TelegramThemeData>() ??

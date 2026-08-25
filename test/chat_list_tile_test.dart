@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:riogram/core/theme/telegram_icons.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
 import 'package:riogram/core/theme/ui_customization_manager.dart';
 import 'package:riogram/models/chat_models.dart';
+import 'package:riogram/models/message_enrichment.dart';
 import 'package:riogram/widgets/chat_list_tile.dart';
+import 'package:riogram/widgets/message_delivery_icon.dart';
 
 void main() {
   group('formatChatListTime', () {
@@ -25,19 +28,31 @@ void main() {
   group('parseChatPreviewParts', () {
     test('распознаёт фото и микрофон', () {
       final photo = parseChatPreviewParts('📷 Фото', hasDraft: false);
-      expect(photo.icon, Icons.photo_camera_outlined);
+      expect(photo.icon, TelegramIcons.photo);
       expect(photo.text, 'Фото');
 
       final voice = parseChatPreviewParts('🎤 Голосовое', hasDraft: false);
-      expect(voice.icon, Icons.mic);
+      expect(voice.icon, TelegramIcons.mic);
       expect(voice.text, 'Голосовое');
     });
 
     test('черновик показывает иконку редактирования', () {
       final draft = parseChatPreviewParts('Черновик: привет', hasDraft: true);
-      expect(draft.icon, Icons.edit_outlined);
+      expect(draft.icon, TelegramIcons.draft);
       expect(draft.text, 'привет');
       expect(draft.isDraft, isTrue);
+    });
+
+    test('исходящие сообщения показывают статус доставки', () {
+      expect(
+        parseChatPreviewParts(
+          'x',
+          hasDraft: false,
+          isOutgoing: true,
+          deliveryStatus: MessageDeliveryStatus.read,
+        ).outgoingStatus,
+        MessageDeliveryStatus.read,
+      );
     });
   });
 
@@ -83,8 +98,91 @@ void main() {
       expect(find.text('Фото'), findsOneWidget);
       expect(find.text('14:32'), findsOneWidget);
       expect(find.text('3'), findsOneWidget);
-      expect(find.byIcon(Icons.push_pin), findsOneWidget);
-      expect(find.byIcon(Icons.photo_camera_outlined), findsOneWidget);
+      expect(find.byIcon(TelegramIcons.pin), findsOneWidget);
+      expect(find.byIcon(TelegramIcons.photo), findsOneWidget);
+    });
+
+    testWidgets('pin рядом со временем', (tester) async {
+      final chat = ChatSummary(
+        id: 1,
+        title: 'Alice',
+        lastMessage: 't',
+        lastMessageDate: DateTime.now(),
+        positions: const [
+          ChatPositionInfo(
+            list: ChatListMain(),
+            order: 1,
+            isPinned: true,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatListTile(
+            chat: chat,
+            selected: false,
+            activeList: const ChatListMain(),
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(
+        tester.getRect(find.byIcon(TelegramIcons.pin)).left,
+        greaterThan(tester.getRect(find.text('Alice')).right),
+      );
+    });
+
+    testWidgets('outgoing checkmarks', (tester) async {
+      final chat = ChatSummary(
+        id: 1,
+        title: 'B',
+        lastMessage: 'hi',
+        lastMessageDate: DateTime.now(),
+        lastMessageIsOutgoing: true,
+        lastMessageDeliveryStatus: MessageDeliveryStatus.read,
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatListTile(
+            chat: chat,
+            selected: false,
+            activeList: const ChatListMain(),
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.byType(MessageDeliveryIcon), findsOneWidget);
+    });
+
+    testWidgets('row height 72', (tester) async {
+      final chat = ChatSummary(
+        id: 1,
+        title: 'C',
+        lastMessageDate: DateTime.now(),
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatListTile(
+            chat: chat,
+            selected: false,
+            activeList: const ChatListMain(),
+            onTap: () {},
+          ),
+        ),
+      );
+
+      final boxes = tester.widgetList<ConstrainedBox>(find.byType(ConstrainedBox));
+      expect(
+        boxes.any(
+          (box) => box.constraints.minHeight == TelegramSpacing.chatListRowHeight,
+        ),
+        isTrue,
+      );
     });
 
     testWidgets('mute снижает opacity preview и показывает колокольчик', (tester) async {
@@ -107,12 +205,31 @@ void main() {
         ),
       );
 
-      expect(find.byIcon(Icons.notifications_off_outlined), findsOneWidget);
+      expect(find.byIcon(TelegramIcons.mute), findsOneWidget);
 
       final preview = tester.widget<Text>(find.text('Текст'));
       final color = preview.style?.color;
       expect(color, isNotNull);
       expect(color!.a, lessThan(1.0));
     });
+  });
+
+  testWidgets('underline tabs', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: TelegramTheme.build(brightness: Brightness.light),
+        home: Scaffold(
+          body: ChatListTabs(
+            activeList: const ChatListMain(),
+            folders: const [],
+            onSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(find.byType(TelegramFlatChip), findsNothing);
+    expect(find.byType(TelegramUnderlineTab), findsNWidgets(2));
   });
 }

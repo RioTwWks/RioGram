@@ -1,0 +1,12 @@
+{
+  "id": "com.example.community.hello",
+  "name": "Hello Community Plugin",
+  "version": "0.1.0",
+  "description": "Пример JSON-манифеста для будущих community-плагинов.",
+  "author": "RioGram Community",
+  "homepage": "https://github.com/RioTwWks/RioGram",
+  "capabilities": [
+    "messageDisplayTransform"
+  ],
+  "entry": "lib/main.dart"
+}

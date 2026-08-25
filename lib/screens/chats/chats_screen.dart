@@ -178,8 +178,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
             width: _chatListWidth,
             child: Column(
               children: [
-                Material(
-                  elevation: 1,
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: context.telegramTheme.chatListBackground,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: context.telegramTheme.chatListDivider,
+                      ),
+                    ),
+                  ),
                   child: SafeArea(
                     bottom: false,
                     child: _buildChatListHeader(context, chatManager, proxy),
@@ -230,8 +237,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
             width: _chatListWidth,
             child: Column(
               children: [
-                Material(
-                  elevation: 1,
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: context.telegramTheme.chatListBackground,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: context.telegramTheme.chatListDivider,
+                      ),
+                    ),
+                  ),
                   child: SafeArea(
                     bottom: false,
                     child: _buildChatListHeader(context, chatManager, proxy),

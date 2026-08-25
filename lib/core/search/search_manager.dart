@@ -5,14 +5,20 @@ import 'package:flutter/foundation.dart';
 import '../../models/chat_models.dart';
 import '../../models/group_models.dart';
 import '../../models/search_models.dart';
+import '../privacy/security_privacy_manager.dart';
 import '../tdlib/tdlib_client.dart';
 import 'tdlib_search_parser.dart';
 
 /// Глобальный поиск, discovery и поиск сообщений в чате.
 class SearchManager extends ChangeNotifier {
-  SearchManager({required TdlibClient client}) : _client = client;
+  SearchManager({
+    required TdlibClient client,
+    SecurityPrivacyManager? securityPrivacy,
+  })  : _client = client,
+        _securityPrivacy = securityPrivacy;
 
   final TdlibClient _client;
+  final SecurityPrivacyManager? _securityPrivacy;
 
   StreamSubscription<Map<String, dynamic>>? _subscription;
   Timer? _globalDebounce;
@@ -24,6 +30,7 @@ class SearchManager extends ChangeNotifier {
   List<int> _globalChatIds = [];
   List<SearchMessageHit> _globalMessages = [];
   List<int> _publicChatIds = [];
+  final Set<int> _sponsoredSearchChatIds = {};
   SearchUserHit? _globalUserHit;
   String _globalMessagesOffset = '';
   var _globalHasMoreMessages = false;
@@ -309,6 +316,7 @@ class SearchManager extends ChangeNotifier {
     _globalChatIds = [];
     _globalMessages = [];
     _publicChatIds = [];
+    _sponsoredSearchChatIds.clear();
     _globalUserHit = null;
     _globalMessagesOffset = '';
     _globalHasMoreMessages = false;
@@ -347,6 +355,14 @@ class SearchManager extends ChangeNotifier {
       'type_filter': {'@type': 'searchChatTypeFilterBot'},
       '@extra': 'searchPublicChatsBot_$requestId',
     });
+    if (_securityPrivacy?.shouldBlockAds == true) {
+      pending += 1;
+      _client.send({
+        '@type': 'getSearchSponsoredChats',
+        'query': _globalQuery,
+        '@extra': 'searchSponsoredChats_$requestId',
+      });
+    }
 
     final username = PublicChatLinkParser.parseUsername(_globalQuery);
     if (username != null) {
@@ -418,6 +434,7 @@ class SearchManager extends ChangeNotifier {
     _globalChatIds = [];
     _globalMessages = [];
     _publicChatIds = [];
+    _sponsoredSearchChatIds.clear();
     _globalUserHit = null;
     _globalMessagesOffset = '';
     _globalHasMoreMessages = false;
@@ -431,6 +448,8 @@ class SearchManager extends ChangeNotifier {
     switch (update['@type']) {
       case 'chats':
         _handleChats(update);
+      case 'sponsoredChats':
+        _handleSponsoredChats(update);
       case 'foundMessages':
         _handleFoundMessages(update);
       case 'foundChatMessages':
@@ -457,7 +476,7 @@ class SearchManager extends ChangeNotifier {
       if (requestId != _globalRequestId) {
         return;
       }
-      _globalChatIds = chatIds;
+      _globalChatIds = _filterSearchChatIds(chatIds);
       _ensureChatTitles(chatIds);
       _completeGlobalRequest();
       return;
@@ -472,7 +491,10 @@ class SearchManager extends ChangeNotifier {
       if (requestId != _globalRequestId) {
         return;
       }
-      _publicChatIds = {..._publicChatIds, ...chatIds}.toList();
+      _publicChatIds = _filterSearchChatIds({
+        ..._publicChatIds,
+        ...chatIds,
+      }.toList());
       for (final id in chatIds) {
         _newChatSearchPublicIds.add(id);
       }
@@ -607,7 +629,7 @@ class SearchManager extends ChangeNotifier {
     if (extra?.startsWith('searchPublicChat_') == true) {
       final requestId = int.tryParse(extra!.substring('searchPublicChat_'.length));
       if (requestId == _globalRequestId) {
-        _publicChatIds = {..._publicChatIds, chatId}.toList();
+        _publicChatIds = _filterSearchChatIds({..._publicChatIds, chatId}.toList());
         _newChatSearchPublicIds.add(chatId);
         _completeGlobalRequest();
       }
@@ -725,6 +747,38 @@ class SearchManager extends ChangeNotifier {
     }
   }
 
+  void _handleSponsoredChats(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null || !extra.startsWith('searchSponsoredChats_')) {
+      return;
+    }
+    final requestId =
+        int.tryParse(extra.substring('searchSponsoredChats_'.length));
+    if (requestId != _globalRequestId) {
+      return;
+    }
+    final chats = update['chats'] as List<dynamic>? ?? [];
+    for (final raw in chats) {
+      if (raw is! Map<String, dynamic>) {
+        continue;
+      }
+      final chatId = raw['chat_id'];
+      if (chatId is int) {
+        _sponsoredSearchChatIds.add(chatId);
+      }
+    }
+    _completeGlobalRequest();
+  }
+
+  List<int> _filterSearchChatIds(List<int> chatIds) {
+    if (_securityPrivacy?.shouldBlockAds != true) {
+      return chatIds;
+    }
+    return chatIds
+        .where((id) => !_sponsoredSearchChatIds.contains(id))
+        .toList();
+  }
+
   void _completeGlobalRequest({bool forceFinish = false}) {
     if (!forceFinish) {
       _pendingGlobalRequests = (_pendingGlobalRequests - 1).clamp(0, 20);
@@ -751,6 +805,7 @@ class SearchManager extends ChangeNotifier {
         extra.startsWith('searchMessagesMore_') ||
         extra.startsWith('searchPublicChats') ||
         extra.startsWith('searchPublicChat_') ||
+        extra.startsWith('searchSponsoredChats_') ||
         extra.startsWith('searchUserPhone_') ||
         extra.startsWith('searchUserToken_');
   }

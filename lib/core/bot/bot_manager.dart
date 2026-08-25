@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Brightness;
 
 import '../../models/bot_models.dart';
 import '../../models/message_enrichment.dart';
 import '../tdlib/tdlib_client.dart';
 import '../tdlib/tdlib_json.dart';
 import 'tdlib_bot_parser.dart';
+import 'web_app_theme.dart';
 
 /// Inline-кнопки, callback, inline-режим и Web Apps.
 class BotManager extends ChangeNotifier {
@@ -27,6 +29,11 @@ class BotManager extends ChangeNotifier {
   int _inlineRequestId = 0;
   int? _pendingWebAppLaunchId;
   String? _pendingWebAppUrl;
+  String _pendingWebAppButtonText = '';
+  int? _pendingWebAppBotUserId;
+  int? _pendingWebAppChatId;
+  int _customRequestId = 0;
+  final Map<int, Completer<String?>> _customRequestCompleters = {};
 
   InlineQueryState get inlineQueryState => _inlineQueryState;
   CallbackQueryAnswerModel? get lastCallbackAnswer => _lastCallbackAnswer;
@@ -34,6 +41,9 @@ class BotManager extends ChangeNotifier {
   String? get lastError => _lastError;
   int? get pendingWebAppLaunchId => _pendingWebAppLaunchId;
   String? get pendingWebAppUrl => _pendingWebAppUrl;
+  String get pendingWebAppButtonText => _pendingWebAppButtonText;
+  int? get pendingWebAppBotUserId => _pendingWebAppBotUserId;
+  int? get pendingWebAppChatId => _pendingWebAppChatId;
 
   void clearLastCallbackAnswer() {
     _lastCallbackAnswer = null;
@@ -42,6 +52,9 @@ class BotManager extends ChangeNotifier {
   void clearPendingWebApp() {
     _pendingWebAppLaunchId = null;
     _pendingWebAppUrl = null;
+    _pendingWebAppButtonText = '';
+    _pendingWebAppBotUserId = null;
+    _pendingWebAppChatId = null;
   }
 
   BotInfoModel? botInfoFor(int userId) => _botInfoByUserId[userId];
@@ -205,6 +218,7 @@ class BotManager extends ChangeNotifier {
           chatId: chatId,
           botUserId: botUserId,
           url: button.webAppUrl ?? '',
+          buttonText: button.text,
         );
         _isCallbackLoading = false;
         notifyListeners();
@@ -222,10 +236,15 @@ class BotManager extends ChangeNotifier {
     required int chatId,
     required int botUserId,
     required String url,
+    Brightness brightness = Brightness.light,
+    String buttonText = '',
   }) {
     if (url.isEmpty) {
       return;
     }
+    _pendingWebAppButtonText = buttonText;
+    _pendingWebAppBotUserId = botUserId;
+    _pendingWebAppChatId = chatId;
     _client.send({
       '@type': 'openWebApp',
       'chat_id': chatId,
@@ -233,14 +252,58 @@ class BotManager extends ChangeNotifier {
       'url': url,
       'topic_id': null,
       'reply_to': null,
-      'parameters': {
-        '@type': 'webAppOpenParameters',
-        'theme': {'@type': 'themeParameters'},
-        'application_name': 'RioGram',
-        'mode': {'@type': 'webAppOpenModeFullSize'},
-      },
+      'parameters': _webAppOpenParameters(brightness),
       '@extra': 'bot_webapp_$chatId',
     });
+  }
+
+  Map<String, dynamic> _webAppOpenParameters(Brightness brightness) {
+    return {
+      '@type': 'webAppOpenParameters',
+      'theme': WebAppTheme.themeParameters(brightness),
+      'application_name': 'RioGram',
+      'mode': {'@type': 'webAppOpenModeFullSize'},
+    };
+  }
+
+  void sendWebAppData({
+    required int botUserId,
+    required String buttonText,
+    required String data,
+  }) {
+    if (data.isEmpty) {
+      return;
+    }
+    _client.send({
+      '@type': 'sendWebAppData',
+      'bot_user_id': botUserId,
+      'button_text': buttonText,
+      'data': data,
+    });
+  }
+
+  Future<String?> sendWebAppCustomRequest({
+    required int botUserId,
+    required String method,
+    required String parameters,
+  }) async {
+    final completer = Completer<String?>();
+    final requestId = ++_customRequestId;
+    _customRequestCompleters[requestId] = completer;
+    _client.send({
+      '@type': 'sendWebAppCustomRequest',
+      'bot_user_id': botUserId,
+      'method': method,
+      'parameters': parameters,
+      '@extra': 'bot_webapp_custom_$requestId',
+    });
+    return completer.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        _customRequestCompleters.remove(requestId);
+        return null;
+      },
+    );
   }
 
   void closeWebApp({required int webAppLaunchId}) {
@@ -260,6 +323,8 @@ class BotManager extends ChangeNotifier {
         _handleCallbackAnswer(update);
       case 'webAppInfo':
         _handleWebAppInfo(update);
+      case 'customRequestResult':
+        _handleCustomRequestResult(update);
       case 'error':
         _handleError(update);
     }
@@ -317,6 +382,22 @@ class BotManager extends ChangeNotifier {
     _lastCallbackAnswer = TdlibBotParser.parseCallbackAnswer(update);
     _isCallbackLoading = false;
     notifyListeners();
+  }
+
+  void _handleCustomRequestResult(Map<String, dynamic> update) {
+    final extra = update['@extra'] as String?;
+    if (extra == null || !extra.startsWith('bot_webapp_custom_')) {
+      return;
+    }
+    final requestId = int.tryParse(extra.substring('bot_webapp_custom_'.length));
+    if (requestId == null) {
+      return;
+    }
+    final completer = _customRequestCompleters.remove(requestId);
+    if (completer == null || completer.isCompleted) {
+      return;
+    }
+    completer.complete(update['result'] as String?);
   }
 
   void _handleWebAppInfo(Map<String, dynamic> update) {
