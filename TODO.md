@@ -657,7 +657,7 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### Типографика
 - [x] Основной шрифт: **Roboto** (Android), **SF Pro** (iOS) — как у Telegram
-- [ ] **Open Sans** на Desktop (Linux / Windows / macOS) — как у Telegram Desktop; сейчас системный sans
+- [x] **Open Sans** на Desktop (Linux / Windows / macOS) — `google_fonts` + `TelegramTypography.platformFontFamily`
 - [x] Размеры: заголовок чата 16sp semibold, текст сообщения 16sp, preview 14sp, время 12sp
 - [x] Межстрочный интервал сообщений ~1.2–1.3
 
@@ -780,7 +780,7 @@ MVP — прочный фундамент. Ниже — направления, 
 
 - [x] Иконки: outline style, 24dp, единый stroke (Material Icons / Lucide — близко к TG)
 - [x] Пустые состояния: иллюстрация + короткий текст («Нет чатов», «Выберите чат»)
-- [x] Иконка приложения RioGram: узнаваемая, но не копия официального логотипа Telegram (юридически) — см. [docs/APP_ICON.md](docs/APP_ICON.md), концепт `assets/icons/riogram_icon_concept.svg`
+- [x] Иконка приложения RioGram: узнаваемая, но не копия официального логотипа Telegram (юридически) — см. [docs/APP_ICON.md](docs/APP_ICON.md), мастер `assets/icons/riogram_icon.png` (`flutter_launcher_icons`)
 
 ---
 
@@ -812,7 +812,7 @@ MVP — прочный фундамент. Ниже — направления, 
 
 **Цель:** после §9.1–§9.10 довести отступы, размеры и микро-детали до side-by-side паритета с Telegram Desktop 4.x–5.x и Android (до Liquid Glass).  
 **Метод:** сверка с [Telegram UI Kit](https://www.figma.com/community/file/867601279089856700) + скриншоты TG Desktop рядом с RioGram.  
-**Регрессия:** `test/telegram_refinement_test.dart`, `test/date_separator_test.dart`, `test/message_delivery_icon_test.dart` (без Flutter golden — CI headless).
+**Регрессия:** `test/telegram_refinement_test.dart`, `test/date_separator_test.dart`, `test/message_delivery_icon_test.dart`, `test/chat_list_tile_test.dart`, `test/message_bubble_test.dart`, `test/message_bubble_grouping_test.dart`, `test/message_input_bar_test.dart`, `test/telegram_settings_tile_test.dart` (без Flutter golden — CI headless).
 
 #### План внедрения §9.11
 
@@ -826,11 +826,11 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 9.11.1. Дизайн-токены и типографика (доп. к §9.1)
 
-- [ ] Open Sans на Desktop (см. §9.1)
+- [x] Open Sans на Desktop (см. §9.1, §9.11.11)
 - [x] Константа `TelegramSpacing.chatListRowHeight` = 72px и применение в `ChatListTile`
-- [ ] Константа высоты AppBar переписки 56px (mobile)
-- [ ] Константа высоты строки настроек 48px
-- [ ] Единый `TelegramSpacing.chatListHorizontalPadding` = 12px (сверка с TG)
+- [x] Константа высоты AppBar переписки 56px (`TelegramSpacing.chatAppBarHeight`)
+- [x] Константа высоты строки настроек 48px (`TelegramSpacing.settingsRowHeight`)
+- [x] Единый `TelegramSpacing.chatListHorizontalPadding` = 12px (применён в `ChatListTile`)
 
 #### 9.11.2. Список чатов (доп. к §9.2)
 
@@ -861,9 +861,9 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 9.11.5. Навигация (доп. к §9.5)
 
-- [ ] Узкая колонка папок Desktop ~68px (иконки + tooltip)
-- [ ] Resize handle между списком чатов и перепиской (Desktop)
-- [ ] Tab bar label font 10sp / icon 24dp (mobile)
+- [x] Узкая колонка папок Desktop ~68px (иконки + tooltip)
+- [x] Resize handle между списком чатов и перепиской (Desktop)
+- [x] Tab bar label font 10sp / icon 24dp (mobile)
 
 #### 9.11.6. Настройки и профиль (доп. к §9.6)
 
@@ -879,12 +879,14 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 9.11.8. Звонки (доп. к §9.8)
 
-- [ ] Incoming: пульсация вокруг зелёной кнопки «Принять» (опционально)
-- [ ] Active call: spacing между кнопками 24px
+- [x] Incoming: пульсация вокруг зелёной кнопки «Принять» (опционально)
+- [x] Active call: spacing между кнопками 24px
+- [x] Incoming: размытый аватар + градиент на фоне (без glass-панелей)
 
 #### 9.11.9. Регрессия и аудит
 
 - [x] Unit/widget тесты констант и виджетов §9.11 (`telegram_refinement_test`, `date_separator_test`, `message_delivery_icon_test`)
+- [x] Widget regression: chat list row (`chat_list_tile_test`), bubble group (`message_bubble_test`, `message_bubble_grouping_test`), input bar (`message_input_bar_test`), settings tile (`telegram_settings_tile_test`) — без golden (CI headless)
 - [ ] Ручной side-by-side чеклист: список чатов | переписка | ввод | настройки | звонок
 - [ ] Тёмная тема: второй проход pixel parity
 - [ ] Desktop 800px / 840px breakpoints — без layout overflow
