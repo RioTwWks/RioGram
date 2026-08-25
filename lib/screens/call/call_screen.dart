@@ -237,40 +237,57 @@ class GroupCallScreen extends StatelessWidget {
                   },
                 ),
               ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _CallRoundButton(
-                  icon: manager.isMuted ? Icons.mic_off : Icons.mic,
-                  label: manager.isMuted ? 'Вкл. звук' : 'Без звука',
-                  onPressed: manager.toggleMute,
-                ),
-                if (call.canEnableVideo)
-                  _CallRoundButton(
-                    icon: manager.isVideoEnabled
-                        ? Icons.videocam
-                        : Icons.videocam_off,
-                    label: manager.isVideoEnabled ? 'Камера' : 'Без видео',
-                    onPressed: () => manager.toggleVideo(),
-                  ),
-                _CallRoundButton(
-                  icon: Icons.settings_voice,
-                  label: 'Аудио',
-                  onPressed: () => CallDevicePickerSheet.show(context),
-                ),
-                _CallRoundButton(
-                  icon: Icons.call_end,
-                  label: 'Выйти',
-                  backgroundColor: TelegramColors.callDeclineRed,
-                  iconColor: TelegramColors.callTextPrimary,
-                  onPressed: () => manager.leaveGroupCall(),
-                ),
-              ],
-            ),
+            _GroupCallControlsRow(call: call, manager: manager),
             const SizedBox(height: 24),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GroupCallControlsRow extends StatelessWidget {
+  const _GroupCallControlsRow({required this.call, required this.manager});
+
+  final GroupCallSummary call;
+  final GroupCallManager manager;
+
+  @override
+  Widget build(BuildContext context) {
+    final controls = <Widget>[
+      _CallRoundButton(
+        icon: manager.isMuted ? Icons.mic_off : Icons.mic,
+        label: manager.isMuted ? 'Вкл. звук' : 'Без звука',
+        onPressed: manager.toggleMute,
+      ),
+      if (call.canEnableVideo)
+        _CallRoundButton(
+          icon: manager.isVideoEnabled ? Icons.videocam : Icons.videocam_off,
+          label: manager.isVideoEnabled ? 'Камера' : 'Без видео',
+          onPressed: () => manager.toggleVideo(),
+        ),
+      _CallRoundButton(
+        icon: Icons.settings_voice,
+        label: 'Аудио',
+        onPressed: () => CallDevicePickerSheet.show(context),
+      ),
+      _CallRoundButton(
+        icon: Icons.call_end,
+        label: 'Выйти',
+        backgroundColor: TelegramColors.callDeclineRed,
+        iconColor: TelegramColors.callTextPrimary,
+        onPressed: () => manager.leaveGroupCall(),
+      ),
+    ];
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 0; i < controls.length; i++) ...[
+          if (i > 0) const SizedBox(width: TelegramSpacing.callControlSpacing),
+          controls[i],
+        ],
+      ],
     );
   }
 }
@@ -355,9 +372,70 @@ class _IncomingControls extends StatelessWidget {
             onPressed: callManager.declineCall,
           ),
           const SizedBox(width: TelegramSpacing.callControlSpacing * 2),
-          _CallRoundButton(icon: Icons.call, label: 'Принять', backgroundColor: TelegramColors.callAcceptGreen, iconColor: TelegramColors.callTextPrimary, size: TelegramSpacing.callPrimaryButtonSize, onPressed: callManager.acceptCall),
-
+          _PulsingAcceptButton(onPressed: callManager.acceptCall),
         ],
+      ),
+    );
+  }
+}
+
+class _PulsingAcceptButton extends StatefulWidget {
+  const _PulsingAcceptButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  State<_PulsingAcceptButton> createState() => _PulsingAcceptButtonState();
+}
+
+class _PulsingAcceptButtonState extends State<_PulsingAcceptButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final scale = 1 + (_controller.value * 0.35);
+        final opacity = 0.45 * (1 - _controller.value);
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: TelegramSpacing.callPrimaryButtonSize * scale,
+              height: TelegramSpacing.callPrimaryButtonSize * scale,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: TelegramColors.callAcceptGreen.withValues(alpha: opacity),
+              ),
+            ),
+            child!,
+          ],
+        );
+      },
+      child: _CallRoundButton(
+        icon: Icons.call,
+        label: 'Принять',
+        backgroundColor: TelegramColors.callAcceptGreen,
+        iconColor: TelegramColors.callTextPrimary,
+        size: TelegramSpacing.callPrimaryButtonSize,
+        onPressed: widget.onPressed,
       ),
     );
   }
@@ -374,36 +452,43 @@ class _ActiveControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final buttons = <Widget>[
+      _CallRoundButton(
+        icon: callManager.isMuted ? Icons.mic_off : Icons.mic,
+        label: callManager.isMuted ? 'Вкл. звук' : 'Без звука',
+        onPressed: () => callManager.toggleMute(),
+      ),
+      if (call.isVideo)
+        _CallRoundButton(
+          icon: callManager.isVideoEnabled
+              ? Icons.videocam
+              : Icons.videocam_off,
+          label: callManager.isVideoEnabled ? 'Камера' : 'Без видео',
+          onPressed: () => callManager.toggleVideo(),
+        ),
+      _CallRoundButton(
+        icon: Icons.settings_voice,
+        label: 'Аудио',
+        onPressed: () => CallDevicePickerSheet.show(context),
+      ),
+      _CallRoundButton(
+        icon: Icons.call_end,
+        label: 'Завершить',
+        backgroundColor: TelegramColors.callDeclineRed,
+        iconColor: TelegramColors.callTextPrimary,
+        onPressed: callManager.hangUp,
+      ),
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _CallRoundButton(
-            icon: callManager.isMuted ? Icons.mic_off : Icons.mic,
-            label: callManager.isMuted ? 'Вкл. звук' : 'Без звука',
-            onPressed: () => callManager.toggleMute(),
-          ),
-          if (call.isVideo)
-            _CallRoundButton(
-              icon: callManager.isVideoEnabled
-                  ? Icons.videocam
-                  : Icons.videocam_off,
-              label: callManager.isVideoEnabled ? 'Камера' : 'Без видео',
-              onPressed: () => callManager.toggleVideo(),
-            ),
-          _CallRoundButton(
-            icon: Icons.settings_voice,
-            label: 'Аудио',
-            onPressed: () => CallDevicePickerSheet.show(context),
-          ),
-          _CallRoundButton(
-            icon: Icons.call_end,
-            label: 'Завершить',
-            backgroundColor: TelegramColors.callDeclineRed,
-            iconColor: TelegramColors.callTextPrimary,
-            onPressed: callManager.hangUp,
-          ),
+          for (var i = 0; i < buttons.length; i++) ...[
+            if (i > 0) const SizedBox(width: TelegramSpacing.callControlSpacing),
+            buttons[i],
+          ],
         ],
       ),
     );
