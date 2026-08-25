@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:riogram/core/theme/telegram_theme.dart';
 import 'package:riogram/models/chat_models.dart';
 import 'package:riogram/widgets/message_bubble_grouping.dart';
 
@@ -39,6 +41,17 @@ void main() {
       );
 
       expect(entries.whereType<ChatListDateEntry>().length, 2);
+    });
+
+    test('shouldShowTail only single and last', () {
+      expect(MessageBubbleGrouping.shouldShowTail(position: BubbleGroupPosition.single, showTail: true), isTrue);
+      expect(MessageBubbleGrouping.shouldShowTail(position: BubbleGroupPosition.middle, showTail: true), isFalse);
+    });
+
+    test('bubbleBorderRadius outgoing first vs last', () {
+      final first = MessageBubbleGrouping.bubbleBorderRadius(isOutgoing: true, position: BubbleGroupPosition.first);
+      final last = MessageBubbleGrouping.bubbleBorderRadius(isOutgoing: true, position: BubbleGroupPosition.last);
+      expect(first.bottomRight, isNot(last.bottomRight));
     });
   });
 }
