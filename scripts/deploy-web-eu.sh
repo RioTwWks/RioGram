@@ -9,6 +9,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="${RIOGRAM_WEB_ROOT:-/opt/riogram/web}"
 
+# shellcheck source=lib/web-env.sh
+source "${ROOT_DIR}/scripts/lib/web-env.sh"
+VERIFY_BASE="$(riogram_eu_backend_base)"
+
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run as root: sudo $0" >&2
   exit 1
@@ -34,5 +38,6 @@ if id riogram &>/dev/null; then
 fi
 
 echo "✅ Deployed to ${DEST}/"
-echo "   Verify: curl -s http://127.0.0.1:8080/ | head"
+echo "   Verify: curl -s ${VERIFY_BASE}/ | head"
+echo "           ${ROOT_DIR}/scripts/verify-web-deploy.sh"
 echo "   (requires riogram-eu-backend nginx + tunnel for external access)"

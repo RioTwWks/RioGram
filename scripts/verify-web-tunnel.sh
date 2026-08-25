@@ -4,9 +4,16 @@
 # Usage (on RU VPS):
 #   ./scripts/verify-web-tunnel.sh
 #   TUNNEL_LOCAL_PORT=8080 ./scripts/verify-web-tunnel.sh
+#
+# Reads TUNNEL_RU_PORT from /etc/riogram/web.env when TUNNEL_LOCAL_PORT unset.
 set -euo pipefail
 
-PORT="${TUNNEL_LOCAL_PORT:-8080}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/web-env.sh
+source "${ROOT_DIR}/scripts/lib/web-env.sh"
+load_riogram_web_env
+
+PORT="${TUNNEL_LOCAL_PORT:-${TUNNEL_RU_PORT:-8080}}"
 BASE="http://127.0.0.1:${PORT}"
 
 failed=0
