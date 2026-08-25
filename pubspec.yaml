@@ -27,6 +27,7 @@ dependencies:
   geolocator: ^13.0.2
   flutter_webrtc: ^0.12.12
   permission_handler: ^11.4.0
+  flutter_contacts: ^1.1.9+2
 
 dev_dependencies:
   flutter_test:

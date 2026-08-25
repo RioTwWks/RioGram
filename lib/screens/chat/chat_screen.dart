@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/call/call_manager.dart';
 import '../../core/call/group_call_manager.dart';
 import '../../core/chat/chat_manager.dart';
+import '../../core/user/profile_manager.dart';
 import '../../models/call_models.dart';
 import '../../models/channel_models.dart';
 import '../../models/chat_models.dart';
@@ -22,6 +23,7 @@ import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
 import '../../widgets/poll_message_body.dart';
 import '../../widgets/sticker_panel_sheet.dart';
+import '../../widgets/user_status_subtitle.dart';
 import '../../widgets/voice_recorder_sheet.dart';
 import 'media_viewer_screen.dart';
 import 'chat_info_screen.dart';
@@ -74,6 +76,7 @@ class _ChatScreenState extends State<ChatScreen> {
         manager.openChat(widget.chatId);
       }
       _loadCallCapabilities(manager);
+      _loadPrivateUserProfile(manager);
     });
     _controller.addListener(_onTextChanged);
   }
@@ -101,6 +104,18 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     context.read<CallManager>().loadUserCallCapabilities(userId);
+  }
+
+  void _loadPrivateUserProfile(ChatManager chatManager) {
+    if (widget.forumTopicId != null) {
+      return;
+    }
+    final chat = chatManager.activeChat;
+    final userId = chat?.privateUserId;
+    if (userId == null || chat?.kind != ChatKind.privateChat) {
+      return;
+    }
+    context.read<ProfileManager>().loadUserProfile(userId);
   }
 
   Future<void> _startCall({required bool isVideo}) async {
@@ -710,6 +725,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final chatManager = context.watch<ChatManager>();
     final callManager = context.watch<CallManager>();
+    final profileManager = context.watch<ProfileManager>();
     final chat = chatManager.activeChat;
     final messages = chatManager.messages;
     final listItems = MediaAlbumGrouper.group(messages);
@@ -729,6 +745,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final showSenderName =
         chat?.kind == ChatKind.group || (chat?.isForum ?? false);
     final privateUserId = chat?.privateUserId;
+    final privateUser =
+        privateUserId != null ? profileManager.userById(privateUserId) : null;
     final callCaps = privateUserId != null
         ? callManager.capabilitiesFor(privateUserId)
         : UserCallCapabilities.none;
@@ -774,7 +792,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       Text(
                         chat.title,
                         style: Theme.of(context).textTheme.labelSmall,
-                      ),
+                      )
+                    else if (privateUser != null)
+                      UserStatusSubtitle(status: privateUser.status),
                   ],
                 ),
               ),

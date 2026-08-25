@@ -6,59 +6,88 @@ import '../../core/media/media_cache_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../core/theme/theme_manager.dart';
 import '../../core/theme/theme_preferences.dart';
+import '../../core/user/profile_manager.dart';
+import '../../widgets/chat_avatar.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../../widgets/storage_settings_section.dart';
+import '../profile/own_profile_screen.dart';
+import 'blocked_users_screen.dart';
 
-/// Настройки: внешний вид, прокси, выход из аккаунта.
+/// Настройки: профиль, внешний вид, прокси, выход из аккаунта.
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
     final proxyManager = context.watch<ProxyManager?>();
     final themeManager = context.watch<ThemeManager>();
     final mediaCache = context.watch<MediaCacheManager?>();
+    final profile = context.watch<ProfileManager>();
+
+    final body = ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _ProfileHeader(profile: profile),
+        const SizedBox(height: 16),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.block),
+          title: const Text('Заблокированные пользователи'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const BlockedUsersScreen(),
+              ),
+            );
+          },
+        ),
+        const Divider(height: 32),
+        Text('Внешний вид', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        _ThemeModeSelector(themeManager: themeManager),
+        const SizedBox(height: 16),
+        Text('Акцентный цвет', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        _AccentColorPicker(themeManager: themeManager),
+        const SizedBox(height: 24),
+        if (mediaCache != null) ...[
+          StorageSettingsSection(),
+          const SizedBox(height: 24),
+        ],
+        Text('Прокси', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        if (proxyManager == null)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Прокси не настроены.\nЗаполните PROXY_* в файле .env',
+              ),
+            ),
+          )
+        else
+          _ProxySettings(proxyManager: proxyManager),
+        const SizedBox(height: 24),
+        Text('Аккаунт', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => _confirmLogout(context),
+          icon: const Icon(Icons.logout),
+          label: const Text('Выйти из аккаунта'),
+        ),
+      ],
+    );
+
+    if (embedded) {
+      return body;
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Настройки')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('Внешний вид', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          _ThemeModeSelector(themeManager: themeManager),
-          const SizedBox(height: 16),
-          Text('Акцентный цвет', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          _AccentColorPicker(themeManager: themeManager),
-          const SizedBox(height: 24),
-          if (mediaCache != null) ...[
-            StorageSettingsSection(),
-            const SizedBox(height: 24),
-          ],
-          Text('Прокси', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          if (proxyManager == null)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  'Прокси не настроены.\nЗаполните PROXY_* в файле .env',
-                ),
-              ),
-            )
-          else
-            _ProxySettings(proxyManager: proxyManager),
-          const SizedBox(height: 24),
-          Text('Аккаунт', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => _confirmLogout(context),
-            icon: const Icon(Icons.logout),
-            label: const Text('Выйти из аккаунта'),
-          ),
-        ],
-      ),
+      body: body,
     );
   }
 
@@ -87,6 +116,44 @@ class SettingsScreen extends StatelessWidget {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     }
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.profile});
+
+  final ProfileManager profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = profile.ownUser;
+    final draft = profile.ownProfile;
+
+    return Card(
+      child: ListTile(
+        leading: ChatAvatar(
+          title: user?.displayName ?? 'Профиль',
+          localPath: user?.avatarLocalPath,
+          radius: 24,
+        ),
+        title: Text(user?.displayName ?? 'Мой профиль'),
+        subtitle: Text(
+          draft?.username.isNotEmpty == true
+              ? '@${draft!.username}'
+              : user?.username != null
+                  ? '@${user!.username}'
+                  : 'Имя, bio, username, фото',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const OwnProfileScreen(),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -121,7 +188,8 @@ class _AccentColorPicker extends StatelessWidget {
     return Wrap(
       spacing: 12,
       children: ThemePreferences.accentOptions.map((color) {
-        final selected = themeManager.accentColor.toARGB32() == color.toARGB32();
+        final selected =
+            themeManager.accentColor.toARGB32() == color.toARGB32();
         return GestureDetector(
           onTap: () => themeManager.setAccentColor(color),
           child: CircleAvatar(

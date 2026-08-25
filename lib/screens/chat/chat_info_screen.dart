@@ -3,11 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
+import '../../core/user/contact_manager.dart';
+import '../../core/user/profile_manager.dart';
 import '../../models/chat_info_models.dart';
 import '../../models/channel_models.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/chat_list_tile.dart';
+import '../../widgets/user_status_subtitle.dart';
+import '../profile/user_profile_screen.dart';
 
 /// Экран информации о чате: описание, ссылка, участники, настройки.
 class ChatInfoScreen extends StatefulWidget {
@@ -29,7 +33,15 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatManager>().loadChatInfo(widget.chatId);
+      final manager = context.read<ChatManager>();
+      manager.loadChatInfo(widget.chatId);
+      final chat = manager.chatById(widget.chatId);
+      final userId = chat?.privateUserId;
+      if (userId != null && chat?.kind == ChatKind.privateChat) {
+        final profile = context.read<ProfileManager>();
+        profile.loadUserProfile(userId);
+        profile.loadCommonChats(userId);
+      }
     });
   }
 
@@ -238,6 +250,8 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final manager = context.watch<ChatManager>();
+    final profile = context.watch<ProfileManager>();
+    final contacts = context.read<ContactManager>();
     final chat = manager.chatById(widget.chatId);
     final info = manager.chatInfoFor(widget.chatId);
     final members = manager.chatMembersFor(widget.chatId);
@@ -316,6 +330,8 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],
+          if (chat.kind == ChatKind.privateChat && chat.privateUserId != null)
+            ..._privateChatSection(context, chat, profile, contacts),
           if (info != null && info.description.isNotEmpty) ...[
             const SizedBox(height: 24),
             Text('Описание', style: Theme.of(context).textTheme.titleMedium),
@@ -481,6 +497,96 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
         ],
       ),
     );
+  }
+
+  List<Widget> _privateChatSection(
+    BuildContext context,
+    ChatSummary chat,
+    ProfileManager profile,
+    ContactManager contacts,
+  ) {
+    final userId = chat.privateUserId!;
+    final user = profile.userById(userId);
+    final fullInfo = profile.fullInfoFor(userId);
+    final commonChats = profile.commonChatsFor(userId);
+
+    return [
+      if (user != null) ...[
+        const SizedBox(height: 8),
+        Center(child: UserStatusSubtitle(status: user.status)),
+      ],
+      if (fullInfo?.bio.isNotEmpty == true) ...[
+        const SizedBox(height: 16),
+        Text('О себе', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Text(fullInfo!.bio),
+      ],
+      if (commonChats.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Text('Общие чаты', style: Theme.of(context).textTheme.titleMedium),
+        ...commonChats.map(
+          (entry) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.groups_outlined),
+            title: Text(entry.title),
+          ),
+        ),
+      ],
+      const SizedBox(height: 16),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.person_outline),
+        title: const Text('Открыть профиль'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => UserProfileScreen(
+                userId: userId,
+                chatId: chat.id,
+              ),
+            ),
+          );
+        },
+      ),
+      if (user != null && !user.isContact)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.person_add_outlined),
+          title: const Text('Добавить в контакты'),
+          onTap: () {
+            contacts.addContact(
+              user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Контакт добавлен')),
+            );
+          },
+        ),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          (fullInfo?.isBlocked ?? false)
+              ? Icons.lock_open_outlined
+              : Icons.block,
+        ),
+        title: Text(
+          (fullInfo?.isBlocked ?? false)
+              ? 'Разблокировать'
+              : 'Заблокировать',
+        ),
+        onTap: () {
+          if (fullInfo?.isBlocked ?? false) {
+            profile.unblockUser(userId);
+          } else {
+            profile.blockUser(userId);
+          }
+        },
+      ),
+      const Divider(height: 32),
+    ];
   }
 
   String _chatTypeLabel(ChatSummary chat, ChatDetailInfo? info) {
