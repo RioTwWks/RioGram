@@ -11,6 +11,8 @@ import 'privacy_settings_screen.dart';
 import 'riogram_features_settings_screen.dart';
 import 'security_privacy_settings_screen.dart';
 import 'external_integrations_settings_screen.dart';
+import 'plugin_settings_screen.dart';
+import 'decentralization_research_screen.dart';
 
 class NotificationSettingsScreen extends StatelessWidget {
   const NotificationSettingsScreen({super.key});
@@ -91,6 +93,23 @@ class SettingsNavigationSection extends StatelessWidget {
                 TelegramRoutes.push(
                   context,
                   const RioGramFeaturesSettingsScreen(),
+                );
+              },
+            ),
+            TelegramSettingsTile(
+              title: 'Плагины',
+              subtitle: 'Расширения community API',
+              onTap: () {
+                TelegramRoutes.push(context, const PluginSettingsScreen());
+              },
+            ),
+            TelegramSettingsTile(
+              title: 'Децентрализация',
+              subtitle: 'Исследования и дорожная карта',
+              onTap: () {
+                TelegramRoutes.push(
+                  context,
+                  const DecentralizationResearchScreen(),
                 );
               },
             ),

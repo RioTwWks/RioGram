@@ -17,7 +17,7 @@ import 'core/call/group_call_manager.dart';
 import 'core/chat/chat_manager.dart';
 import 'core/chat/sticker_manager.dart';
 import 'core/config/app_config.dart';
-import 'core/integrations/external_integrations_manager.dart';
+import 'core/plugins/plugin_manager.dart';
 import 'core/features/anti_recall_store.dart';
 import 'core/features/riogram_features_manager.dart';
 import 'core/features/riogram_features_preferences.dart';
@@ -206,6 +206,7 @@ class _AppScopeState extends State<_AppScope> {
   late final SecretChatManager _secretChatManager;
   late final StoryManager _storyManager;
   late final ExternalIntegrationsManager _externalIntegrationsManager;
+  late final PluginManager _pluginManager;
   late final ChatManager _chatManager;
   late final GhostModeManager _ghostModeManager;
   late final RioGramMediaFeaturesManager _mediaFeaturesManager;
@@ -240,6 +241,7 @@ class _AppScopeState extends State<_AppScope> {
     _profileManager = ProfileManager(client: _client);
     _securityPrivacyManager = SecurityPrivacyManager(client: _client);
     _externalIntegrationsManager = ExternalIntegrationsManager(client: _client);
+    _pluginManager = PluginManager();
     _searchManager = SearchManager(
       client: _client,
       securityPrivacy: _securityPrivacyManager,
@@ -287,6 +289,7 @@ class _AppScopeState extends State<_AppScope> {
       mediaFeatures: _mediaFeaturesManager,
       securityPrivacy: _securityPrivacyManager,
       externalIntegrations: _externalIntegrationsManager,
+      pluginManager: _pluginManager,
     );
 
     _profileManager.addListener(_registerAccountIfNeeded);
@@ -310,6 +313,7 @@ class _AppScopeState extends State<_AppScope> {
       _antiRecallStore.load(),
       _securityPrivacyManager.load(),
       _externalIntegrationsManager.load(),
+      _pluginManager.load(),
     ]);
   }
 
@@ -373,6 +377,7 @@ class _AppScopeState extends State<_AppScope> {
     _privacySettingsManager.dispose();
     _securityPrivacyManager.dispose();
     _externalIntegrationsManager.dispose();
+    _pluginManager.dispose();
     _securitySettingsManager.dispose();
     _sessionManager.dispose();
     _phoneChangeManager.dispose();
@@ -428,6 +433,9 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<ExternalIntegrationsManager>.value(
           value: _externalIntegrationsManager,
+        ),
+        ChangeNotifierProvider<PluginManager>.value(
+          value: _pluginManager,
         ),
         ChangeNotifierProvider<SecuritySettingsManager>.value(
           value: _securitySettingsManager,
