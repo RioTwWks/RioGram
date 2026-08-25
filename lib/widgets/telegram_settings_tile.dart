@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../core/navigation/telegram_routes.dart';
 import '../core/theme/telegram_theme.dart';
 import 'chat_avatar.dart';
 
@@ -14,6 +15,17 @@ Color telegramSettingsPageBackground(BuildContext context) {
 
 Color telegramSettingsGroupBackground(BuildContext context) {
   return context.telegramTheme.chatListBackground;
+}
+
+bool telegramSettingsUseFlatGroups(BuildContext context) {
+  if (!TelegramTypography.isDesktopPlatform) return false;
+  return MediaQuery.sizeOf(context).width >= TelegramLayoutBreakpoints.mobile;
+}
+
+double telegramSettingsGroupRadius(BuildContext context) {
+  return telegramSettingsUseFlatGroups(context)
+      ? TelegramRadii.settingsGroupFlat
+      : TelegramRadii.buttonPill;
 }
 
 class TelegramSettingsScaffold extends StatelessWidget {
@@ -82,12 +94,19 @@ class TelegramSettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final visibleChildren = children.where((child) => child is! SizedBox).toList();
     if (visibleChildren.isEmpty) return const SizedBox.shrink();
+    final radius = telegramSettingsGroupRadius(context);
+    final borderRadius = BorderRadius.circular(radius);
+    final flat = telegramSettingsUseFlatGroups(context);
     return Padding(
       padding: margin,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: telegramSettingsGroupBackground(context), borderRadius: BorderRadius.circular(TelegramRadii.buttonPill)),
+        decoration: BoxDecoration(
+          color: telegramSettingsGroupBackground(context),
+          borderRadius: borderRadius,
+          border: flat ? Border.all(color: context.telegramTheme.chatListDivider) : null,
+        ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(TelegramRadii.buttonPill),
+          borderRadius: borderRadius,
           child: Column(mainAxisSize: MainAxisSize.min, children: visibleChildren),
         ),
       ),
@@ -169,7 +188,7 @@ class TelegramSettingsTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (effectiveTrailing != null) effectiveTrailing,
+                  effectiveTrailing?,
                 ],
               ),
             ),
@@ -249,7 +268,7 @@ class TelegramSettingsProfileHeader extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(TelegramRadii.buttonPill),
+            borderRadius: BorderRadius.circular(telegramSettingsGroupRadius(context)),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
               child: Row(

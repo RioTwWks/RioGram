@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import '../../models/chat_models.dart';
 import '../../models/group_models.dart';
 import '../../models/search_models.dart';
-import '../privacy/ad_block_filter.dart';
 import '../privacy/security_privacy_manager.dart';
 import '../tdlib/tdlib_client.dart';
 import 'tdlib_search_parser.dart';

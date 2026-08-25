@@ -3,7 +3,7 @@ import '../../models/chat_models.dart';
 /// Фильтрация рекламных чатов и сообщений (§7.4).
 abstract final class AdBlockFilter {
   /// Максимальный server message id в TDLib: `int32.max << 20`.
-  static const int maxServerMessageId = 2251799813685248;
+  static const int maxServerMessageId = 2147483647 << 20;
 
   /// Верхняя граница id спонсорских сообщений: `1 << 51`.
   static const int maxSponsoredMessageId = 1 << 51;
