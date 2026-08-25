@@ -2,6 +2,8 @@
 
 Модификации официального TDLib для обхода DPI. Все изменения помечены `// DPI_BYPASS:`.
 
+Базовая версия upstream и процесс merge: [TDLIB_UPSTREAM_SYNC.md](TDLIB_UPSTREAM_SYNC.md) · [`td/upstream-base.json`](../td/upstream-base.json).
+
 ## Новые файлы
 
 - `td/td/mtproto/dpi_bypass/DpiBypass.h` — API модуля, флаги режимов, профили TLS

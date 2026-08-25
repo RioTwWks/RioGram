@@ -1,0 +1,98 @@
+name: TDLib upstream sync
+
+on:
+  schedule:
+    # Понедельник 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-upstream:
+    name: Check upstream TDLib version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Compare with upstream
+        id: check
+        run: |
+          set +e
+          ./scripts/check-tdlib-upstream.sh --json > upstream-report.json
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          cat upstream-report.json
+          if [[ "$code" -eq 2 ]]; then
+            echo "update_available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "update_available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdlib-upstream-report
+          path: upstream-report.json
+          retention-days: 30
+
+      - name: Create issue when newer upstream is available
+        if: steps.check.outputs.update_available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LOCAL_VERSION="$(jq -r '.local.version' upstream-report.json)"
+          UPSTREAM_VERSION="$(jq -r '.upstream.version' upstream-report.json)"
+          UPSTREAM_COMMIT="$(jq -r '.upstream.commit' upstream-report.json)"
+          TITLE="[TDLib] Доступен upstream v${UPSTREAM_VERSION} (текущая база v${LOCAL_VERSION})"
+
+          EXISTING="$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$EXISTING" ]]; then
+            echo "Issue already exists: #$EXISTING"
+            exit 0
+          fi
+
+          BODY="$(cat <<EOF
+## Upstream TDLib
+
+Обнаружена более новая версия [tdlib/td](https://github.com/tdlib/td).
+
+| | Версия | Commit |
+|---|--------|--------|
+| **Текущая база RioGram** | \`${LOCAL_VERSION}\` | \`$(jq -r '.local.commit' upstream-report.json)\` |
+| **Upstream master** | \`${UPSTREAM_VERSION}\` | \`${UPSTREAM_COMMIT}\` |
+
+Автоматическая проверка: workflow [\`${{ github.workflow }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+
+## Чеклист merge
+
+См. [docs/TDLIB_UPSTREAM_SYNC.md](docs/TDLIB_UPSTREAM_SYNC.md):
+
+- [ ] Создать ветку \`cursor/tdlib-merge-${UPSTREAM_VERSION}-2af3\`
+- [ ] Импортировать upstream commit \`${UPSTREAM_COMMIT}\`
+- [ ] Перенести все патчи \`DPI_BYPASS\` ([TDLIB_PATCHES.md](docs/TDLIB_PATCHES.md))
+- [ ] \`./scripts/build-tdlib.sh\` — сборка без ошибок
+- [ ] Ручная проверка Fake TLS / transport proxy
+- [ ] Обновить \`td/upstream-base.json\`
+- [ ] CI \`tdlib-linux\` зелёный
+
+---
+*Issue создан автоматически workflow TDLib upstream sync.*
+EOF
+)"
+
+          gh issue create \
+            --title "$TITLE" \
+            --body "$BODY" \
+            --label "tdlib" \
+            --label "maintenance" || \
+          gh issue create \
+            --title "$TITLE" \
+            --body "$BODY"

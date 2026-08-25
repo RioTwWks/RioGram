@@ -14,6 +14,24 @@
 
 Триггеры: push и pull request в `main`.
 
+## Upstream TDLib sync
+
+Файл: [`.github/workflows/tdlib-upstream-sync.yml`](../.github/workflows/tdlib-upstream-sync.yml)
+
+| Расписание | Действие |
+|------------|----------|
+| Понедельник 06:00 UTC | Сравнение `td/upstream-base.json` с `tdlib/td` master |
+| `workflow_dispatch` | Ручной запуск из Actions |
+
+При обнаружении более новой версии upstream создаётся Issue с чеклистом merge ([TDLIB_UPSTREAM_SYNC.md](TDLIB_UPSTREAM_SYNC.md)).
+
+Локальная проверка:
+
+```bash
+chmod +x scripts/check-tdlib-upstream.sh
+./scripts/check-tdlib-upstream.sh
+```
+
 ## Релизы
 
 Файл: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
