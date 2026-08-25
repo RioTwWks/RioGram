@@ -226,10 +226,11 @@ go test -tags=integration ./internal/proxy/...
 | Сервер | PhantomProxy / StealthGate | `riogram-wss-proxy` |
 | Edge | RU VPS :15443 | RU Nginx :443 |
 
-Подробнее: [WEB_PROXY.md](WEB_PROXY.md), [WEB_TRANSPORT.md](WEB_TRANSPORT.md).
+Подробнее: [WEB_PROXY.md](WEB_PROXY.md), [WEB_TRANSPORT.md](WEB_TRANSPORT.md), [WEB_INFRA.md](WEB_INFRA.md).
 
 ## Связанные документы
 
 - [Web WSS proxy (§8.3)](WEB_PROXY.md)
+- [Web infrastructure (§8.4)](WEB_INFRA.md)
 - [Патчи TDLib](TDLIB_PATCHES.md)
 - [Быстрый старт](QUICKSTART.md)
