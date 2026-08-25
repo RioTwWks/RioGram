@@ -17,7 +17,32 @@ class _ReactionPill extends StatelessWidget {
   final String? label; final IconData? icon; final bool chosen; final VoidCallback? onTap;
   @override Widget build(BuildContext context) {
     final tg = context.telegramTheme;
-    return Material(color: chosen ? tg.accent.withValues(alpha: 0.12) : tg.searchFieldBackground, elevation: 0, borderRadius: BorderRadius.circular(12), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: Padding(padding: EdgeInsets.symmetric(horizontal: icon != null ? 8 : 10, vertical: 4), child: icon != null ? Icon(icon, size: 16, color: tg.textSecondary) : Text(label!, style: TextStyle(fontSize: 13, height: 1.2, color: chosen ? tg.accent : tg.textPrimary, fontWeight: chosen ? FontWeight.w600 : FontWeight.w400))))));
+    return Material(
+      color: chosen ? tg.accent.withValues(alpha: 0.12) : tg.searchFieldBackground,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: icon != null ? 8 : 10,
+            vertical: 4,
+          ),
+          child: icon != null
+              ? Icon(icon, size: 16, color: tg.textSecondary)
+              : Text(
+                  label!,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.2,
+                    color: chosen ? tg.accent : tg.textPrimary,
+                    fontWeight: chosen ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+        ),
+      ),
+    );
   }
 }
 class ReactionPickerSheet extends StatelessWidget {

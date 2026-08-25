@@ -797,6 +797,16 @@ MVP — прочный фундамент. Ниже — направления, 
 | **D4** | Контакты, инфо о чате, поиск | §6.5, §6.7, §6.8 |
 | **D5** | Стикеры, звонки, stories UI | §6.4, §6.6, §6.12 |
 
+
+### 9.11. Message bubble pixel parity (P1 #3–4, P2 #7–8)
+
+- [x] Inline meta: время + галочки в последней строке текста (float-right spacer)
+- [x] Bezier bubble tail вместо треугольника 6×10
+- [x] Reply quote: tinted accent ~12%, radius 5px
+- [x] Service messages: центрированная капсула `#00000033` / `#FFFFFF33`
+- [x] Дата-разделитель: белый текст на `#0000004D` / `#FFFFFF33`
+- [x] Delivered status: двойные серые галочки (`MessageDeliveryStatus.delivered`)
+
 **Критерий готовности §9:** side-by-side скриншот RioGram и Telegram Desktop / Android — визуальное родство без blur/glass; пользователь узнаёт интерфейс за ≤5 секунд.
 ---
 

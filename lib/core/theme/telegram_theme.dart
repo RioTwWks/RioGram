@@ -29,7 +29,10 @@ abstract final class TelegramColors {
 
   static const Color inputFieldBackgroundLight = Color(0xFFF0F0F0);
   static const Color searchFieldBackgroundLight = Color(0xFFF0F0F0);
-  static const Color dateSeparatorBackgroundLight = Color(0x29000000);
+  static const Color dateSeparatorBackgroundLight = Color(0x4D000000);
+  static const Color dateSeparatorText = Color(0xFFFFFFFF);
+  static const Color serviceMessageBackgroundLight = Color(0x33000000);
+  static const Color serviceMessageBackgroundDark = Color(0x33FFFFFF);
 
   // --- Тёмная тема ---
 
