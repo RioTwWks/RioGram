@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'telegram_theme.dart';
 import 'theme_preferences.dart';
 
 /// Управление темой приложения.
@@ -17,8 +18,11 @@ class ThemeManager extends ChangeNotifier {
   Color get accentColor => _accentColor;
   bool get isLoaded => _isLoaded;
 
-  ThemeData get lightTheme => _buildTheme(Brightness.light);
-  ThemeData get darkTheme => _buildTheme(Brightness.dark);
+  ThemeData get lightTheme =>
+      TelegramTheme.build(brightness: Brightness.light, accentColor: _accentColor);
+
+  ThemeData get darkTheme =>
+      TelegramTheme.build(brightness: Brightness.dark, accentColor: _accentColor);
 
   Future<void> load() async {
     await _preferences.init();
@@ -38,19 +42,5 @@ class ThemeManager extends ChangeNotifier {
     _accentColor = color;
     await _preferences.setAccentColor(color);
     notifyListeners();
-  }
-
-  ThemeData _buildTheme(Brightness brightness) {
-    return ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _accentColor,
-        brightness: brightness,
-      ),
-      useMaterial3: true,
-      appBarTheme: const AppBarTheme(centerTitle: false),
-      inputDecorationTheme: const InputDecorationTheme(
-        border: OutlineInputBorder(),
-      ),
-    );
   }
 }

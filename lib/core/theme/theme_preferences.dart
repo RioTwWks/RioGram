@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'telegram_theme.dart';
+
 /// Настройки темы, сохраняемые в SharedPreferences.
 class ThemePreferences {
   ThemePreferences({SharedPreferences? preferences})
@@ -11,8 +13,9 @@ class ThemePreferences {
   static const _themeModeKey = 'theme_mode';
   static const _accentColorKey = 'accent_color';
 
+  /// Акцентные цвета; первый — классический Telegram blue (#3390EC).
   static const List<Color> accentOptions = [
-    Color(0xFF2AABEE),
+    TelegramColors.accent,
     Color(0xFF7B68EE),
     Color(0xFF43A047),
     Color(0xFFFF7043),
