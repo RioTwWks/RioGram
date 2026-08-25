@@ -23,6 +23,15 @@ final class SignaturePlugin implements RioGramPlugin {
   }
 
   @override
+  String? transformMessageDisplay(
+    PluginMessageContext context,
+    String text,
+    Map<String, String> config,
+  ) {
+    return null;
+  }
+
+  @override
   String? transformOutgoingMessage(
     PluginMessageContext context,
     String text,

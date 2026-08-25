@@ -37,4 +37,13 @@ final class ReadingTimePlugin implements RioGramPlugin {
     final minutes = (words.length / 200).ceil().clamp(1, 99);
     return '$text\n\n· ~$minutes мин чтения';
   }
+
+  @override
+  String? transformOutgoingMessage(
+    PluginMessageContext context,
+    String text,
+    Map<String, String> config,
+  ) {
+    return null;
+  }
 }

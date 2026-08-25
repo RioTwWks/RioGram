@@ -21,6 +21,7 @@ import 'core/plugins/plugin_manager.dart';
 import 'core/features/anti_recall_store.dart';
 import 'core/features/riogram_features_manager.dart';
 import 'core/features/riogram_features_preferences.dart';
+import 'core/integrations/external_integrations_manager.dart';
 import 'core/locale/app_locale_manager.dart';
 import 'core/notifications/notification_settings_manager.dart';
 import 'core/privacy/privacy_settings_manager.dart';
