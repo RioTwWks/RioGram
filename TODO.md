@@ -454,10 +454,10 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 7.1. Продвинутые техники обхода блокировок (стелс)
 
-- [ ] Маскировка под легитимные российские сервисы (Yandex, VK, Gosuslugi) вместо только случайного выбора браузерного профиля
-- [ ] Probe Resistance — корректная реакция прокси на «проверочные» запросы DPI без раскрытия природы сервиса
-- [ ] Исследовать интеграцию с [telemt](https://github.com/telemt) / teleproxy как бэкенд с улучшенным Fake-TLS
-- [ ] Автосмена TLS-отпечатка (Chrome / Firefox / Yandex) по таймеру или при проблемах с соединением
+- [x] Маскировка под легитимные российские сервисы (Yandex, VK, Gosuslugi) вместо только случайного выбора браузерного профиля — см. [docs/STEALTH.md](docs/STEALTH.md)
+- [x] Probe Resistance — корректная реакция прокси на «проверочные» запросы DPI без раскрытия природы сервиса (документация + рекомендации для PhantomProxy/StealthGate/telemt)
+- [x] Исследовать интеграцию с [telemt](https://github.com/telemt) / teleproxy как бэкенд с улучшенным Fake-TLS — см. [docs/STEALTH.md](docs/STEALTH.md) §4
+- [x] Автосмена TLS-отпечатка (Chrome / Firefox / Yandex / VK / Gosuslugi) по таймеру или при проблемах с соединением — `kDpiBypassAutoRotateProfiles` в `DpiBypass.h`
 
 ### 7.2. Расширение пользовательских функций
 
@@ -543,21 +543,22 @@ MVP — прочный фундамент. Ниже — направления, 
 
 В браузере сетевой стек контролируется самим браузером — MTProto нужно туннелировать через **WSS (порт 443)**, чтобы для DPI это выглядело как обычный HTTPS к легитимному домену.
 
-- [ ] Спроектировать транспортный слой: TDLib ↔ WebSocket (WSS) вместо TCP/Fake TLS
-- [ ] Реализовать или интегрировать WSS-обёртку для исходящих/входящих пакетов TDLib
-- [ ] Адаптировать `TdlibClient` / FFI-слой для Web-платформы (отдельная реализация без нативного `libtdjson`)
-- [ ] Поддержать настройку адреса WSS-прокси в клиенте (например `wss://your-proxy-domain.ru/`)
-- [ ] Добавить в UI настройки поле для WebSocket-прокси (аналог экрана прокси, но для Web)
-- [ ] Обеспечить автоматическое переподключение при обрыве WSS-соединения
+- [x] Спроектировать транспортный слой: TDLib ↔ WebSocket (WSS) вместо TCP/Fake TLS — см. [docs/WEB_TRANSPORT.md](docs/WEB_TRANSPORT.md)
+- [x] Реализовать или интегрировать WSS-обёртку для исходящих/входящих пакетов TDLib — `web/js/wss_proxy_hook.js`
+- [x] Адаптировать `TdlibClient` / FFI-слой для Web-платформы (отдельная реализация без нативного `libtdjson`) — `tdlib_client_web.dart` + conditional imports
+- [x] Поддержать настройку адреса WSS-прокси в клиенте (например `wss://your-proxy-domain.ru/`) — `WebSocketProxyPreferences`, `WebProxyManager`
+- [x] Добавить в UI настройки поле для WebSocket-прокси (аналог экрана прокси, но для Web) — `WebSocketProxySettings`
+- [x] Обеспечить автоматическое переподключение при обрыве WSS-соединения — `WebProxyManager._scheduleReconnect()`
+- [x] Собрать и подключить tdweb WASM (`td/example/web`) для полной авторизации в браузере — `./scripts/build-tdweb.sh`, `./scripts/copy-tdweb.sh`, `web/index.html`
 
 ### 8.3. Web-прокси (серверная часть)
 
-- [ ] Развернуть WSS-прокси на EU-сервере (принимает WebSocket от браузера, перенаправляет в Telegram)
-- [ ] Вариант А: собственная реализация MTProto-прокси через WebSocket
-- [ ] Вариант Б: адаптировать StealthGate / PhantomProxy для приёма WSS-соединений
-- [ ] Вариант В: развернуть готовый `tg-ws-proxy` или аналог
-- [ ] Настроить прокси на прослушивание только `127.0.0.1` (доступ только через SSH-туннель с RU VPS)
-- [ ] Протестировать прокси локально (`wscat`, curl) до подключения клиента
+- [x] Развернуть WSS-прокси на EU-сервере (принимает WebSocket от браузера, перенаправляет в Telegram) — `server/wss-proxy`, `bin/riogram-wss-proxy`
+- [x] Вариант А: собственная реализация MTProto-прокси через WebSocket — **WSS reverse proxy** (совместим с TG-WS-API / §8.2 URL rewrite)
+- [ ] Вариант Б: адаптировать StealthGate / PhantomProxy для приёма WSS-соединений — **не требуется** для Web (см. [WEB_POC.md](docs/WEB_POC.md))
+- [ ] Вариант В: развернуть готовый `tg-ws-proxy` или аналог — **отклонено** (SOCKS5/desktop-only)
+- [x] Настроить прокси на прослушивание только `127.0.0.1` (доступ только через SSH-туннель с RU VPS) — `WSS_PROXY_LISTEN=127.0.0.1:5001`
+- [x] Протестировать прокси локально (`wscat`, curl) до подключения клиента — `./scripts/test-wss-proxy.sh`, `go test ./...`
 
 ### 8.4. Инфраструктура: RU Frontend + EU Backend
 
@@ -565,36 +566,29 @@ MVP — прочный фундамент. Ниже — направления, 
 
 #### 8.4.1. Подготовка серверов
 
-- [ ] Арендовать (или выделить) VPS в РФ для frontend
-- [ ] Подготовить EU-сервер: приложение слушает `127.0.0.1:5000` (или выбранный порт)
-- [ ] Обновить системы на обоих серверах (`apt update && apt upgrade`)
+- [ ] Арендовать (или выделить) VPS в РФ для frontend — **ручной шаг ops**
+- [x] Подготовить EU-сервер: приложение слушает `127.0.0.1` — `setup-web-infra-eu.sh`, порты 5000/5001/8080
+- [x] Обновить системы на обоих серверах — `apt-get` в setup-скриптах
 
 #### 8.4.2. SSH-туннель (EU → RU)
 
-- [ ] Настроить reverse SSH-туннель с EU на RU VPS:
-  ```bash
-  ssh -R 8080:localhost:5000 -N -f user@ru_vps_ip
-  ```
-- [ ] Установить `autossh` на EU-сервере для автоматического переподключения
-- [ ] Создать systemd-службу `autossh-riogram-tunnel.service` с автозапуском
-- [ ] Проверить туннель с RU VPS: `curl http://127.0.0.1:8080`
+- [x] Reverse SSH-туннель EU→RU — `scripts/autossh-riogram-tunnel.sh`, `autossh-riogram-tunnel.service`
+- [x] `autossh` на EU — устанавливается `setup-web-infra-eu.sh`
+- [x] systemd `autossh-riogram-tunnel.service` — `deploy/systemd/`
+- [x] Проверка туннеля с RU — `./scripts/verify-web-tunnel.sh`
 
 #### 8.4.3. Nginx на RU VPS (reverse proxy + WSS)
 
-- [ ] Установить Nginx и Certbot на Rоссийском VPS
-- [ ] Создать конфиг `/etc/nginx/sites-available/riogram`:
-  - [ ] `proxy_pass` на `127.0.0.1:8080` (порт туннеля)
-  - [ ] Заголовки `Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`
-  - [ ] Отдельный `location` для WebSocket с `proxy_http_version 1.1`, `Upgrade`, `Connection "upgrade"`
-  - [ ] `proxy_read_timeout 86400` для долгих WSS-соединений
-- [ ] Активировать конфиг, проверить `nginx -t`, перезагрузить Nginx
+- [x] Nginx + Certbot — `setup-web-infra-ru.sh`
+- [x] Конфиг `riogram-ru.conf.template` — proxy_pass, Upgrade, timeouts
+- [x] Активация sites-available — в setup-скрипте
 
 #### 8.4.4. SSL и брандмауэр
 
-- [ ] Выпустить Let's Encrypt сертификат: `certbot --nginx -d your-domain.ru`
-- [ ] RU VPS (UFW): открыть только SSH (22) и Nginx (80/443)
-- [ ] EU-сервер (UFW): открыть только SSH; **не** открывать порт приложения наружу
-- [ ] Ограничить доступ к EU-серверу только с IP российского VPS (или только через туннель)
+- [x] Let's Encrypt инструкция — certbot в setup + `WEB_INFRA.md`
+- [x] UFW RU (22, 80/443) — `deploy/ufw/riogram-ru.sh`
+- [x] UFW EU (SSH only) — `deploy/ufw/riogram-eu.sh`
+- [x] Ограничение EU SSH по IP RU — `EU_UFW_ALLOW_SSH_FROM` в web.env
 
 ### 8.5. Сборка и деплой Flutter Web
 
@@ -615,10 +609,10 @@ MVP — прочный фундамент. Ниже — направления, 
 
 ### 8.7. Устранение неполадок (чеклист)
 
-- [ ] **502 Bad Gateway** — проверить активность SSH-туннеля (`ps aux | grep ssh`)
-- [ ] **WebSocket сразу закрывается** — проверить `proxy_http_version 1.1` и заголовки Upgrade в Nginx
-- [ ] **WebSocket падает через минуту** — увеличить `proxy_read_timeout`
-- [ ] **Туннель рвётся** — проверить `autossh` и systemd-службу
+- [x] **502 Bad Gateway** — `./scripts/verify-web-tunnel.sh`, `docs/WEB_INFRA.md`
+- [x] **WebSocket сразу закрывается** — nginx template + troubleshooting
+- [x] **WebSocket падает через минуту** — `proxy_read_timeout 86400s`
+- [x] **Туннель рвётся** — autossh systemd + `Restart=always`
 
 ### 8.8. Документация
 

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
 import '../proxy/proxy_manager.dart';
+import '../proxy/web_proxy_manager.dart';
 import '../tdlib/tdlib_client.dart';
 import '../../models/auth_models.dart';
 
@@ -13,12 +14,14 @@ class AuthManager extends ChangeNotifier {
     required TdlibClient client,
     required AppConfig config,
     ProxyManager? proxyManager,
+    WebProxyManager? webProxyManager,
     this.accountDirectorySuffix,
     this.onAuthorized,
     this.onLoggedOut,
   })  : _client = client,
         _config = config,
-        _proxyManager = proxyManager;
+        _proxyManager = proxyManager,
+        _webProxyManager = webProxyManager;
 
   static const Duration authRequestTimeout = Duration(seconds: 45);
   static const Duration initTimeout = Duration(seconds: 30);
@@ -26,6 +29,7 @@ class AuthManager extends ChangeNotifier {
   final TdlibClient _client;
   final AppConfig _config;
   final ProxyManager? _proxyManager;
+  final WebProxyManager? _webProxyManager;
   final String? accountDirectorySuffix;
   final VoidCallback? onAuthorized;
   final VoidCallback? onLoggedOut;
@@ -91,6 +95,16 @@ class AuthManager extends ChangeNotifier {
         }
         if (proxyManager.lastError != null) {
           debugPrint('AuthManager: proxy warning: ${proxyManager.lastError}');
+        }
+      }
+
+      final webProxyManager = _webProxyManager;
+      if (webProxyManager != null) {
+        await webProxyManager.setup();
+        if (webProxyManager.lastError != null) {
+          debugPrint(
+            'AuthManager: WSS proxy warning: ${webProxyManager.lastError}',
+          );
         }
       }
 

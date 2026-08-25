@@ -109,14 +109,16 @@ PROXY_PHANTOM_SECRET=ee40197aeb7c14b99661503f76fce2ca67626f6c2e636f6d
 В `td/td/mtproto/dpi_bypass/DpiBypass.h`:
 
 ```cpp
-constexpr bool kDpiBypassStableProxyMode = true;  // Yandex без ECH, без фрагментации ClientHello
+constexpr bool kDpiBypassStableProxyMode = true;  // профиль по SNI-домену, без фрагментации
 ```
 
-- `true` (по умолчанию) — стабильный handshake с PhantomProxy/StealthGate (профиль Yandex, **без ECH**).
-- `false` — полный DPI bypass: случайный профиль (Chrome/Firefox/Yandex/Safari) + фрагментация ClientHello.
+- `true` (по умолчанию) — стабильный handshake с PhantomProxy/StealthGate: профиль ClientHello выбирается по домену из ee-секрета (Yandex / VK / Госуслуги / Chrome для прочих), **без ECH** и фрагментации.
+- `false` — полный DPI bypass: ротация профилей + фрагментация ClientHello + DRS.
+
+Подробнее о профилях маскировки и Probe Resistance: [STEALTH.md](STEALTH.md).
 
 > **Важно:** PhantomProxy с политикой `reject_fronting` отклоняет ClientHello с ECH (расширение `0xfe0d`).
-> Профиль Chrome в TDLib содержит ECH и не подходит для stable mode. Используется Yandex-профиль.
+> Профили Yandex, VK и Gosuslugi не содержат ECH и подходят для stable mode.
 
 После смены флага пересобрать TDLib:
 
@@ -214,7 +216,21 @@ go test -tags=integration ./internal/proxy/...
 - **Anti-replay** при частых reconnect — подождать или перезапустить прокси
 - **`kDpiBypassStableProxyMode = false`** — нестабильный handshake с прокси
 
+## Web WSS reverse proxy (§8.3)
+
+Для **браузерного** RioGram используется отдельный транспорт — не PhantomProxy/StealthGate.
+
+| | Native (этот документ) | Web |
+|---|------------------------|-----|
+| Протокол | Fake TLS MTProto | Browser WSS |
+| Сервер | PhantomProxy / StealthGate | `riogram-wss-proxy` |
+| Edge | RU VPS :15443 | RU Nginx :443 |
+
+Подробнее: [WEB_PROXY.md](WEB_PROXY.md), [WEB_TRANSPORT.md](WEB_TRANSPORT.md), [WEB_INFRA.md](WEB_INFRA.md).
+
 ## Связанные документы
 
+- [Web WSS proxy (§8.3)](WEB_PROXY.md)
+- [Web infrastructure (§8.4)](WEB_INFRA.md)
 - [Патчи TDLib](TDLIB_PATCHES.md)
 - [Быстрый старт](QUICKSTART.md)

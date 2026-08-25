@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,6 +6,7 @@ import '../../core/auth/auth_manager.dart';
 import '../../core/media/media_cache_manager.dart';
 import '../../core/navigation/telegram_routes.dart';
 import '../../core/proxy/proxy_manager.dart';
+import '../../core/proxy/web_proxy_manager.dart';
 import '../../core/theme/theme_manager.dart';
 import '../../core/theme/theme_preferences.dart';
 import '../../core/theme/telegram_theme.dart';
@@ -13,6 +15,7 @@ import '../../models/proxy_models.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../../widgets/storage_settings_section.dart';
 import '../../widgets/telegram_settings_tile.dart';
+import '../../widgets/web_socket_proxy_settings.dart';
 import '../profile/own_profile_screen.dart';
 import 'accounts_screen.dart';
 import 'ui_customization_settings_screen.dart';
@@ -31,6 +34,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final proxyManager = context.watch<ProxyManager?>();
+    final webProxyManager = context.watch<WebProxyManager?>();
     final themeManager = context.watch<ThemeManager>();
     final mediaCache = context.watch<MediaCacheManager?>();
     final profile = context.watch<ProfileManager>();
@@ -90,7 +94,9 @@ class SettingsScreen extends StatelessWidget {
         ),
         if (mediaCache != null) const StorageSettingsSection(),
         const TelegramSettingsSectionHeader('Прокси'),
-        if (proxyManager == null)
+        if (kIsWeb && webProxyManager != null)
+          WebSocketProxySettings(manager: webProxyManager)
+        else if (proxyManager == null)
           TelegramSettingsGroup(
             children: const [
               TelegramSettingsTile(

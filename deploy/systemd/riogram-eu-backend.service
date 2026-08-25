@@ -1,0 +1,16 @@
+[Unit]
+Description=RioGram EU backend nginx (static + WSS proxy router)
+After=network-online.target riogram-wss-proxy.service
+Wants=network-online.target
+
+[Service]
+Type=forking
+PIDFile=/run/riogram-eu-backend.pid
+ExecStartPre=/usr/sbin/nginx -t -c /etc/riogram/nginx-eu-backend.conf
+ExecStart=/usr/sbin/nginx -c /etc/riogram/nginx-eu-backend.conf
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s QUIT $MAINPID
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

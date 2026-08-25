@@ -137,7 +137,7 @@ class TlsHello {
     }
   };
 
-  static const TlsHello &get_for_profile(dpi_bypass::BrowserProfile profile) {
+  static const TlsHello &get_for_profile(dpi_bypass::TlsProfile profile) {
     static const TlsHello chrome = [] {
       TlsHello res;
       res.ops_ = build_chrome_ops();
@@ -159,31 +159,49 @@ class TlsHello {
       res.grease_size_ = 7;
       return res;
     }();
+    static const TlsHello vk = [] {
+      TlsHello res;
+      res.ops_ = build_vk_ops();
+      return res;
+    }();
+    static const TlsHello gosuslugi = [] {
+      TlsHello res;
+      res.ops_ = build_gosuslugi_ops();
+      return res;
+    }();
 
     switch (profile) {
-      case dpi_bypass::BrowserProfile::Firefox:
+      case dpi_bypass::TlsProfile::Firefox:
         return firefox;
-      case dpi_bypass::BrowserProfile::Yandex:
+      case dpi_bypass::TlsProfile::Yandex:
         return yandex;
-      case dpi_bypass::BrowserProfile::Safari:
+      case dpi_bypass::TlsProfile::Safari:
         return safari;
-      case dpi_bypass::BrowserProfile::Chrome:
+      case dpi_bypass::TlsProfile::Vk:
+        return vk;
+      case dpi_bypass::TlsProfile::Gosuslugi:
+        return gosuslugi;
+      case dpi_bypass::TlsProfile::Chrome:
       default:
         return chrome;
     }
   }
 
-  static const TlsHello &get_default() {
+  // DPI_BYPASS: выбор ClientHello по SNI из ee-секрета (Yandex / VK / Gosuslugi / generic).
+  static const TlsHello &get_for_request(Slice domain) {
     if (dpi_bypass::kDpiBypassStableProxyMode) {
-      static const TlsHello stable = [] {
-        TlsHello res;
-        res.ops_ = build_stable_proxy_ops();
-        return res;
-      }();
-      return stable;
+      auto family = dpi_bypass::detect_service_family(domain);
+      if (family == dpi_bypass::ServiceFamily::Generic) {
+        static const TlsHello stable = [] {
+          TlsHello res;
+          res.ops_ = build_stable_proxy_ops();
+          return res;
+        }();
+        return stable;
+      }
+      return get_for_profile(dpi_bypass::pick_profile_for_domain(domain));
     }
-    // DPI_BYPASS: случайный браузерный профиль для полного bypass-режима.
-    return get_for_profile(dpi_bypass::pick_random_profile());
+    return get_for_profile(dpi_bypass::get_effective_profile(domain));
   }
 
  private:
@@ -290,6 +308,82 @@ class TlsHello {
       }
     }
     return ops;
+  }
+
+  // DPI_BYPASS: VK — Chrome-подобный профиль с h2 ALPN, без ECH (как vk.com / userapi.com).
+  static std::vector<Op> build_vk_ops() {
+    return {
+        Op::str("\x16\x03\x01"),
+        Op::begin_scope(),
+        Op::str("\x01\x00"),
+        Op::begin_scope(),
+        Op::str("\x03\x03"),
+        Op::zero(32),
+        Op::str("\x20"),
+        Op::random(32),
+        Op::str("\x00\x20"),
+        Op::grease(0),
+        Op::str("\x13\x01\x13\x02\x13\x03\xc0\x2b\xc0\x2f\xc0\x2c\xc0\x30\xcc\xa9\xcc\xa8\xc0\x13\xc0\x14\x00\x9c\x00"
+                "\x9d\x00\x2f\x00\x35\x01\x00"),
+        Op::begin_scope(),
+        Op::grease(2),
+        Op::str("\x00\x00"),
+        Op::permutation(
+            {vector<Op>{Op::str("\x00\x00"), Op::begin_scope(), Op::begin_scope(), Op::str("\x00"), Op::begin_scope(),
+                        Op::domain(), Op::end_scope(), Op::end_scope(), Op::end_scope()},
+             vector<Op>{Op::str("\x00\x05\x00\x05\x01\x00\x00\x00\x00")},
+             vector<Op>{Op::str("\x00\x0a\x00\x0c\x00\x0a"), Op::grease(4),
+                        Op::str("\x11\xec\x00\x1d\x00\x17\x00\x18")},
+             vector<Op>{Op::str("\x00\x0b\x00\x02\x01\x00")},
+             vector<Op>{Op::str("\x00\x0d\x00\x12\x00\x10\x04\x03\x08\x04\x04\x01\x05\x03\x08\x05\x05\x01\x08\x06\x06\x01")},
+             vector<Op>{Op::str("\x00\x10\x00\x0e\x00\x0c\x02\x68\x32\x08\x68\x74\x74\x70\x2f\x31\x2e\x31")},
+             vector<Op>{Op::str("\x00\x12\x00\x00")}, vector<Op>{Op::str("\x00\x17\x00\x00")},
+             vector<Op>{Op::str("\x00\x2b\x00\x07\x06"), Op::grease(6), Op::str("\x03\x04\x03\x03")},
+             vector<Op>{Op::str("\x00\x2d\x00\x02\x01\x01")},
+             vector<Op>{Op::str("\xff\x01\x00\x01\x00")}}),
+        Op::grease(3),
+        Op::str("\x00\x01\x00"),
+        Op::padding(),
+        Op::end_scope(),
+        Op::end_scope(),
+        Op::end_scope()};
+  }
+
+  // DPI_BYPASS: Госуслуги — консервативный профиль, HTTP/1.1 ALPN, без ECH.
+  static std::vector<Op> build_gosuslugi_ops() {
+    return {
+        Op::str("\x16\x03\x01"),
+        Op::begin_scope(),
+        Op::str("\x01\x00"),
+        Op::begin_scope(),
+        Op::str("\x03\x03"),
+        Op::zero(32),
+        Op::str("\x20"),
+        Op::random(32),
+        Op::str("\x00\x20"),
+        Op::grease(0),
+        Op::str("\x13\x01\x13\x02\x13\x03\xc0\x2b\xc0\x2f\xc0\x2c\xc0\x30\xcc\xa9\xcc\xa8\xc0\x13\xc0\x14\x00\x9c\x00"
+                "\x9d\x00\x2f\x00\x35\x01\x00"),
+        Op::begin_scope(),
+        Op::grease(2),
+        Op::str("\x00\x00"),
+        Op::permutation(
+            {vector<Op>{Op::str("\x00\x00"), Op::begin_scope(), Op::begin_scope(), Op::str("\x00"), Op::begin_scope(),
+                        Op::domain(), Op::end_scope(), Op::end_scope(), Op::end_scope()},
+             vector<Op>{Op::str("\x00\x05\x00\x05\x01\x00\x00\x00\x00")},
+             vector<Op>{Op::str("\x00\x10\x00\x0b\x00\x09\x08\x68\x74\x74\x70\x2f\x31\x2e\x31")},
+             vector<Op>{Op::str("\x00\x0b\x00\x02\x01\x00")},
+             vector<Op>{Op::str("\x00\x0d\x00\x12\x00\x10\x04\x03\x08\x04\x04\x01\x05\x03\x08\x05\x05\x01\x08\x06\x06\x01")},
+             vector<Op>{Op::str("\x00\x12\x00\x00")}, vector<Op>{Op::str("\x00\x17\x00\x00")},
+             vector<Op>{Op::str("\x00\x2b\x00\x07\x06"), Op::grease(6), Op::str("\x03\x04\x03\x03")},
+             vector<Op>{Op::str("\x00\x2d\x00\x02\x01\x01")},
+             vector<Op>{Op::str("\xff\x01\x00\x01\x00")}}),
+        Op::grease(3),
+        Op::str("\x00\x01\x00"),
+        Op::padding(),
+        Op::end_scope(),
+        Op::end_scope(),
+        Op::end_scope()};
   }
 
   // DPI_BYPASS: Yandex — HTTP/1.1 ALPN, без ECH.
@@ -723,7 +817,8 @@ class TlsObfusaction {
     CHECK(!domain.empty());
     CHECK(secret.size() == 16);
 
-    auto &hello = TlsHello::get_default();
+    dpi_bypass::maybe_rotate_profile_on_timer(domain);
+    auto &hello = TlsHello::get_for_request(domain);
     TlsHelloContext context(hello.get_grease_size(), std::move(domain));
     TlsHelloCalcLength calc_length;
     for (auto &op : hello.get_ops()) {
@@ -770,6 +865,7 @@ Status TlsInit::wait_hello_response() {
     string response_prefix(prefix.size(), '\0');
     it.advance(prefix.size(), response_prefix);
     if (prefix != response_prefix) {
+      dpi_bypass::on_tls_handshake_failure(username_);
       return Status::Error("First part of response to hello is invalid");
     }
 
@@ -789,6 +885,7 @@ Status TlsInit::wait_hello_response() {
   string hash_dest(32, '\0');
   hmac_sha256(password_, PSLICE() << hello_rand_ << response.as_slice(), hash_dest);
   if (hash_dest != response_rand) {
+    dpi_bypass::on_tls_handshake_failure(username_);
     return Status::Error("Response hash mismatch");
   }
 
