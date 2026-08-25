@@ -123,6 +123,7 @@ class CallScreen extends StatelessWidget {
             const SizedBox(height: 32),
           ],
         ),
+      ),
     ]);
   }
   static String? _avatarPathForUser(BuildContext c, int id) {
@@ -147,9 +148,8 @@ class GroupCallScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final engine = context.read<CallManager>().signalingBridge.mediaEngine;
 
-    final avatarPath = isIncoming ? _avatarPathForUser(context, call.userId) : null;
     return Stack(fit: StackFit.expand, children: [
-      if (isIncoming) CallIncomingBackground(title: name, avatarLocalPath: avatarPath, colorKey: '${call.userId}') else const ColoredBox(color: TelegramColors.callBackground),
+      const ColoredBox(color: TelegramColors.callBackground),
       SafeArea(
         child: Column(
           children: [
@@ -242,7 +242,7 @@ class GroupCallScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ]);
   }
 }
 
