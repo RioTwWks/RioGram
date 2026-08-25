@@ -95,20 +95,30 @@ final class ChatListFolder extends ChatListKey {
       };
 }
 
+/// Источник позиции чата в списке (для фильтрации рекламы).
+enum ChatPositionSource {
+  normal,
+  sponsored,
+  publicServiceAnnouncement,
+}
+
 /// Позиция чата в конкретном списке.
 class ChatPositionInfo {
   const ChatPositionInfo({
     required this.list,
     required this.order,
     required this.isPinned,
+    this.source = ChatPositionSource.normal,
   });
 
   final ChatListKey list;
   final int order;
   final bool isPinned;
+  final ChatPositionSource source;
 
   factory ChatPositionInfo.fromTdlib(Map<String, dynamic> json) {
     final listRaw = json['list'] as Map<String, dynamic>? ?? {};
+    final sourceRaw = json['source'] as Map<String, dynamic>?;
     return ChatPositionInfo(
       list: ChatListKey.fromTdlib(listRaw),
       order: tdInt(
@@ -118,7 +128,17 @@ class ChatPositionInfo {
           ) ??
           0,
       isPinned: json['is_pinned'] as bool? ?? false,
+      source: _parseSource(sourceRaw),
     );
+  }
+
+  static ChatPositionSource _parseSource(Map<String, dynamic>? source) {
+    return switch (source?['@type']) {
+      'chatSourceMtprotoProxy' => ChatPositionSource.sponsored,
+      'chatSourcePublicServiceAnnouncement' =>
+        ChatPositionSource.publicServiceAnnouncement,
+      _ => ChatPositionSource.normal,
+    };
   }
 }
 

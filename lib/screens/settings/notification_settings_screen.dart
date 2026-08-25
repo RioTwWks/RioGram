@@ -9,6 +9,7 @@ import '../../widgets/telegram_settings_tile.dart';
 import 'password_settings_screen.dart';
 import 'privacy_settings_screen.dart';
 import 'riogram_features_settings_screen.dart';
+import 'security_privacy_settings_screen.dart';
 
 class NotificationSettingsScreen extends StatelessWidget {
   const NotificationSettingsScreen({super.key});
@@ -89,6 +90,16 @@ class SettingsNavigationSection extends StatelessWidget {
                 TelegramRoutes.push(
                   context,
                   const RioGramFeaturesSettingsScreen(),
+                );
+              },
+            ),
+            TelegramSettingsTile(
+              title: 'Безопасность и приватность',
+              subtitle: 'Local Premium, реклама, телеметрия',
+              onTap: () {
+                TelegramRoutes.push(
+                  context,
+                  const SecurityPrivacySettingsScreen(),
                 );
               },
             ),
