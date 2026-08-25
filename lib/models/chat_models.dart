@@ -519,6 +519,8 @@ class ChatSummary {
     required this.title,
     this.lastMessage,
     this.lastMessageDate,
+    this.lastMessageIsOutgoing = false,
+    this.lastMessageDeliveryStatus,
     this.unreadCount = 0,
     this.avatarFileId,
     this.avatarLocalPath,
@@ -541,6 +543,8 @@ class ChatSummary {
   final String title;
   final String? lastMessage;
   final DateTime? lastMessageDate;
+  final bool lastMessageIsOutgoing;
+  final MessageDeliveryStatus? lastMessageDeliveryStatus;
   final int unreadCount;
   final int? avatarFileId;
   final String? avatarLocalPath;
@@ -608,6 +612,9 @@ class ChatSummary {
     String? title,
     String? lastMessage,
     DateTime? lastMessageDate,
+    bool? lastMessageIsOutgoing,
+    MessageDeliveryStatus? lastMessageDeliveryStatus,
+    bool clearLastMessageDeliveryStatus = false,
     int? unreadCount,
     int? avatarFileId,
     String? avatarLocalPath,
@@ -631,6 +638,10 @@ class ChatSummary {
       title: title ?? this.title,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageDate: lastMessageDate ?? this.lastMessageDate,
+      lastMessageIsOutgoing: lastMessageIsOutgoing ?? this.lastMessageIsOutgoing,
+      lastMessageDeliveryStatus: clearLastMessageDeliveryStatus
+          ? null
+          : (lastMessageDeliveryStatus ?? this.lastMessageDeliveryStatus),
       unreadCount: unreadCount ?? this.unreadCount,
       avatarFileId: avatarFileId ?? this.avatarFileId,
       avatarLocalPath: avatarLocalPath ?? this.avatarLocalPath,
