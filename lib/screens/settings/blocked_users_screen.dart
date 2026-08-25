@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/user/profile_manager.dart';
 import '../../widgets/chat_avatar.dart';
 import '../profile/user_profile_screen.dart';
+import '../../core/navigation/telegram_routes.dart';
 
 /// Список заблокированных пользователей.
 class BlockedUsersScreen extends StatefulWidget {
@@ -53,13 +54,7 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
                             profile.unblockUser(blocked.userId),
                       ),
                       onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => UserProfileScreen(
-                              userId: blocked.userId,
-                            ),
-                          ),
-                        );
+                        TelegramRoutes.push(context, UserProfileScreen(userId: blocked.userId));
                       },
                     );
                   },

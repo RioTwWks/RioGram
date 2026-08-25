@@ -5,6 +5,7 @@ import '../../core/user/contact_manager.dart';
 import '../../core/user/profile_manager.dart';
 import '../../widgets/contact_list_tile.dart';
 import '../profile/user_profile_screen.dart';
+import '../../core/navigation/telegram_routes.dart';
 
 /// Список контактов Telegram с поиском и импортом.
 class ContactsScreen extends StatefulWidget {
@@ -164,11 +165,7 @@ class _ContactsBody extends StatelessWidget {
         return ContactListTile(
           user: displayUser,
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => UserProfileScreen(userId: user.id),
-              ),
-            );
+            TelegramRoutes.push(context, UserProfileScreen(userId: user.id));
           },
         );
       },

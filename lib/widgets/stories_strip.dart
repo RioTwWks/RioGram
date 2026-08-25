@@ -7,6 +7,7 @@ import '../models/story_models.dart';
 import '../screens/stories/post_story_screen.dart';
 import '../screens/stories/story_viewer_screen.dart';
 import 'story_avatar_ring.dart';
+import '../core/navigation/telegram_routes.dart';
 
 /// Горизонтальная лента историй над списком чатов.
 class StoriesStrip extends StatefulWidget {
@@ -79,11 +80,7 @@ class _StoriesStripState extends State<StoriesStrip> {
 
   void _openPostStory(BuildContext context) {
     context.read<StoryManager>().preparePostStory();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const PostStoryScreen(),
-      ),
-    );
+    TelegramRoutes.push(context, const PostStoryScreen());
   }
 
   void _openPosterStories(BuildContext context, StoryPosterSummary poster) {
@@ -99,15 +96,7 @@ class _StoriesStripState extends State<StoriesStrip> {
       (story) => story.storyId > poster.maxReadStoryId,
       orElse: () => poster.stories.first,
     );
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => StoryViewerScreen(
-          posterChatId: poster.chatId,
-          initialStoryId: startStory.storyId,
-          posterTitle: title,
-        ),
-      ),
-    );
+    TelegramRoutes.fade(context, StoryViewerScreen(posterChatId: poster.chatId, initialStoryId: startStory.storyId, posterTitle: title));
   }
 }
 
