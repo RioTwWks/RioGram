@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -45,40 +47,14 @@ class RioGramApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _BootstrapScope(
-      config: config,
-      child: Consumer2<ThemeManager, AppLockManager>(
-        builder: (context, themeManager, appLock, _) {
-          if (!themeManager.isLoaded || !appLock.isLoaded) {
-            return const MaterialApp(
-              home: Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              ),
-            );
-          }
-
-          return MaterialApp(
-            title: 'RioGram',
-            theme: themeManager.lightTheme,
-            darkTheme: themeManager.darkTheme,
-            themeMode: themeManager.themeMode,
-            home: AppLockOverlay(
-              child: const CallOverlayHost(
-                child: _AccountScopedApp(),
-              ),
-            ),
-          );
-        },
-      ),
-    );
+    return _BootstrapScope(config: config);
   }
 }
 
 class _BootstrapScope extends StatefulWidget {
-  const _BootstrapScope({required this.config, required this.child});
+  const _BootstrapScope({required this.config});
 
   final AppConfig config;
-  final Widget child;
 
   @override
   State<_BootstrapScope> createState() => _BootstrapScopeState();
@@ -89,17 +65,31 @@ class _BootstrapScopeState extends State<_BootstrapScope> {
   late final AppLockManager _appLockManager;
   late final AccountManager _accountManager;
   var _scopeGeneration = 0;
+  var _isBootstrapReady = false;
 
   @override
   void initState() {
     super.initState();
-    _themeManager = ThemeManager()..load();
-    _appLockManager = AppLockManager()..load();
+    _themeManager = ThemeManager();
+    _appLockManager = AppLockManager();
     _accountManager = AccountManager(
       onAccountChanged: () {
         setState(() => _scopeGeneration += 1);
       },
-    )..load();
+    );
+    unawaited(_loadBootstrap());
+  }
+
+  Future<void> _loadBootstrap() async {
+    await Future.wait([
+      _themeManager.load(),
+      _appLockManager.load(),
+      _accountManager.load(),
+    ]);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isBootstrapReady = true);
   }
 
   @override
@@ -111,7 +101,7 @@ class _BootstrapScopeState extends State<_BootstrapScope> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_accountManager.isLoaded) {
+    if (!_isBootstrapReady) {
       return const MaterialApp(
         home: Scaffold(body: Center(child: CircularProgressIndicator())),
       );
@@ -132,7 +122,21 @@ class _BootstrapScopeState extends State<_BootstrapScope> {
           accountDirectorySuffix: _accountManager.directorySuffixFor(
             _accountManager.activeAccountId,
           ),
-          child: widget.child,
+          child: Consumer2<ThemeManager, AppLockManager>(
+            builder: (context, themeManager, appLock, _) {
+              return MaterialApp(
+                title: 'RioGram',
+                theme: themeManager.lightTheme,
+                darkTheme: themeManager.darkTheme,
+                themeMode: themeManager.themeMode,
+                home: AppLockOverlay(
+                  child: const CallOverlayHost(
+                    child: _AccountScopedApp(),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
