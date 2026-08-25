@@ -109,14 +109,16 @@ PROXY_PHANTOM_SECRET=ee40197aeb7c14b99661503f76fce2ca67626f6c2e636f6d
 В `td/td/mtproto/dpi_bypass/DpiBypass.h`:
 
 ```cpp
-constexpr bool kDpiBypassStableProxyMode = true;  // Yandex без ECH, без фрагментации ClientHello
+constexpr bool kDpiBypassStableProxyMode = true;  // профиль по SNI-домену, без фрагментации
 ```
 
-- `true` (по умолчанию) — стабильный handshake с PhantomProxy/StealthGate (профиль Yandex, **без ECH**).
-- `false` — полный DPI bypass: случайный профиль (Chrome/Firefox/Yandex/Safari) + фрагментация ClientHello.
+- `true` (по умолчанию) — стабильный handshake с PhantomProxy/StealthGate: профиль ClientHello выбирается по домену из ee-секрета (Yandex / VK / Госуслуги / Chrome для прочих), **без ECH** и фрагментации.
+- `false` — полный DPI bypass: ротация профилей + фрагментация ClientHello + DRS.
+
+Подробнее о профилях маскировки и Probe Resistance: [STEALTH.md](STEALTH.md).
 
 > **Важно:** PhantomProxy с политикой `reject_fronting` отклоняет ClientHello с ECH (расширение `0xfe0d`).
-> Профиль Chrome в TDLib содержит ECH и не подходит для stable mode. Используется Yandex-профиль.
+> Профили Yandex, VK и Gosuslugi не содержат ECH и подходят для stable mode.
 
 После смены флага пересобрать TDLib:
 
