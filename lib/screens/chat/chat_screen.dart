@@ -36,6 +36,7 @@ import 'chat_message_search_screen.dart';
 import 'chat_info_screen.dart';
 import 'message_thread_screen.dart';
 import '../webapp/web_app_screen.dart';
+import '../../core/navigation/telegram_routes.dart';
 
 /// Экран переписки: форматирование, ответ, пересылка, редактирование, удаление.
 class ChatScreen extends StatefulWidget {
@@ -130,15 +131,7 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
       if (answer.url.isNotEmpty) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => WebAppScreen(
-              url: answer.url,
-              launchId: 0,
-              title: 'Бот',
-            ),
-          ),
-        );
+        TelegramRoutes.push(context, WebAppScreen(url: answer.url, launchId: 0, title: 'Бот'));
       }
     }
 
@@ -146,15 +139,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final launchId = bot.pendingWebAppLaunchId;
     if (webUrl != null && launchId != null) {
       bot.clearPendingWebApp();
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => WebAppScreen(
-            url: webUrl,
-            launchId: launchId,
-            title: 'Mini App',
-          ),
-        ),
-      );
+      TelegramRoutes.push(context, WebAppScreen(url: webUrl, launchId: launchId, title: 'Mini App'));
     }
 
     final inline = bot.inlineQueryState;
@@ -432,14 +417,7 @@ class _ChatScreenState extends State<ChatScreen> {
       initialIndex = 0;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => MediaViewerScreen(
-          items: items,
-          initialIndex: initialIndex,
-        ),
-      ),
-    );
+    TelegramRoutes.fade(context, MediaViewerScreen(items: items, initialIndex: initialIndex));
   }
 
   Future<void> _pickSchedule() async {
@@ -822,15 +800,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _openComments(ChatMessage message) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => MessageThreadScreen(
-          channelChatId: widget.chatId,
-          channelMessageId: message.id,
-          postPreview: message.content.preview,
-        ),
-      ),
-    );
+    await TelegramRoutes.push(context, MessageThreadScreen(channelChatId: widget.chatId, channelMessageId: message.id, postPreview: message.content.preview));
   }
 
   Future<void> _subscribeToChannel(ChatManager manager, ChatSummary chat) async {
@@ -927,11 +897,7 @@ class _ChatScreenState extends State<ChatScreen> {
             : InkWell(
                 onTap: widget.forumTopicId == null
                     ? () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => ChatInfoScreen(chatId: widget.chatId),
-                          ),
-                        );
+                        TelegramRoutes.push(context, ChatInfoScreen(chatId: widget.chatId));
                       }
                     : null,
                 child: Column(
@@ -1034,15 +1000,7 @@ class _ChatScreenState extends State<ChatScreen> {
               tooltip: 'Поиск в чате',
               icon: const Icon(Icons.search),
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ChatMessageSearchScreen(
-                      chatId: widget.chatId,
-                      chatTitle: chat?.title,
-                      forumTopicId: widget.forumTopicId,
-                    ),
-                  ),
-                );
+                TelegramRoutes.push(context, ChatMessageSearchScreen(chatId: widget.chatId, chatTitle: chat?.title, forumTopicId: widget.forumTopicId));
               },
             ),
           if (!selectionMode && widget.forumTopicId == null)
@@ -1050,11 +1008,7 @@ class _ChatScreenState extends State<ChatScreen> {
               tooltip: 'Информация',
               icon: const Icon(Icons.info_outline),
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ChatInfoScreen(chatId: widget.chatId),
-                  ),
-                );
+                TelegramRoutes.push(context, ChatInfoScreen(chatId: widget.chatId));
               },
             ),
           if (selectionMode) ...[

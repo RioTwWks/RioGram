@@ -732,18 +732,18 @@ MVP — прочный фундамент. Ниже — направления, 
 ### 9.5. Навигация по платформам
 
 #### Mobile (Android / iOS)
-- [ ] Нижний tab bar: **Чаты** | **Контакты** | **Настройки** (или drawer hamburger — как в выбранном референсе)
-- [ ] Tab bar: сплошной фон, иконки outline, активная вкладка — accent blue
-- [ ] iOS: без прозрачного UITabBar blur (если platform channel — `isTranslucent: false`)
+- [x] Нижний tab bar: **Чаты** | **Контакты** | **Настройки** (или drawer hamburger — как в выбранном референсе)
+- [x] Tab bar: сплошной фон, иконки outline, активная вкладка — accent blue
+- [x] iOS: без прозрачного UITabBar blur (если platform channel — `isTranslucent: false`)
 
 #### Desktop (Windows / macOS / Linux)
-- [ ] Три колонки: узкая (папки/иконки) | список чатов ~340px | переписка flex
-- [ ] Минимальная ширина окна ~800px; при сужении — как mobile master-detail
-- [ ] Title bar: нативный или кастомный, без glass
+- [x] Три колонки: узкая (папки/иконки) | список чатов ~340px | переписка flex
+- [x] Минимальная ширина окна ~800px; при сужении — как mobile master-detail
+- [x] Title bar: нативный или кастомный, без glass
 
 #### Общее
-- [ ] Переходы: slide horizontal для push-экранов, fade 150–200ms
-- [ ] Ripple на Android, highlight на iOS — платформенные ink effects
+- [x] Переходы: slide horizontal для push-экранов, fade 150–200ms
+- [x] Ripple на Android, highlight на iOS — платформенные ink effects
 
 ---
 

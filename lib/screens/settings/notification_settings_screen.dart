@@ -6,6 +6,7 @@ import '../../core/notifications/notification_settings_manager.dart';
 import '../../widgets/notification_settings_section.dart';
 import 'password_settings_screen.dart';
 import 'privacy_settings_screen.dart';
+import '../../core/navigation/telegram_routes.dart';
 
 /// Экран глобальных настроек уведомлений.
 class NotificationSettingsScreen extends StatelessWidget {
@@ -83,11 +84,7 @@ class SettingsNavigationSection extends StatelessWidget {
           title: const Text('Уведомления'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const NotificationSettingsScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const NotificationSettingsScreen());
           },
         ),
         ListTile(
@@ -96,11 +93,7 @@ class SettingsNavigationSection extends StatelessWidget {
           title: const Text('Приватность'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const PrivacySettingsScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const PrivacySettingsScreen());
           },
         ),
         ListTile(
@@ -109,11 +102,7 @@ class SettingsNavigationSection extends StatelessWidget {
           title: const Text('Облачный пароль (2FA)'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const PasswordSettingsScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const PasswordSettingsScreen());
           },
         ),
         ListTile(
@@ -122,11 +111,7 @@ class SettingsNavigationSection extends StatelessWidget {
           title: const Text('Язык'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const LocaleSettingsScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const LocaleSettingsScreen());
           },
         ),
         const SizedBox(height: 8),

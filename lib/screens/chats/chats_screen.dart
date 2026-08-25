@@ -8,6 +8,8 @@ import '../../core/search/search_manager.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/stories_strip.dart';
 import '../../widgets/chat_desktop_shortcuts.dart';
+import '../../core/navigation/telegram_routes.dart';
+import '../../widgets/mobile_tab_bar.dart';
 import '../../widgets/chat_folder_sidebar.dart';
 import '../../widgets/chat_list_tile.dart';
 import '../../widgets/chat_search_panel.dart';
@@ -36,12 +38,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
   final _searchFocusNode = FocusNode();
 
   /// Master-detail с 720px.
-  static const _wideBreakpoint = 720.0;
+  static const _wideBreakpoint = TelegramLayoutBreakpoints.mobile;
 
   /// Три колонки: папки | чаты | переписка (как Telegram Desktop).
-  static const _threeColumnBreakpoint = 840.0;
+  static const _threeColumnBreakpoint = TelegramLayoutBreakpoints.threeColumn;
 
-  static const _chatListWidth = 340.0;
+  static const _chatListWidth = TelegramLayoutBreakpoints.chatListWidth;
 
   @override
   void dispose() {
@@ -139,28 +141,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
             showFolderTabs: true,
           ),
       },
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: MobileTabBar(
         selectedIndex: _mobileTabIndex,
         onDestinationSelected: (index) {
           setState(() => _mobileTabIndex = index);
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Чаты',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.contacts_outlined),
-            selectedIcon: Icon(Icons.contacts),
-            label: 'Контакты',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Настройки',
-          ),
-        ],
       ),
     );
   }
@@ -345,11 +330,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     _openChat(context, chatManager, chatId);
                   },
                   onUserTap: (userId) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => UserProfileScreen(userId: userId),
-                      ),
-                    );
+                    TelegramRoutes.push(context, UserProfileScreen(userId: userId));
                   },
                 )
               : _ChatsList(
@@ -500,11 +481,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         return;
       }
 
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ForumTopicsScreen(chatId: chatId),
-        ),
-      );
+      TelegramRoutes.push(context, ForumTopicsScreen(chatId: chatId));
       return;
     }
 
@@ -518,27 +495,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChatScreen(chatId: chatId),
-      ),
-    );
+    TelegramRoutes.push(context, ChatScreen(chatId: chatId));
   }
 
   void _openSettings(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const SettingsScreen(),
-      ),
-    );
+    TelegramRoutes.push(context, const SettingsScreen());
   }
 
   void _openContacts(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const ContactsScreen(),
-      ),
-    );
+    TelegramRoutes.push(context, const ContactsScreen());
   }
 
   PreferredSizeWidget _buildAppBar(

@@ -18,6 +18,7 @@ import 'app_lock_settings_screen.dart';
 import 'change_phone_screen.dart';
 import 'blocked_users_screen.dart';
 import 'notification_settings_screen.dart';
+import '../../core/navigation/telegram_routes.dart';
 
 /// Настройки: профиль, внешний вид, прокси, выход из аккаунта.
 class SettingsScreen extends StatelessWidget {
@@ -43,11 +44,7 @@ class SettingsScreen extends StatelessWidget {
           title: const Text('Заблокированные пользователи'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const BlockedUsersScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const BlockedUsersScreen());
           },
         ),
         const Divider(height: 32),
@@ -87,11 +84,7 @@ class SettingsScreen extends StatelessWidget {
           title: const Text('Аккаунты'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const AccountsScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const AccountsScreen());
           },
         ),
         ListTile(
@@ -100,11 +93,7 @@ class SettingsScreen extends StatelessWidget {
           title: const Text('Активные сессии'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const ActiveSessionsScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const ActiveSessionsScreen());
           },
         ),
         ListTile(
@@ -113,11 +102,7 @@ class SettingsScreen extends StatelessWidget {
           title: const Text('Смена номера'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const ChangePhoneScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const ChangePhoneScreen());
           },
         ),
         ListTile(
@@ -126,11 +111,7 @@ class SettingsScreen extends StatelessWidget {
           title: const Text('Блокировка приложения'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const AppLockSettingsScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const AppLockSettingsScreen());
           },
         ),
         const SizedBox(height: 8),
@@ -207,11 +188,7 @@ class _ProfileHeader extends StatelessWidget {
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const OwnProfileScreen(),
-            ),
-          );
+          TelegramRoutes.push(context, const OwnProfileScreen());
         },
       ),
     );
