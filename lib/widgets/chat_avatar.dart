@@ -2,13 +2,15 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_theme.dart';
+
 /// Аватар чата: локальный файл или буква из названия.
 class ChatAvatar extends StatelessWidget {
   const ChatAvatar({
     super.key,
     required this.title,
     this.localPath,
-    this.radius = 20,
+    this.radius = TelegramRadii.avatarList,
   });
 
   final String title;
