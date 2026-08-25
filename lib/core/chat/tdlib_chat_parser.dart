@@ -32,11 +32,18 @@ class TdlibChatParser {
     final lastMessage = chat['last_message'] as Map<String, dynamic>?;
     String? preview;
     DateTime? date;
+    var lastMessageIsOutgoing = false;
+    MessageDeliveryStatus? lastMessageDeliveryStatus;
     if (lastMessage != null) {
       final content = lastMessage['content'] as Map<String, dynamic>? ?? {};
       preview = MessageContent.fromTdlib(content).preview;
       final dateSeconds = tdIntOr(lastMessage['date']);
       date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
+      lastMessageIsOutgoing = lastMessage['is_outgoing'] as bool? ?? false;
+      lastMessageDeliveryStatus = MessageEnrichmentParser.parseDeliveryStatus(
+        lastMessage,
+        lastReadOutboxMessageId: tdIntOr(chat['last_read_outbox_message_id']),
+      );
     }
 
     final avatar = parseAvatar(chat['photo'] as Map<String, dynamic>?);
@@ -55,6 +62,8 @@ class TdlibChatParser {
       title: title,
       lastMessage: preview,
       lastMessageDate: date,
+      lastMessageIsOutgoing: lastMessageIsOutgoing,
+      lastMessageDeliveryStatus: lastMessageDeliveryStatus,
       unreadCount: tdIntOr(chat['unread_count']),
       avatarFileId: avatar.fileId,
       avatarLocalPath: avatar.localPath,

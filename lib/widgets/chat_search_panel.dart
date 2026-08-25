@@ -101,21 +101,21 @@ class SearchFilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: SearchMessageFilterKind.values.map((filter) {
-          final isSelected = selected == filter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: TelegramFlatChip(
-              label: filter.label,
-              selected: isSelected,
-              onTap: () => onSelected(filter),
-            ),
-          );
-        }).toList(),
+    final tg = context.telegramTheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tg.chatListDivider, width: 1))),
+      child: SizedBox(
+        height: 44,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          itemCount: SearchMessageFilterKind.values.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 0),
+          itemBuilder: (context, index) {
+            final filter = SearchMessageFilterKind.values[index];
+            return TelegramUnderlineTab(label: filter.label, selected: selected == filter, onTap: () => onSelected(filter));
+          },
+        ),
       ),
     );
   }
