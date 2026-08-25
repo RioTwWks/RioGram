@@ -5,9 +5,18 @@
   let onUpdateCallback = null;
   let onTransportStateCallback = null;
 
+  /** UMD webpack export: library name "tdweb", default export = TdClient */
+  function getTdClientClass() {
+    const lib = window.tdweb;
+    if (!lib) {
+      return undefined;
+    }
+    return lib.default || lib;
+  }
+
   window.RioGramTdlib = {
     isAvailable: function () {
-      return typeof window.TdClient !== 'undefined';
+      return typeof getTdClientClass() === 'function';
     },
 
     isReady: function () {
@@ -15,15 +24,16 @@
     },
 
     create: function (options) {
-      if (typeof window.TdClient === 'undefined') {
+      const TdClient = getTdClientClass();
+      if (typeof TdClient !== 'function') {
         throw new Error(
           'tdweb не загружен. Соберите tdweb (см. docs/WEB_TRANSPORT.md) ' +
-            'и подключите dist/tdweb.js в index.html.',
+            'и подключите tdweb/tdweb.js в index.html.',
         );
       }
 
       onUpdateCallback = options.onUpdate;
-      tdClient = new window.TdClient({
+      tdClient = new TdClient({
         instanceName: options.instanceName || 'riogram',
         jsLogVerbosityLevel: options.jsLogVerbosityLevel || 'warning',
         logVerbosityLevel: options.logVerbosityLevel || 2,
