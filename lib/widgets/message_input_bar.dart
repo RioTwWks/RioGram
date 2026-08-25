@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 import '../models/formatted_text.dart';
+import 'composer_attach_sheet.dart';
 import 'sticker_panel_sheet.dart';
 
 /// Поле ввода сообщения в стиле Telegram: панель, reply/edit, стикеры.
@@ -87,6 +89,33 @@ class _MessageInputBarState extends State<MessageInputBar> {
     _setStickerPanelOpen(!_stickerPanelOpen);
   }
 
+  Future<void> _openAttachSheet() async {
+    final canShowStickerPanel = widget.chatId != null;
+    final action = await ComposerAttachSheet.show(
+      context,
+      showPoll: widget.onPoll != null,
+      showVoice: widget.onVoiceAction != null,
+      showSticker: canShowStickerPanel,
+      scheduledAt: widget.scheduledAt,
+    );
+    if (!mounted || action == null) {
+      return;
+    }
+
+    switch (action) {
+      case ComposerAttachAction.media:
+        widget.onAttach();
+      case ComposerAttachAction.poll:
+        widget.onPoll?.call();
+      case ComposerAttachAction.voice:
+        widget.onVoiceAction?.call();
+      case ComposerAttachAction.sticker:
+        _setStickerPanelOpen(true);
+      case ComposerAttachAction.schedule:
+        widget.onSchedule();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tg = context.telegramTheme;
@@ -146,28 +175,14 @@ class _MessageInputBarState extends State<MessageInputBar> {
                     onEmojiOrKeyboard: canShowStickerPanel
                         ? _toggleStickerPanel
                         : null,
-                    onAttach: widget.onAttach,
-                    onPoll: widget.onPoll,
-                    onVoiceAction: widget.onVoiceAction,
-                    onStickerAction: canShowStickerPanel
-                        ? () => _setStickerPanelOpen(true)
-                        : null,
-                    onSchedule: widget.onSchedule,
-                    scheduledAt: widget.scheduledAt,
+                    onAttach: canShowStickerPanel ? null : _openAttachSheet,
                   ),
                   Expanded(
                     child: _MessageTextField(
                       controller: widget.controller,
                       onSend: widget.onSend,
                       showAttachButton: canShowStickerPanel,
-                      onAttach: widget.onAttach,
-                      onPoll: widget.onPoll,
-                      onVoiceAction: widget.onVoiceAction,
-                      onStickerAction: canShowStickerPanel
-                          ? () => _setStickerPanelOpen(true)
-                          : null,
-                      onSchedule: widget.onSchedule,
-                      scheduledAt: widget.scheduledAt,
+                      onAttach: canShowStickerPanel ? _openAttachSheet : null,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -193,23 +208,13 @@ class _LeftInputButton extends StatelessWidget {
     required this.stickerPanelOpen,
     required this.canShowStickerPanel,
     this.onEmojiOrKeyboard,
-    required this.onAttach,
-    this.onPoll,
-    this.onVoiceAction,
-    this.onStickerAction,
-    required this.onSchedule,
-    this.scheduledAt,
+    this.onAttach,
   });
 
   final bool stickerPanelOpen;
   final bool canShowStickerPanel;
   final VoidCallback? onEmojiOrKeyboard;
-  final VoidCallback onAttach;
-  final VoidCallback? onPoll;
-  final VoidCallback? onVoiceAction;
-  final VoidCallback? onStickerAction;
-  final VoidCallback onSchedule;
-  final DateTime? scheduledAt;
+  final VoidCallback? onAttach;
 
   @override
   Widget build(BuildContext context) {
@@ -219,7 +224,7 @@ class _LeftInputButton extends StatelessWidget {
       return IconButton(
         tooltip: 'Клавиатура',
         onPressed: onEmojiOrKeyboard,
-        icon: Icon(Icons.keyboard, color: tg.textSecondary),
+        icon: Icon(TelegramIcons.keyboard, color: tg.textSecondary),
         visualDensity: VisualDensity.compact,
       );
     }
@@ -228,48 +233,16 @@ class _LeftInputButton extends StatelessWidget {
       return IconButton(
         tooltip: 'Стикеры и GIF',
         onPressed: onEmojiOrKeyboard,
-        icon: Icon(Icons.emoji_emotions_outlined, color: tg.textSecondary),
+        icon: Icon(TelegramIcons.emoji, color: tg.textSecondary),
         visualDensity: VisualDensity.compact,
       );
     }
 
-    return PopupMenuButton<String>(
+    return IconButton(
       tooltip: 'Прикрепить',
-      icon: Icon(Icons.attach_file, color: tg.textSecondary),
-      onSelected: (value) {
-        switch (value) {
-          case 'attach':
-            onAttach();
-          case 'file':
-            onAttach();
-          case 'voice':
-            onVoiceAction?.call();
-          case 'sticker':
-            onStickerAction?.call();
-          case 'poll':
-            onPoll?.call();
-          case 'schedule':
-            onSchedule();
-        }
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(value: 'attach', child: Text('Медиа…')),
-        const PopupMenuItem(value: 'file', child: Text('Файл')),
-        if (onPoll != null)
-          const PopupMenuItem(value: 'poll', child: Text('Опрос')),
-        if (onVoiceAction != null)
-          const PopupMenuItem(value: 'voice', child: Text('Голосовое')),
-        if (onStickerAction != null)
-          const PopupMenuItem(value: 'sticker', child: Text('Стикер')),
-        PopupMenuItem(
-          value: 'schedule',
-          child: Text(
-            scheduledAt != null
-                ? 'Изменить отложенную отправку'
-                : 'Отложить отправку',
-          ),
-        ),
-      ],
+      onPressed: onAttach,
+      icon: Icon(TelegramIcons.attach, color: tg.textSecondary),
+      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -280,22 +253,12 @@ class _MessageTextField extends StatelessWidget {
     required this.onSend,
     this.showAttachButton = false,
     this.onAttach,
-    this.onPoll,
-    this.onVoiceAction,
-    this.onStickerAction,
-    this.onSchedule,
-    this.scheduledAt,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
   final bool showAttachButton;
   final VoidCallback? onAttach;
-  final VoidCallback? onPoll;
-  final VoidCallback? onVoiceAction;
-  final VoidCallback? onStickerAction;
-  final VoidCallback? onSchedule;
-  final DateTime? scheduledAt;
 
   @override
   Widget build(BuildContext context) {
@@ -310,45 +273,13 @@ class _MessageTextField extends StatelessWidget {
       child: Row(
         children: [
           if (showAttachButton && onAttach != null)
-            PopupMenuButton<String>(
+            IconButton(
               tooltip: 'Прикрепить',
-              icon: Icon(Icons.attach_file, color: tg.textSecondary, size: 22),
+              onPressed: onAttach,
+              icon: Icon(TelegramIcons.attach, color: tg.textSecondary, size: 22),
               padding: const EdgeInsets.only(left: 4),
-              onSelected: (value) {
-                switch (value) {
-                  case 'attach':
-                    onAttach!();
-                  case 'file':
-                    onAttach!();
-                  case 'voice':
-                    onVoiceAction?.call();
-                  case 'sticker':
-                    onStickerAction?.call();
-                  case 'poll':
-                    onPoll?.call();
-                  case 'schedule':
-                    onSchedule?.call();
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'attach', child: Text('Медиа…')),
-                const PopupMenuItem(value: 'file', child: Text('Файл')),
-                if (onPoll != null)
-                  const PopupMenuItem(value: 'poll', child: Text('Опрос')),
-                if (onVoiceAction != null)
-                  const PopupMenuItem(value: 'voice', child: Text('Голосовое')),
-                if (onStickerAction != null)
-                  const PopupMenuItem(value: 'sticker', child: Text('Стикер')),
-                if (onSchedule != null)
-                  PopupMenuItem(
-                    value: 'schedule',
-                    child: Text(
-                      scheduledAt != null
-                          ? 'Изменить отложенную отправку'
-                          : 'Отложить отправку',
-                    ),
-                  ),
-              ],
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              visualDensity: VisualDensity.compact,
             ),
           Expanded(
             child: TextField(
@@ -408,14 +339,14 @@ class _RightInputButton extends StatelessWidget {
       return IconButton(
         tooltip: 'Голосовое сообщение',
         onPressed: onVoiceAction,
-        icon: Icon(Icons.mic, color: tg.textSecondary),
+        icon: Icon(TelegramIcons.mic, color: tg.textSecondary),
         visualDensity: VisualDensity.compact,
       );
     }
 
     final icon = editDraft != null
-        ? Icons.check
-        : (scheduledAt != null ? Icons.schedule_send : Icons.send);
+        ? TelegramIcons.check
+        : (scheduledAt != null ? TelegramIcons.scheduleSend : TelegramIcons.send);
 
     return Material(
       color: tg.accent,
@@ -494,7 +425,7 @@ class _ComposerDraftBar extends StatelessWidget {
           IconButton(
             tooltip: 'Отмена',
             onPressed: onClose,
-            icon: Icon(Icons.close, size: 20, color: tg.textSecondary),
+            icon: Icon(TelegramIcons.close, size: 20, color: tg.textSecondary),
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.all(8),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -532,7 +463,7 @@ class _ScheduleBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.schedule, size: 18, color: tg.accent),
+          Icon(TelegramIcons.schedule, size: 18, color: tg.accent),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -548,7 +479,7 @@ class _ScheduleBar extends StatelessWidget {
           IconButton(
             tooltip: 'Отмена',
             onPressed: onClose,
-            icon: Icon(Icons.close, size: 20, color: tg.textSecondary),
+            icon: Icon(TelegramIcons.close, size: 20, color: tg.textSecondary),
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.all(8),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),

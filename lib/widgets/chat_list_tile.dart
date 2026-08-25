@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 import '../core/theme/ui_customization_manager.dart';
 import '../models/chat_models.dart';
@@ -13,12 +14,12 @@ import 'message_delivery_icon.dart';
 /// Иконка типа чата в списке.
 IconData chatKindIcon(ChatKind kind) {
   return switch (kind) {
-    ChatKind.privateChat => Icons.person_outline,
-    ChatKind.group => Icons.group_outlined,
-    ChatKind.channel => Icons.campaign_outlined,
-    ChatKind.bot => Icons.smart_toy_outlined,
-    ChatKind.secret => Icons.lock_outline,
-    ChatKind.savedMessages => Icons.bookmark_outline,
+    ChatKind.privateChat => TelegramIcons.privateChat,
+    ChatKind.group => TelegramIcons.group,
+    ChatKind.channel => TelegramIcons.channel,
+    ChatKind.bot => TelegramIcons.bot,
+    ChatKind.secret => TelegramIcons.secretChat,
+    ChatKind.savedMessages => TelegramIcons.savedMessages,
   };
 }
 
@@ -66,18 +67,18 @@ String formatChatListTime(DateTime dateTime) {
     final text = previewText.startsWith('Черновик: ')
         ? previewText.substring('Черновик: '.length)
         : previewText;
-    return (icon: Icons.edit_outlined, text: text, isDraft: true, outgoingStatus: null);
+    return (icon: TelegramIcons.draft, text: text, isDraft: true, outgoingStatus: null);
   }
 
   const mediaPrefixes = <String, IconData>{
-    '📷 ': Icons.photo_camera_outlined,
-    '🎤 ': Icons.mic,
-    '🎬 ': Icons.videocam_outlined,
-    '⭕ ': Icons.videocam_outlined,
-    '📎 ': Icons.attach_file,
-    '🎵 ': Icons.music_note_outlined,
-    '🎞 ': Icons.gif_box_outlined,
-    '📊 ': Icons.poll_outlined,
+    '📷 ': TelegramIcons.photo,
+    '🎤 ': TelegramIcons.mic,
+    '🎬 ': TelegramIcons.video,
+    '⭕ ': TelegramIcons.video,
+    '📎 ': TelegramIcons.document,
+    '🎵 ': TelegramIcons.music,
+    '🎞 ': TelegramIcons.gif,
+    '📊 ': TelegramIcons.poll,
   };
 
   for (final entry in mediaPrefixes.entries) {
@@ -247,7 +248,7 @@ class ChatListTile extends StatelessWidget {
                           children: [
                             if (showPinIcon) ...[
                               Icon(
-                                Icons.push_pin,
+                                TelegramIcons.pin,
                                 size: 14,
                                 color: tg.textSecondary,
                               ),
@@ -430,7 +431,7 @@ class _MutedBellIcon extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Icon(Icons.notifications_off_outlined, size: 14, color: color),
+          Icon(TelegramIcons.mute, size: 14, color: color),
           Transform.rotate(
             angle: -0.7,
             child: Container(
