@@ -3,9 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../core/call/call_manager.dart';
 import '../core/call/group_call_manager.dart';
+import '../core/theme/telegram_theme.dart';
 import '../screens/call/call_screen.dart';
 
-/// Глобальный оверлей звонка поверх основного UI.
+/// Глобальный полноэкранный оверлей звонка поверх основного UI (§9.8).
 class CallOverlayHost extends StatelessWidget {
   const CallOverlayHost({super.key, required this.child});
 
@@ -19,11 +20,15 @@ class CallOverlayHost extends StatelessWidget {
         callManager.hasActiveCall || groupCallManager.hasActiveGroupCall;
 
     return Stack(
+      fit: StackFit.expand,
       children: [
         child,
         if (showCall)
           const Positioned.fill(
-            child: CallScreen(),
+            child: Material(
+              color: TelegramColors.callBackground,
+              child: CallScreen(),
+            ),
           ),
       ],
     );

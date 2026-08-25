@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/navigation/telegram_routes.dart';
 import '../../core/user/profile_manager.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/telegram_settings_tile.dart';
@@ -38,7 +39,12 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
       return const TelegramSettingsScaffold(
         title: 'Заблокированные',
         children: [
-          Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Заблокированных пользователей нет'))),
+          Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('Заблокированных пользователей нет'),
+            ),
+          ),
         ],
       );
     }
@@ -51,11 +57,16 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
             ...profile.blockedUsers.asMap().entries.map((entry) {
               final blocked = entry.value;
               final user = profile.userById(blocked.userId);
-              final title = user?.displayName ?? blocked.displayName ?? 'Пользователь';
+              final title =
+                  user?.displayName ?? blocked.displayName ?? 'Пользователь';
               final isLast = entry.key == profile.blockedUsers.length - 1;
               return TelegramSettingsTile(
                 title: title,
-                leading: ChatAvatar(title: title, localPath: user?.avatarLocalPath, radius: 20),
+                leading: ChatAvatar(
+                  title: title,
+                  localPath: user?.avatarLocalPath,
+                  radius: 20,
+                ),
                 showChevron: false,
                 showDivider: !isLast,
                 trailing: IconButton(
@@ -63,9 +74,12 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
                   icon: const Icon(Icons.lock_open_outlined),
                   onPressed: () => profile.unblockUser(blocked.userId),
                 ),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => UserProfileScreen(userId: blocked.userId)),
-                ),
+                onTap: () {
+                  TelegramRoutes.push(
+                    context,
+                    UserProfileScreen(userId: blocked.userId),
+                  );
+                },
               );
             }),
           ],

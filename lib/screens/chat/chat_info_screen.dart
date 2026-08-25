@@ -16,6 +16,7 @@ import '../../widgets/chat_notification_settings_section.dart';
 import '../../widgets/secret_chat_widgets.dart';
 import '../../widgets/user_status_subtitle.dart';
 import '../profile/user_profile_screen.dart';
+import '../../core/navigation/telegram_routes.dart';
 
 /// Экран информации о чате: описание, ссылка, участники, настройки.
 class ChatInfoScreen extends StatefulWidget {
@@ -576,14 +577,7 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
         title: const Text('Открыть профиль'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => UserProfileScreen(
-                userId: userId,
-                chatId: chat.id,
-              ),
-            ),
-          );
+          TelegramRoutes.push(context, UserProfileScreen(userId: userId, chatId: chat.id));
         },
       ),
       if (user != null && !user.isContact)

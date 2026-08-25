@@ -5,9 +5,13 @@ import '../../core/chat/chat_manager.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../core/search/search_manager.dart';
+import '../../core/theme/telegram_theme.dart';
 import '../../models/chat_models.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/stories_strip.dart';
 import '../../widgets/chat_desktop_shortcuts.dart';
+import '../../core/navigation/telegram_routes.dart';
+import '../../widgets/mobile_tab_bar.dart';
 import '../../widgets/chat_folder_sidebar.dart';
 import '../../widgets/chat_list_tile.dart';
 import '../../widgets/chat_search_panel.dart';
@@ -36,12 +40,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
   final _searchFocusNode = FocusNode();
 
   /// Master-detail с 720px.
-  static const _wideBreakpoint = 720.0;
+  static const _wideBreakpoint = TelegramLayoutBreakpoints.mobile;
 
   /// Три колонки: папки | чаты | переписка (как Telegram Desktop).
-  static const _threeColumnBreakpoint = 840.0;
+  static const _threeColumnBreakpoint = TelegramLayoutBreakpoints.threeColumn;
 
-  static const _chatListWidth = 340.0;
+  static const _chatListWidth = TelegramLayoutBreakpoints.chatListWidth;
 
   @override
   void dispose() {
@@ -139,29 +143,19 @@ class _ChatsScreenState extends State<ChatsScreen> {
             showFolderTabs: true,
           ),
       },
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: MobileTabBar(
         selectedIndex: _mobileTabIndex,
         onDestinationSelected: (index) {
           setState(() => _mobileTabIndex = index);
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Чаты',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.contacts_outlined),
-            selectedIcon: Icon(Icons.contacts),
-            label: 'Контакты',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Настройки',
-          ),
-        ],
       ),
+      floatingActionButton: _mobileTabIndex == 0
+          ? FloatingActionButton(
+              tooltip: 'Новое сообщение',
+              onPressed: () => _openNewChatDialog(context, chatManager),
+              child: const Icon(Icons.edit_outlined),
+            )
+          : null,
     );
   }
 
@@ -345,11 +339,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     _openChat(context, chatManager, chatId);
                   },
                   onUserTap: (userId) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => UserProfileScreen(userId: userId),
-                      ),
-                    );
+                    TelegramRoutes.push(context, UserProfileScreen(userId: userId));
                   },
                 )
               : _ChatsList(
@@ -374,8 +364,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   Widget _buildConversationPane(ChatManager chatManager) {
     if (_selectedChatId == null) {
-      return const Center(
-        child: Text('Выберите чат'),
+      return const EmptyStateWidget(
+        icon: Icons.chat_bubble_outline,
+        title: 'Выберите чат',
+        subtitle: 'Выберите чат из списка слева',
       );
     }
 
@@ -500,11 +492,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         return;
       }
 
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ForumTopicsScreen(chatId: chatId),
-        ),
-      );
+      TelegramRoutes.push(context, ForumTopicsScreen(chatId: chatId));
       return;
     }
 
@@ -518,27 +506,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChatScreen(chatId: chatId),
-      ),
-    );
+    TelegramRoutes.push(context, ChatScreen(chatId: chatId));
   }
 
   void _openSettings(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const SettingsScreen(),
-      ),
-    );
+    TelegramRoutes.push(context, const SettingsScreen());
   }
 
   void _openContacts(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const ContactsScreen(),
-      ),
-    );
+    TelegramRoutes.push(context, const ContactsScreen());
   }
 
   PreferredSizeWidget _buildAppBar(
@@ -596,7 +572,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
       IconButton(
         tooltip: 'Настройки',
         onPressed: () => _openSettings(context),
-        icon: const Icon(Icons.settings),
+        icon: const Icon(Icons.settings_outlined),
       ),
     ];
   }
@@ -625,32 +601,48 @@ class _ChatsList extends StatelessWidget {
     final activeList = chatManager.activeChatList;
 
     if (chats.isEmpty && !showSavedMessagesShortcut) {
-      final emptyLabel = switch (activeList) {
-        ChatListArchive() => 'Архив пуст',
-        ChatListFolder() => 'В папке нет чатов',
-        _ => 'Загрузка чатов...',
+      return switch (activeList) {
+        ChatListArchive() => const EmptyStateWidget(
+            icon: Icons.archive_outlined,
+            title: 'Архив пуст',
+            subtitle: 'Архивированные чаты появятся здесь',
+          ),
+        ChatListFolder() => const EmptyStateWidget(
+            icon: Icons.folder_outlined,
+            title: 'В папке нет чатов',
+            subtitle: 'Добавьте чаты в эту папку в настройках',
+          ),
+        _ => const EmptyStateWidget(
+            icon: Icons.chat_bubble_outline,
+            title: 'Нет чатов',
+            subtitle: 'Начните новую переписку',
+          ),
       };
-      return Center(child: Text(emptyLabel));
     }
 
     final itemCount = chats.length + (showSavedMessagesShortcut ? 1 : 0);
 
-    return ListView.separated(
+    return ListView.builder(
       itemCount: itemCount,
-      separatorBuilder: (context, index) {
-        if (showSavedMessagesShortcut && index == 0) {
-          return const Divider(height: 1);
-        }
-        return const Divider(height: 1, indent: 72);
-      },
       itemBuilder: (context, index) {
         if (showSavedMessagesShortcut && index == 0) {
-          return SavedMessagesShortcut(onTap: onSavedMessagesTap);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SavedMessagesShortcut(onTap: onSavedMessagesTap),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: context.telegramTheme.chatListDivider,
+              ),
+            ],
+          );
         }
 
         final chatIndex = showSavedMessagesShortcut ? index - 1 : index;
         final chat = chats[chatIndex];
         final selected = chat.id == selectedChatId;
+        final isLast = index == itemCount - 1;
 
         return ChatListDismissible(
           chat: chat,
@@ -660,6 +652,7 @@ class _ChatsList extends StatelessWidget {
             chat: chat,
             selected: selected,
             activeList: activeList,
+            showDivider: !isLast,
             onTap: () => onChatTap(chat.id),
             onPinToggle: () => _togglePin(chatManager, chat, activeList),
             onArchiveToggle: () => _toggleArchive(chatManager, chat.id),

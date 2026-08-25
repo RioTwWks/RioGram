@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'app.dart';
 import 'core/config/app_config.dart';
+import 'core/navigation/platform_navigation.dart';
 import 'core/tdlib/tdlib_json.dart';
 
 Future<void> main() async {
@@ -16,6 +17,7 @@ Future<void> main() async {
   }
 
   await initializeDateFormatting('ru');
+  await PlatformNavigation.configure();
   final config = await AppConfig.load();
   runApp(RioGramApp(config: config));
 }

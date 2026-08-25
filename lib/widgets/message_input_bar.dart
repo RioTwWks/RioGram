@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_theme.dart';
 import '../models/formatted_text.dart';
+import 'sticker_panel_sheet.dart';
 
-/// Поле ввода сообщения с форматированием, ответом и отложенной отправкой.
-class MessageInputBar extends StatelessWidget {
+/// Поле ввода сообщения в стиле Telegram: панель, reply/edit, стикеры.
+class MessageInputBar extends StatefulWidget {
   const MessageInputBar({
     super.key,
     required this.controller,
     required this.onSend,
     required this.onAttach,
     required this.onSchedule,
+    this.chatId,
     this.replyDraft,
     this.onClearReply,
     this.editDraft,
@@ -21,7 +24,7 @@ class MessageInputBar extends StatelessWidget {
     this.onFormatCode,
     this.onFormatLink,
     this.onVoiceAction,
-    this.onStickerAction,
+    this.onStickerPanelChanged,
     this.onPoll,
   });
 
@@ -30,6 +33,7 @@ class MessageInputBar extends StatelessWidget {
   final VoidCallback onAttach;
   final VoidCallback? onPoll;
   final VoidCallback onSchedule;
+  final int? chatId;
   final MessageReplyDraft? replyDraft;
   final VoidCallback? onClearReply;
   final MessageEditDraft? editDraft;
@@ -41,140 +45,337 @@ class MessageInputBar extends StatelessWidget {
   final VoidCallback? onFormatCode;
   final VoidCallback? onFormatLink;
   final VoidCallback? onVoiceAction;
-  final VoidCallback? onStickerAction;
+  final ValueChanged<bool>? onStickerPanelChanged;
+
+  @override
+  State<MessageInputBar> createState() => _MessageInputBarState();
+}
+
+class _MessageInputBarState extends State<MessageInputBar> {
+  bool _stickerPanelOpen = false;
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hasText = widget.controller.text.trim().isNotEmpty;
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    final next = widget.controller.text.trim().isNotEmpty;
+    if (next != _hasText) {
+      setState(() => _hasText = next);
+    }
+  }
+
+  void _setStickerPanelOpen(bool open) {
+    if (_stickerPanelOpen == open) {
+      return;
+    }
+    setState(() => _stickerPanelOpen = open);
+    widget.onStickerPanelChanged?.call(open);
+  }
+
+  void _toggleStickerPanel() {
+    _setStickerPanelOpen(!_stickerPanelOpen);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final tg = context.telegramTheme;
+    final canShowStickerPanel = widget.chatId != null;
 
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (replyDraft != null)
-            _ReplyBar(
-              draft: replyDraft!,
-              onClose: onClearReply,
-            ),
-          if (editDraft != null)
-            _EditBar(
-              draft: editDraft!,
-              onClose: onClearEdit,
-            ),
-          if (scheduledAt != null)
-            _ScheduleBar(
-              scheduledAt: scheduledAt!,
-              onClose: onClearSchedule,
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Жирный (**)',
-                  onPressed: onFormatBold,
-                  icon: const Icon(Icons.format_bold),
-                ),
-                IconButton(
-                  tooltip: 'Курсив (*)',
-                  onPressed: onFormatItalic,
-                  icon: const Icon(Icons.format_italic),
-                ),
-                IconButton(
-                  tooltip: 'Код (`)',
-                  onPressed: onFormatCode,
-                  icon: const Icon(Icons.code),
-                ),
-                IconButton(
-                  tooltip: 'Ссылка [текст](url)',
-                  onPressed: onFormatLink,
-                  icon: const Icon(Icons.link),
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Голосовое (action)',
-                  onPressed: onVoiceAction,
-                  icon: const Icon(Icons.mic_none),
-                ),
-                IconButton(
-                  tooltip: 'Стикер (action)',
-                  onPressed: onStickerAction,
-                  icon: const Icon(Icons.emoji_emotions_outlined),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                PopupMenuButton<String>(
-                  tooltip: 'Прикрепить',
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'attach':
-                        onAttach();
-                      case 'file':
-                        onAttach();
-                      case 'voice':
-                        onVoiceAction?.call();
-                      case 'sticker':
-                        onStickerAction?.call();
-                      case 'poll':
-                        onPoll?.call();
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'attach', child: Text('Медиа…')),
-                    PopupMenuItem(value: 'file', child: Text('Файл')),
-                    PopupMenuItem(value: 'poll', child: Text('Опрос')),
-                    PopupMenuItem(value: 'voice', child: Text('Голосовое')),
-                    PopupMenuItem(value: 'sticker', child: Text('Стикер')),
-                  ],
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(Icons.attach_file),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: tg.chatListBackground,
+        border: Border(top: BorderSide(color: tg.chatListDivider, width: 1)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.replyDraft != null)
+              _ComposerDraftBar(
+                accentColor: tg.accent,
+                title: widget.replyDraft!.authorName ?? 'Ответ',
+                preview: widget.replyDraft!.preview,
+                onClose: widget.onClearReply,
+              ),
+            if (widget.editDraft != null)
+              _ComposerDraftBar(
+                accentColor: tg.accent,
+                title: widget.editDraft!.isCaption
+                    ? 'Редактирование подписи'
+                    : 'Редактирование',
+                preview: widget.editDraft!.initialText,
+                onClose: widget.onClearEdit,
+              ),
+            if (widget.scheduledAt != null)
+              _ScheduleBar(
+                scheduledAt: widget.scheduledAt!,
+                onClose: widget.onClearSchedule,
+              ),
+            if (canShowStickerPanel)
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: _stickerPanelOpen
+                    ? StickerPanelPanel(
+                        chatId: widget.chatId!,
+                        onStickerSent: () => _setStickerPanelOpen(false),
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _LeftInputButton(
+                    stickerPanelOpen: _stickerPanelOpen,
+                    canShowStickerPanel: canShowStickerPanel,
+                    onEmojiOrKeyboard: canShowStickerPanel
+                        ? _toggleStickerPanel
+                        : null,
+                    onAttach: widget.onAttach,
+                    onPoll: widget.onPoll,
+                    onVoiceAction: widget.onVoiceAction,
+                    onStickerAction: canShowStickerPanel
+                        ? () => _setStickerPanelOpen(true)
+                        : null,
+                    onSchedule: widget.onSchedule,
+                    scheduledAt: widget.scheduledAt,
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Отложить отправку',
-                  onPressed: onSchedule,
-                  icon: Icon(
-                    Icons.schedule,
-                    color: scheduledAt != null ? theme.colorScheme.primary : null,
-                  ),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    minLines: 1,
-                    maxLines: 4,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => onSend(),
-                    decoration: const InputDecoration(
-                      hintText: 'Сообщение (**жирный**, *курсив*, @user, #tag)',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
+                  Expanded(
+                    child: _MessageTextField(
+                      controller: widget.controller,
+                      onSend: widget.onSend,
+                      showAttachButton: canShowStickerPanel,
+                      onAttach: widget.onAttach,
+                      onPoll: widget.onPoll,
+                      onVoiceAction: widget.onVoiceAction,
+                      onStickerAction: canShowStickerPanel
+                          ? () => _setStickerPanelOpen(true)
+                          : null,
+                      onSchedule: widget.onSchedule,
+                      scheduledAt: widget.scheduledAt,
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  tooltip: editDraft != null
-                      ? 'Сохранить'
-                      : (scheduledAt != null ? 'Запланировать' : 'Отправить'),
-                  onPressed: onSend,
-                  icon: Icon(
-                    editDraft != null
-                        ? Icons.check
-                        : (scheduledAt != null ? Icons.schedule_send : Icons.send),
+                  const SizedBox(width: 4),
+                  _RightInputButton(
+                    hasText: _hasText,
+                    editDraft: widget.editDraft,
+                    scheduledAt: widget.scheduledAt,
+                    onSend: widget.onSend,
+                    onVoiceAction: widget.onVoiceAction,
                   ),
-                ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LeftInputButton extends StatelessWidget {
+  const _LeftInputButton({
+    required this.stickerPanelOpen,
+    required this.canShowStickerPanel,
+    this.onEmojiOrKeyboard,
+    required this.onAttach,
+    this.onPoll,
+    this.onVoiceAction,
+    this.onStickerAction,
+    required this.onSchedule,
+    this.scheduledAt,
+  });
+
+  final bool stickerPanelOpen;
+  final bool canShowStickerPanel;
+  final VoidCallback? onEmojiOrKeyboard;
+  final VoidCallback onAttach;
+  final VoidCallback? onPoll;
+  final VoidCallback? onVoiceAction;
+  final VoidCallback? onStickerAction;
+  final VoidCallback onSchedule;
+  final DateTime? scheduledAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
+    if (canShowStickerPanel && stickerPanelOpen) {
+      return IconButton(
+        tooltip: 'Клавиатура',
+        onPressed: onEmojiOrKeyboard,
+        icon: Icon(Icons.keyboard, color: tg.textSecondary),
+        visualDensity: VisualDensity.compact,
+      );
+    }
+
+    if (canShowStickerPanel) {
+      return IconButton(
+        tooltip: 'Стикеры и GIF',
+        onPressed: onEmojiOrKeyboard,
+        icon: Icon(Icons.emoji_emotions_outlined, color: tg.textSecondary),
+        visualDensity: VisualDensity.compact,
+      );
+    }
+
+    return PopupMenuButton<String>(
+      tooltip: 'Прикрепить',
+      icon: Icon(Icons.attach_file, color: tg.textSecondary),
+      onSelected: (value) {
+        switch (value) {
+          case 'attach':
+            onAttach();
+          case 'file':
+            onAttach();
+          case 'voice':
+            onVoiceAction?.call();
+          case 'sticker':
+            onStickerAction?.call();
+          case 'poll':
+            onPoll?.call();
+          case 'schedule':
+            onSchedule();
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(value: 'attach', child: Text('Медиа…')),
+        const PopupMenuItem(value: 'file', child: Text('Файл')),
+        if (onPoll != null)
+          const PopupMenuItem(value: 'poll', child: Text('Опрос')),
+        if (onVoiceAction != null)
+          const PopupMenuItem(value: 'voice', child: Text('Голосовое')),
+        if (onStickerAction != null)
+          const PopupMenuItem(value: 'sticker', child: Text('Стикер')),
+        PopupMenuItem(
+          value: 'schedule',
+          child: Text(
+            scheduledAt != null
+                ? 'Изменить отложенную отправку'
+                : 'Отложить отправку',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MessageTextField extends StatelessWidget {
+  const _MessageTextField({
+    required this.controller,
+    required this.onSend,
+    this.showAttachButton = false,
+    this.onAttach,
+    this.onPoll,
+    this.onVoiceAction,
+    this.onStickerAction,
+    this.onSchedule,
+    this.scheduledAt,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final bool showAttachButton;
+  final VoidCallback? onAttach;
+  final VoidCallback? onPoll;
+  final VoidCallback? onVoiceAction;
+  final VoidCallback? onStickerAction;
+  final VoidCallback? onSchedule;
+  final DateTime? scheduledAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+    final radius = BorderRadius.circular(TelegramRadii.inputField);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: tg.inputFieldBackground,
+        borderRadius: radius,
+      ),
+      child: Row(
+        children: [
+          if (showAttachButton && onAttach != null)
+            PopupMenuButton<String>(
+              tooltip: 'Прикрепить',
+              icon: Icon(Icons.attach_file, color: tg.textSecondary, size: 22),
+              padding: const EdgeInsets.only(left: 4),
+              onSelected: (value) {
+                switch (value) {
+                  case 'attach':
+                    onAttach!();
+                  case 'file':
+                    onAttach!();
+                  case 'voice':
+                    onVoiceAction?.call();
+                  case 'sticker':
+                    onStickerAction?.call();
+                  case 'poll':
+                    onPoll?.call();
+                  case 'schedule':
+                    onSchedule?.call();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'attach', child: Text('Медиа…')),
+                const PopupMenuItem(value: 'file', child: Text('Файл')),
+                if (onPoll != null)
+                  const PopupMenuItem(value: 'poll', child: Text('Опрос')),
+                if (onVoiceAction != null)
+                  const PopupMenuItem(value: 'voice', child: Text('Голосовое')),
+                if (onStickerAction != null)
+                  const PopupMenuItem(value: 'sticker', child: Text('Стикер')),
+                if (onSchedule != null)
+                  PopupMenuItem(
+                    value: 'schedule',
+                    child: Text(
+                      scheduledAt != null
+                          ? 'Изменить отложенную отправку'
+                          : 'Отложить отправку',
+                    ),
+                  ),
               ],
+            ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              minLines: 1,
+              maxLines: 4,
+              style: TextStyle(
+                color: tg.textPrimary,
+                fontSize: TelegramFontSizes.message,
+                height: TelegramLineHeights.message,
+              ),
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => onSend(),
+              decoration: InputDecoration(
+                hintText: 'Сообщение',
+                hintStyle: TextStyle(
+                  color: tg.textSecondary,
+                  fontSize: TelegramFontSizes.message,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              ),
+              onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             ),
           ),
         ],
@@ -183,71 +384,122 @@ class MessageInputBar extends StatelessWidget {
   }
 }
 
-class _ReplyBar extends StatelessWidget {
-  const _ReplyBar({
-    required this.draft,
-    this.onClose,
+class _RightInputButton extends StatelessWidget {
+  const _RightInputButton({
+    required this.hasText,
+    this.editDraft,
+    this.scheduledAt,
+    required this.onSend,
+    this.onVoiceAction,
   });
 
-  final MessageReplyDraft draft;
-  final VoidCallback? onClose;
+  final bool hasText;
+  final MessageEditDraft? editDraft;
+  final DateTime? scheduledAt;
+  final VoidCallback onSend;
+  final VoidCallback? onVoiceAction;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final tg = context.telegramTheme;
+    final showSend = editDraft != null || hasText || scheduledAt != null;
+
+    if (!showSend) {
+      return IconButton(
+        tooltip: 'Голосовое сообщение',
+        onPressed: onVoiceAction,
+        icon: Icon(Icons.mic, color: tg.textSecondary),
+        visualDensity: VisualDensity.compact,
+      );
+    }
+
+    final icon = editDraft != null
+        ? Icons.check
+        : (scheduledAt != null ? Icons.schedule_send : Icons.send);
+
     return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      child: ListTile(
-        dense: true,
-        leading: const Icon(Icons.reply),
-        title: Text(
-          draft.authorName ?? 'Ответ',
-          style: theme.textTheme.labelLarge,
-        ),
-        subtitle: Text(
-          draft.preview,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: onClose,
+      color: tg.accent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onSend,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, color: TelegramColors.unreadBadgeText, size: 20),
         ),
       ),
     );
   }
 }
 
-class _EditBar extends StatelessWidget {
-  const _EditBar({
-    required this.draft,
+class _ComposerDraftBar extends StatelessWidget {
+  const _ComposerDraftBar({
+    required this.accentColor,
+    required this.title,
+    required this.preview,
     this.onClose,
   });
 
-  final MessageEditDraft draft;
+  final Color accentColor;
+  final String title;
+  final String preview;
   final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.tertiaryContainer,
-      child: ListTile(
-        dense: true,
-        leading: const Icon(Icons.edit),
-        title: Text(
-          draft.isCaption ? 'Редактирование подписи' : 'Редактирование',
-          style: theme.textTheme.labelLarge,
+    final tg = context.telegramTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: tg.chatListBackground,
+        border: Border(
+          left: BorderSide(color: accentColor, width: 2),
         ),
-        subtitle: Text(
-          draft.initialText,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: onClose,
-        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: accentColor,
+                    fontSize: TelegramFontSizes.preview,
+                    fontWeight: FontWeight.w600,
+                    height: TelegramLineHeights.preview,
+                  ),
+                ),
+                Text(
+                  preview,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tg.textSecondary,
+                    fontSize: TelegramFontSizes.preview,
+                    height: TelegramLineHeights.preview,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Отмена',
+            onPressed: onClose,
+            icon: Icon(Icons.close, size: 20, color: tg.textSecondary),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ),
+        ],
       ),
     );
   }
@@ -264,21 +516,44 @@ class _ScheduleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final tg = context.telegramTheme;
     final label =
         '${scheduledAt.day.toString().padLeft(2, '0')}.${scheduledAt.month.toString().padLeft(2, '0')} '
         '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
 
-    return Material(
-      color: theme.colorScheme.primaryContainer,
-      child: ListTile(
-        dense: true,
-        leading: const Icon(Icons.schedule),
-        title: Text('Отправка: $label'),
-        trailing: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: onClose,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: tg.chatListBackground,
+        border: Border(
+          left: BorderSide(color: tg.accent, width: 2),
         ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.schedule, size: 18, color: tg.accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Отправка: $label',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: tg.textPrimary,
+                fontSize: TelegramFontSizes.preview,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Отмена',
+            onPressed: onClose,
+            icon: Icon(Icons.close, size: 20, color: tg.textSecondary),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ),
+        ],
       ),
     );
   }

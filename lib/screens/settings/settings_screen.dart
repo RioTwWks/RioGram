@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/auth/auth_manager.dart';
 import '../../core/media/media_cache_manager.dart';
+import '../../core/navigation/telegram_routes.dart';
 import '../../core/proxy/proxy_manager.dart';
 import '../../core/theme/theme_manager.dart';
 import '../../core/theme/theme_preferences.dart';
@@ -52,11 +53,7 @@ class SettingsScreen extends StatelessWidget {
           phone: phone,
           avatarLocalPath: user?.avatarLocalPath,
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const OwnProfileScreen(),
-              ),
-            );
+            TelegramRoutes.push(context, const OwnProfileScreen());
           },
         ),
         const TelegramSettingsSectionHeader('Конфиденциальность'),
@@ -65,11 +62,7 @@ class SettingsScreen extends StatelessWidget {
             TelegramSettingsTile(
               title: 'Заблокированные пользователи',
               onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const BlockedUsersScreen(),
-                  ),
-                );
+                TelegramRoutes.push(context, const BlockedUsersScreen());
               },
               showDivider: false,
             ),
@@ -103,33 +96,27 @@ class SettingsScreen extends StatelessWidget {
           children: [
             TelegramSettingsTile(
               title: 'Аккаунты',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const AccountsScreen()),
-              ),
+              onTap: () {
+                TelegramRoutes.push(context, const AccountsScreen());
+              },
             ),
             TelegramSettingsTile(
               title: 'Активные сессии',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const ActiveSessionsScreen(),
-                ),
-              ),
+              onTap: () {
+                TelegramRoutes.push(context, const ActiveSessionsScreen());
+              },
             ),
             TelegramSettingsTile(
               title: 'Смена номера',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const ChangePhoneScreen(),
-                ),
-              ),
+              onTap: () {
+                TelegramRoutes.push(context, const ChangePhoneScreen());
+              },
             ),
             TelegramSettingsTile(
               title: 'Блокировка приложения',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const AppLockSettingsScreen(),
-                ),
-              ),
+              onTap: () {
+                TelegramRoutes.push(context, const AppLockSettingsScreen());
+              },
               showDivider: false,
             ),
           ],
@@ -561,8 +548,20 @@ class _ProxyTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(proxy.name, style: TextStyle(fontSize: TelegramFontSizes.chatTitle, color: tg.textPrimary)),
-                    Text(subtitle, style: TextStyle(fontSize: TelegramFontSizes.chatSubtitle, color: tg.textSecondary)),
+                    Text(
+                      proxy.name,
+                      style: TextStyle(
+                        fontSize: TelegramFontSizes.chatTitle,
+                        color: tg.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: TelegramFontSizes.chatSubtitle,
+                        color: tg.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),

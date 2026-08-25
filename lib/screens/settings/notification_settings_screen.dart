@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/locale/app_locale_manager.dart';
+import '../../core/navigation/telegram_routes.dart';
 import '../../core/notifications/notification_settings_manager.dart';
 import '../../widgets/notification_settings_section.dart';
 import '../../widgets/telegram_settings_tile.dart';
@@ -32,14 +33,18 @@ class LocaleSettingsScreen extends StatelessWidget {
         if (locale.lastError != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(locale.lastError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: Text(
+              locale.lastError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ),
         TelegramSettingsGroup(
           children: [
             ...AppLocaleManager.supportedLocales.asMap().entries.map((entry) {
               final index = entry.key;
               final option = entry.value;
-              final isLast = index == AppLocaleManager.supportedLocales.length - 1;
+              final isLast =
+                  index == AppLocaleManager.supportedLocales.length - 1;
               return TelegramSettingsTile(
                 title: option.label,
                 showChevron: false,
@@ -47,9 +52,15 @@ class LocaleSettingsScreen extends StatelessWidget {
                 trailing: Radio<String>(
                   value: option.packId,
                   groupValue: locale.languagePackId,
-                  onChanged: locale.isSaving ? null : (value) { if (value != null) locale.setLanguagePack(value); },
+                  onChanged: locale.isSaving
+                      ? null
+                      : (value) {
+                          if (value != null) locale.setLanguagePack(value);
+                        },
                 ),
-                onTap: locale.isSaving ? null : () => locale.setLanguagePack(option.packId),
+                onTap: locale.isSaving
+                    ? null
+                    : () => locale.setLanguagePack(option.packId),
               );
             }),
           ],
@@ -70,10 +81,31 @@ class SettingsNavigationSection extends StatelessWidget {
         const TelegramSettingsSectionHeader('Уведомления и приватность'),
         TelegramSettingsGroup(
           children: [
-            TelegramSettingsTile(title: 'Уведомления', onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NotificationSettingsScreen()))),
-            TelegramSettingsTile(title: 'Приватность', onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PrivacySettingsScreen()))),
-            TelegramSettingsTile(title: 'Облачный пароль (2FA)', onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PasswordSettingsScreen()))),
-            TelegramSettingsTile(title: 'Язык', onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LocaleSettingsScreen())), showDivider: false),
+            TelegramSettingsTile(
+              title: 'Уведомления',
+              onTap: () {
+                TelegramRoutes.push(context, const NotificationSettingsScreen());
+              },
+            ),
+            TelegramSettingsTile(
+              title: 'Приватность',
+              onTap: () {
+                TelegramRoutes.push(context, const PrivacySettingsScreen());
+              },
+            ),
+            TelegramSettingsTile(
+              title: 'Облачный пароль (2FA)',
+              onTap: () {
+                TelegramRoutes.push(context, const PasswordSettingsScreen());
+              },
+            ),
+            TelegramSettingsTile(
+              title: 'Язык',
+              onTap: () {
+                TelegramRoutes.push(context, const LocaleSettingsScreen());
+              },
+              showDivider: false,
+            ),
           ],
         ),
         Consumer<NotificationSettingsManager>(

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../core/chat/chat_manager.dart';
 import '../core/search/search_manager.dart';
+import '../core/theme/telegram_theme.dart';
 import '../models/chat_models.dart';
 import '../models/search_models.dart';
 import 'chat_list_tile.dart';
+import 'empty_state.dart';
 
 /// Поле поиска по чатам и сообщениям.
 class ChatSearchBar extends StatefulWidget {
@@ -44,25 +46,43 @@ class _ChatSearchBarState extends State<ChatSearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    final tg = context.telegramTheme;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: SearchBar(
-        controller: widget.controller,
-        focusNode: widget.focusNode,
-        hintText: 'Поиск',
-        leading: const Icon(Icons.search),
-        trailing: widget.controller.text.isNotEmpty
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () {
-                    widget.controller.clear();
-                    widget.onClear();
-                  },
-                ),
-              ]
-            : null,
-        onChanged: widget.onChanged,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tg.searchFieldBackground,
+          borderRadius: BorderRadius.circular(TelegramRadii.searchField),
+        ),
+        child: TextField(
+          controller: widget.controller,
+          focusNode: widget.focusNode,
+          onChanged: widget.onChanged,
+          style: TextStyle(
+            color: tg.textPrimary,
+            fontSize: TelegramFontSizes.preview,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Поиск',
+            hintStyle: TextStyle(color: tg.textSecondary),
+            prefixIcon: Icon(Icons.search, color: tg.textSecondary, size: 20),
+            suffixIcon: widget.controller.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(Icons.close, color: tg.textSecondary, size: 20),
+                    onPressed: () {
+                      widget.controller.clear();
+                      widget.onClear();
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            isDense: true,
+          ),
+        ),
       ),
     );
   }
@@ -143,7 +163,11 @@ class ChatSearchResults extends StatelessWidget {
         publicChats.isEmpty &&
         messages.isEmpty &&
         user == null) {
-      return const Center(child: Text('Ничего не найдено'));
+      return const EmptyStateWidget(
+        icon: Icons.search_off_outlined,
+        title: 'Ничего не найдено',
+        subtitle: 'Попробуйте другой запрос',
+      );
     }
 
     return ListView(
@@ -249,11 +273,19 @@ class ChatMessageSearchResults extends StatelessWidget {
     }
 
     if (!state.isActive) {
-      return const Center(child: Text('Введите запрос'));
+      return const EmptyStateWidget(
+        icon: Icons.search_outlined,
+        title: 'Введите запрос',
+        subtitle: 'Поиск по сообщениям в этом чате',
+      );
     }
 
     if (state.results.isEmpty) {
-      return const Center(child: Text('Сообщения не найдены'));
+      return const EmptyStateWidget(
+        icon: Icons.search_off_outlined,
+        title: 'Сообщения не найдены',
+        subtitle: 'Попробуйте другой запрос',
+      );
     }
 
     return ListView.builder(
@@ -329,7 +361,7 @@ class SavedMessagesShortcut extends StatelessWidget {
       leading: CircleAvatar(
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         child: Icon(
-          Icons.bookmark,
+          Icons.bookmark_outline,
           color: Theme.of(context).colorScheme.onPrimaryContainer,
         ),
       ),
