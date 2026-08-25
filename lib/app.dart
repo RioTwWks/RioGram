@@ -17,6 +17,7 @@ import 'core/call/group_call_manager.dart';
 import 'core/chat/chat_manager.dart';
 import 'core/chat/sticker_manager.dart';
 import 'core/config/app_config.dart';
+import 'core/integrations/external_integrations_manager.dart';
 import 'core/features/anti_recall_store.dart';
 import 'core/features/riogram_features_manager.dart';
 import 'core/features/riogram_features_preferences.dart';
@@ -204,6 +205,7 @@ class _AppScopeState extends State<_AppScope> {
   late final BotManager _botManager;
   late final SecretChatManager _secretChatManager;
   late final StoryManager _storyManager;
+  late final ExternalIntegrationsManager _externalIntegrationsManager;
   late final ChatManager _chatManager;
   late final GhostModeManager _ghostModeManager;
   late final RioGramMediaFeaturesManager _mediaFeaturesManager;
@@ -236,6 +238,8 @@ class _AppScopeState extends State<_AppScope> {
     );
     _contactManager = ContactManager(client: _client);
     _profileManager = ProfileManager(client: _client);
+    _securityPrivacyManager = SecurityPrivacyManager(client: _client);
+    _externalIntegrationsManager = ExternalIntegrationsManager(client: _client);
     _searchManager = SearchManager(
       client: _client,
       securityPrivacy: _securityPrivacyManager,
@@ -247,7 +251,6 @@ class _AppScopeState extends State<_AppScope> {
       },
     );
     _privacySettingsManager = PrivacySettingsManager(client: _client);
-    _securityPrivacyManager = SecurityPrivacyManager(client: _client);
     _securitySettingsManager = SecuritySettingsManager(client: _client);
     _sessionManager = SessionManager(client: _client);
     _phoneChangeManager = PhoneChangeManager(client: _client);
@@ -283,6 +286,7 @@ class _AppScopeState extends State<_AppScope> {
       antiRecallStore: _antiRecallStore,
       mediaFeatures: _mediaFeaturesManager,
       securityPrivacy: _securityPrivacyManager,
+      externalIntegrations: _externalIntegrationsManager,
     );
 
     _profileManager.addListener(_registerAccountIfNeeded);
@@ -305,6 +309,7 @@ class _AppScopeState extends State<_AppScope> {
       _mediaFeaturesManager.load(),
       _antiRecallStore.load(),
       _securityPrivacyManager.load(),
+      _externalIntegrationsManager.load(),
     ]);
   }
 
@@ -367,6 +372,7 @@ class _AppScopeState extends State<_AppScope> {
     _notificationSettingsManager.dispose();
     _privacySettingsManager.dispose();
     _securityPrivacyManager.dispose();
+    _externalIntegrationsManager.dispose();
     _securitySettingsManager.dispose();
     _sessionManager.dispose();
     _phoneChangeManager.dispose();
@@ -419,6 +425,9 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<SecurityPrivacyManager>.value(
           value: _securityPrivacyManager,
+        ),
+        ChangeNotifierProvider<ExternalIntegrationsManager>.value(
+          value: _externalIntegrationsManager,
         ),
         ChangeNotifierProvider<SecuritySettingsManager>.value(
           value: _securitySettingsManager,

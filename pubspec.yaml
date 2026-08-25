@@ -33,6 +33,7 @@ dependencies:
   crypto: ^3.0.6
   local_auth: ^2.3.0
   google_fonts: ^6.2.1
+  flutter_math_fork: ^0.7.4
 
 dev_dependencies:
   flutter_test:
@@ -44,3 +45,4 @@ flutter:
   assets:
     - .env
     - assets/icons/
+    - assets/web/

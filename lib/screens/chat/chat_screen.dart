@@ -146,15 +146,31 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
       if (answer.url.isNotEmpty) {
-        TelegramRoutes.push(context, WebAppScreen(url: answer.url, launchId: 0, title: 'Бот'));
+        TelegramRoutes.push(
+          context,
+          WebAppScreen(url: answer.url, launchId: 0, title: 'Бот'),
+        );
       }
     }
 
     final webUrl = bot.pendingWebAppUrl;
     final launchId = bot.pendingWebAppLaunchId;
     if (webUrl != null && launchId != null) {
+      final botUserId = bot.pendingWebAppBotUserId ?? 0;
+      final chatId = bot.pendingWebAppChatId ?? 0;
+      final buttonText = bot.pendingWebAppButtonText;
       bot.clearPendingWebApp();
-      TelegramRoutes.push(context, WebAppScreen(url: webUrl, launchId: launchId, title: 'Mini App'));
+      TelegramRoutes.push(
+        context,
+        WebAppScreen(
+          url: webUrl,
+          launchId: launchId,
+          title: 'Mini App',
+          botUserId: botUserId,
+          chatId: chatId,
+          buttonText: buttonText,
+        ),
+      );
     }
 
     final inline = bot.inlineQueryState;

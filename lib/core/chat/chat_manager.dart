@@ -15,6 +15,7 @@ import '../../models/location_models.dart';
 import '../../models/message_enrichment.dart';
 import '../features/anti_recall_store.dart';
 import '../features/riogram_features_manager.dart';
+import '../integrations/external_integrations_manager.dart';
 import '../location/live_location_tracker.dart';
 import '../media/media_cache_manager.dart';
 import '../notifications/notification_settings_manager.dart';
@@ -41,6 +42,7 @@ class ChatManager extends ChangeNotifier {
     AntiRecallStore? antiRecallStore,
     RioGramMediaFeaturesManager? mediaFeatures,
     SecurityPrivacyManager? securityPrivacy,
+    ExternalIntegrationsManager? externalIntegrations,
   })  : _client = client,
         _notifications = notificationService ?? NotificationService(),
         _notificationSettings = notificationSettings,
@@ -48,7 +50,8 @@ class ChatManager extends ChangeNotifier {
         _ghostMode = ghostMode,
         _antiRecallStore = antiRecallStore,
         _mediaFeatures = mediaFeatures,
-        _securityPrivacy = securityPrivacy;
+        _securityPrivacy = securityPrivacy,
+        _externalIntegrations = externalIntegrations;
 
   final TdlibClient _client;
   final NotificationService _notifications;
@@ -58,6 +61,7 @@ class ChatManager extends ChangeNotifier {
   final AntiRecallStore? _antiRecallStore;
   final RioGramMediaFeaturesManager? _mediaFeatures;
   final SecurityPrivacyManager? _securityPrivacy;
+  final ExternalIntegrationsManager? _externalIntegrations;
   final LiveLocationTracker _liveLocationTracker = LiveLocationTracker();
 
   final Map<int, ChatSummary> _chatsById = {};
@@ -1376,6 +1380,10 @@ class ChatManager extends ChangeNotifier {
 
     _applyForumTopicToPayload(payload);
     _client.send(payload);
+    _externalIntegrations?.mirrorOutgoingText(
+      sourceChatId: chatId,
+      text: formatted,
+    );
     _pendingReply = null;
     _scheduledSendAt = null;
     sendChatAction(OutgoingChatAction.cancel);
