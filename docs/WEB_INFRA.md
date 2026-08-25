@@ -193,6 +193,7 @@ proxy_buffering off;
 | **WebSocket closes immediately** | Nginx: `Upgrade` + `Connection` + `proxy_http_version 1.1` |
 | **WS drops after ~60s** | Увеличить `proxy_read_timeout` (86400 в шаблоне) |
 | **Tunnel keeps dying** | autossh `Restart=always`; `ServerAliveInterval=30` |
+| **apt lock held** (`Could not get lock … apt-get`) | На сервере идёт другой apt (часто unattended-upgrades). Подождать или: `while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do sleep 5; done` — setup-скрипты сами ждут до `APT_WAIT_SECONDS` (600). **Не** удалять lock-файлы. |
 
 ---
 

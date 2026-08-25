@@ -250,9 +250,9 @@ class _LeftInputButton extends StatelessWidget {
       onPressed: onAttach,
       icon: Icon(TelegramIcons.attach, color: tg.textSecondary),
       constraints: const BoxConstraints(
-          minWidth: TelegramSpacing.inputTouchTarget,
-          minHeight: TelegramSpacing.inputTouchTarget,
-        ),
+        minWidth: TelegramSpacing.inputTouchTarget,
+        minHeight: TelegramSpacing.inputTouchTarget,
+      ),
     );
   }
 }
@@ -288,11 +288,10 @@ class _MessageTextField extends StatelessWidget {
               onPressed: onAttach,
               icon: Icon(TelegramIcons.attach, color: tg.textSecondary, size: 22),
               padding: const EdgeInsets.only(left: 4),
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               constraints: const BoxConstraints(
-          minWidth: TelegramSpacing.inputTouchTarget,
-          minHeight: TelegramSpacing.inputTouchTarget,
-        ),
+                minWidth: TelegramSpacing.inputTouchTarget,
+                minHeight: TelegramSpacing.inputTouchTarget,
+              ),
             ),
           Expanded(
             child: TextField(
@@ -443,11 +442,10 @@ class _ComposerDraftBar extends StatelessWidget {
             onPressed: onClose,
             icon: Icon(TelegramIcons.close, size: 20, color: tg.textSecondary),
             constraints: const BoxConstraints(
-          minWidth: TelegramSpacing.inputTouchTarget,
-          minHeight: TelegramSpacing.inputTouchTarget,
-        ),
+              minWidth: TelegramSpacing.inputTouchTarget,
+              minHeight: TelegramSpacing.inputTouchTarget,
+            ),
             padding: const EdgeInsets.all(8),
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
         ],
       ),
@@ -500,11 +498,10 @@ class _ScheduleBar extends StatelessWidget {
             onPressed: onClose,
             icon: Icon(TelegramIcons.close, size: 20, color: tg.textSecondary),
             constraints: const BoxConstraints(
-          minWidth: TelegramSpacing.inputTouchTarget,
-          minHeight: TelegramSpacing.inputTouchTarget,
-        ),
+              minWidth: TelegramSpacing.inputTouchTarget,
+              minHeight: TelegramSpacing.inputTouchTarget,
+            ),
             padding: const EdgeInsets.all(8),
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
         ],
       ),

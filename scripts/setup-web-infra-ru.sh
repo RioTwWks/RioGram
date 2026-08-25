@@ -34,7 +34,11 @@ fi
 PUBLIC_BASE="https://${DOMAIN}${HTTPS_PORT_SUFFIX}"
 WSS_BASE="wss://${DOMAIN}${HTTPS_PORT_SUFFIX}"
 
+# shellcheck source=lib/wait-for-apt.sh
+source "${ROOT_DIR}/scripts/lib/wait-for-apt.sh"
+
 echo "==> Packages"
+wait_for_apt
 apt-get update
 apt-get install -y nginx certbot python3-certbot-nginx ufw curl
 
