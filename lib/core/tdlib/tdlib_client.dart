@@ -87,13 +87,13 @@ class TdlibClient {
       'use_file_database': true,
       'use_chat_info_database': true,
       'use_message_database': true,
-      'use_secret_chats': false,
+      'use_secret_chats': true,
       'api_id': config.apiId,
       'api_hash': config.apiHash,
       'system_language_code': 'ru',
       'device_model': 'RioGram',
       'system_version': Platform.operatingSystemVersion,
-      'application_version': '0.1.0',
+      'application_version': '0.10.0',
     });
   }
 

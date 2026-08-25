@@ -38,6 +38,8 @@ class MessageBubble extends StatelessWidget {
     this.onAddReaction,
     this.onPollVote,
     this.onInlineButtonTap,
+    this.onInlineWebAppTap,
+    this.onInlineSwitchTap,
     this.albumMessages,
     this.onMediaTap,
     this.onCancelTransfer,
@@ -58,6 +60,8 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onAddReaction;
   final void Function(int optionId)? onPollVote;
   final void Function(InlineKeyboardButtonModel button)? onInlineButtonTap;
+  final void Function(InlineKeyboardButtonModel button)? onInlineWebAppTap;
+  final void Function(InlineKeyboardButtonModel button)? onInlineSwitchTap;
   final List<ChatMessage>? albumMessages;
   final void Function(ChatMessage message)? onMediaTap;
   final VoidCallback? onCancelTransfer;
@@ -172,6 +176,8 @@ class MessageBubble extends StatelessWidget {
                     InlineKeyboardWidget(
                       rows: message.inlineKeyboard,
                       onCallbackTap: onInlineButtonTap,
+                      onWebAppTap: onInlineWebAppTap ?? onInlineButtonTap,
+                      onSwitchInlineTap: onInlineSwitchTap,
                     ),
                   ],
                   const SizedBox(height: 4),

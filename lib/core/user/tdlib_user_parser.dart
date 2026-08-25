@@ -1,4 +1,5 @@
 import '../../models/user_models.dart';
+import '../../models/bot_models.dart';
 import '../tdlib/tdlib_json.dart';
 
 /// Парсинг TDLib user / userFullInfo / status / contacts.
@@ -93,6 +94,9 @@ class TdlibUserParser {
       supportsVideoCalls: json['supports_video_calls'] as bool? ?? false,
       groupInCommonCount: tdIntOr(json['group_in_common_count']),
       personalChatId: tdInt(json['personal_chat_id']),
+      botInfo: BotSettingsJson.parseBotInfo(
+        json['bot_info'] as Map<String, dynamic>?,
+      ),
     );
   }
 

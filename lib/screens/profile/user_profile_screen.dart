@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
+import '../../core/secret/secret_chat_manager.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/user/profile_manager.dart';
 import '../../widgets/chat_avatar.dart';
@@ -134,6 +135,28 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   const SizedBox(height: 8),
                   Text(fullInfo!.bio),
                 ],
+                if (user?.isBot == true && fullInfo != null) ...[
+                  const SizedBox(height: 24),
+                  Text('Бот', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  if (fullInfo.botInfo.shortDescription.isNotEmpty)
+                    Text(fullInfo.botInfo.shortDescription),
+                  if (fullInfo.botInfo.description.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(fullInfo.botInfo.description),
+                  ],
+                  if (fullInfo.botInfo.commands.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    ...fullInfo.botInfo.commands.map(
+                      (cmd) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: Text(cmd.slashCommand),
+                        subtitle: Text(cmd.description),
+                      ),
+                    ),
+                  ],
+                ],
                 if (commonChats.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   Text(
@@ -158,6 +181,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     child: Center(child: CircularProgressIndicator()),
                   ),
                 const SizedBox(height: 24),
+                if (user != null && !user.isBot)
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      context.read<SecretChatManager>().createSecretChat(user.id);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Создание секретного чата…'),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.lock_outline),
+                    label: const Text('Секретный чат'),
+                  ),
+                if (user != null && !user.isBot) const SizedBox(height: 8),
                 if (user != null && !user.isContact)
                   OutlinedButton.icon(
                     onPressed: () {

@@ -333,6 +333,10 @@ class MessageContent {
             venueInfo: info,
           );
         }(),
+      'messageScreenshotTaken' => const MessageContent(
+          kind: MessageKind.service,
+          preview: '📸 Сделан скриншот',
+        ),
       _ => MessageContent(
           kind: MessageKind.unsupported,
           preview: 'Сообщение ($type)',
@@ -528,6 +532,7 @@ class ChatSummary {
     this.canBeDeletedForAllUsers = false,
     this.basicGroupId,
     this.supergroupId,
+    this.secretChatId,
     this.isForum = false,
     this.canSendMessages = true,
   });
@@ -549,6 +554,7 @@ class ChatSummary {
   final bool canBeDeletedForAllUsers;
   final int? basicGroupId;
   final int? supergroupId;
+  final int? secretChatId;
   final bool isForum;
   final bool canSendMessages;
 
@@ -616,6 +622,7 @@ class ChatSummary {
     bool? canBeDeletedForAllUsers,
     int? basicGroupId,
     int? supergroupId,
+    int? secretChatId,
     bool? isForum,
     bool? canSendMessages,
   }) {
@@ -639,6 +646,7 @@ class ChatSummary {
           canBeDeletedForAllUsers ?? this.canBeDeletedForAllUsers,
       basicGroupId: basicGroupId ?? this.basicGroupId,
       supergroupId: supergroupId ?? this.supergroupId,
+      secretChatId: secretChatId ?? this.secretChatId,
       isForum: isForum ?? this.isForum,
       canSendMessages: canSendMessages ?? this.canSendMessages,
     );

@@ -1,7 +1,7 @@
 name: riogram
 description: RioGram — censorship-resistant cross-platform Telegram client.
 publish_to: 'none'
-version: 0.9.0+63
+version: 0.10.0+64
 
 environment:
   sdk: ^3.12.2
@@ -24,6 +24,7 @@ dependencies:
   flutter_local_notifications: ^19.0.0
   intl: ^0.20.2
   url_launcher: ^6.3.1
+  webview_flutter: ^4.10.0
   geolocator: ^13.0.2
   flutter_webrtc: ^0.12.12
   permission_handler: ^11.4.0

@@ -403,21 +403,21 @@
 
 ### 6.10. Боты, inline и Mini Apps
 
-- [ ] Распознавание ботов (`userTypeBot`), отдельный UI где нужно
-- [ ] Inline-кнопки и клавиатуры (`replyMarkupInlineKeyboard`, callback `getCallbackQueryAnswer`)
-- [ ] Inline-режим (`inlineQuery`) — поиск через бота в любом чате
-- [ ] Telegram Mini Apps / Web Apps (`openWebApp`, `answerWebAppQuery`)
-- [ ] Команды бота (`/start`, меню команд `botCommands`)
+- [x] Распознавание ботов (`userTypeBot`), отдельный UI где нужно
+- [x] Inline-кнопки и клавиатуры (`replyMarkupInlineKeyboard`, callback `getCallbackQueryAnswer`)
+- [x] Inline-режим (`inlineQuery`) — поиск через бота в любом чате
+- [x] Telegram Mini Apps / Web Apps (`openWebApp`, `answerWebAppQuery`)
+- [x] Команды бота (`/start`, меню команд `botCommands`)
 
 ---
 
 ### 6.11. Секретные чаты
 
-- [ ] Включить `use_secret_chats` в `setTdlibParameters`
-- [ ] Создание секретного чата (`createNewSecretChat`)
-- [ ] E2E-шифрование: обмен ключами, индикатор «секретный чат»
-- [ ] Таймер самоуничтожения (`setChatMessageTtl`)
-- [ ] Скриншот-уведомления (как в официальном клиенте — предупреждение собеседнику)
+- [x] Включить `use_secret_chats` в `setTdlibParameters`
+- [x] Создание секретного чата (`createNewSecretChat`)
+- [x] E2E-шифрование: обмен ключами, индикатор «секретный чат»
+- [x] Таймер самоуничтожения (`setChatMessageAutoDeleteTime` / `messageSelfDestructTypeTimer`)
+- [x] Скриншот-уведомления (`messageScreenshotTaken`)
 
 ---
 

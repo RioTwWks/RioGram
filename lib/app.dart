@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/auth/auth_manager.dart';
+import 'core/bot/bot_manager.dart';
+import 'core/secret/secret_chat_manager.dart';
 import 'core/call/call_manager.dart';
 import 'core/call/call_signaling_bridge.dart';
 import 'core/call/group_call_manager.dart';
@@ -89,6 +91,8 @@ class _AppScopeState extends State<_AppScope> {
   late final PrivacySettingsManager _privacySettingsManager;
   late final SecuritySettingsManager _securitySettingsManager;
   late final AppLocaleManager _appLocaleManager;
+  late final BotManager _botManager;
+  late final SecretChatManager _secretChatManager;
   late final ChatManager _chatManager;
 
   @override
@@ -123,6 +127,8 @@ class _AppScopeState extends State<_AppScope> {
     _privacySettingsManager = PrivacySettingsManager(client: _client);
     _securitySettingsManager = SecuritySettingsManager(client: _client);
     _appLocaleManager = AppLocaleManager(client: _client)..load();
+    _botManager = BotManager(client: _client);
+    _secretChatManager = SecretChatManager(client: _client);
 
     _chatManager = ChatManager(
       client: _client,
@@ -147,6 +153,8 @@ class _AppScopeState extends State<_AppScope> {
         _notificationSettingsManager.startListening();
         _privacySettingsManager.startListening();
         _securitySettingsManager.startListening();
+        _botManager.startListening();
+        _secretChatManager.startListening();
         _profileManager.loadOwnProfile();
         _contactManager.loadContacts();
         _chatManager.startListening();
@@ -168,6 +176,8 @@ class _AppScopeState extends State<_AppScope> {
     _privacySettingsManager.dispose();
     _securitySettingsManager.dispose();
     _appLocaleManager.dispose();
+    _botManager.dispose();
+    _secretChatManager.dispose();
     _stickerManager.dispose();
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
@@ -215,6 +225,12 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<AppLocaleManager>.value(
           value: _appLocaleManager,
+        ),
+        ChangeNotifierProvider<BotManager>.value(
+          value: _botManager,
+        ),
+        ChangeNotifierProvider<SecretChatManager>.value(
+          value: _secretChatManager,
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),
