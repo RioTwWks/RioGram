@@ -29,6 +29,8 @@ class MessageDeliveryIcon extends StatelessWidget {
       MessageDeliveryStatus.failed =>
         Icon(Icons.error_outline, size: size, color: theme.colorScheme.error),
       MessageDeliveryStatus.sent => Icon(Icons.check, size: size, color: color),
+      MessageDeliveryStatus.delivered =>
+        Icon(Icons.done_all, size: size, color: color),
       MessageDeliveryStatus.read =>
         Icon(Icons.done_all, size: size, color: read),
     };

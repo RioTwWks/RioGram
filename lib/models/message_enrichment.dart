@@ -3,6 +3,7 @@ import '../core/tdlib/tdlib_json.dart';
 enum MessageDeliveryStatus {
   sending,
   sent,
+  delivered,
   read,
   failed,
 }
@@ -202,7 +203,7 @@ class MessageEnrichmentParser {
       return MessageDeliveryStatus.read;
     }
 
-    return MessageDeliveryStatus.sent;
+    return MessageDeliveryStatus.delivered;
   }
 
   static List<MessageReactionSummary> parseReactions(
