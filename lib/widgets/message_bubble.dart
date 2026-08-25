@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 
 import '../core/features/anti_recall_store.dart';
 import '../core/features/riogram_features_manager.dart';
+import '../core/plugins/plugin_manager.dart';
+import '../models/plugin_models.dart';
 import '../core/theme/telegram_theme.dart';
 import '../models/anti_recall_models.dart';
 import '../models/audio_models.dart';
@@ -583,7 +585,16 @@ class _MessageBody extends StatelessWidget {
     if (content.kind == MessageKind.text) {
       final formatted = content.formattedText;
       if (formatted != null && formatted.text.isNotEmpty) {
-        return LatexFormattedTextWidget(formatted: formatted);
+        final pluginManager = context.read<PluginManager>();
+        final displayFormatted = pluginManager.transformDisplayFormatted(
+              context: PluginMessageContext(
+                chatId: message.chatId,
+                messageId: message.id,
+                isOutgoing: message.isOutgoing,
+              ),
+              formatted: formatted,
+            );
+        return LatexFormattedTextWidget(formatted: displayFormatted);
       }
       return Text(content.preview);
     }

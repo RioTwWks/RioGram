@@ -10,12 +10,14 @@ import '../../models/channel_models.dart';
 import '../../models/chat_info_models.dart';
 import '../../models/forum_models.dart';
 import '../../models/formatted_text.dart';
+import '../../models/plugin_models.dart';
 import '../../models/group_models.dart';
 import '../../models/location_models.dart';
 import '../../models/message_enrichment.dart';
 import '../features/anti_recall_store.dart';
 import '../features/riogram_features_manager.dart';
 import '../integrations/external_integrations_manager.dart';
+import '../plugins/plugin_manager.dart';
 import '../location/live_location_tracker.dart';
 import '../media/media_cache_manager.dart';
 import '../notifications/notification_settings_manager.dart';
@@ -43,6 +45,7 @@ class ChatManager extends ChangeNotifier {
     RioGramMediaFeaturesManager? mediaFeatures,
     SecurityPrivacyManager? securityPrivacy,
     ExternalIntegrationsManager? externalIntegrations,
+    PluginManager? pluginManager,
   })  : _client = client,
         _notifications = notificationService ?? NotificationService(),
         _notificationSettings = notificationSettings,
@@ -51,7 +54,8 @@ class ChatManager extends ChangeNotifier {
         _antiRecallStore = antiRecallStore,
         _mediaFeatures = mediaFeatures,
         _securityPrivacy = securityPrivacy,
-        _externalIntegrations = externalIntegrations;
+        _externalIntegrations = externalIntegrations,
+        _pluginManager = pluginManager;
 
   final TdlibClient _client;
   final NotificationService _notifications;
@@ -62,6 +66,7 @@ class ChatManager extends ChangeNotifier {
   final RioGramMediaFeaturesManager? _mediaFeatures;
   final SecurityPrivacyManager? _securityPrivacy;
   final ExternalIntegrationsManager? _externalIntegrations;
+  final PluginManager? _pluginManager;
   final LiveLocationTracker _liveLocationTracker = LiveLocationTracker();
 
   final Map<int, ChatSummary> _chatsById = {};
@@ -1349,7 +1354,16 @@ class ChatManager extends ChangeNotifier {
     }
 
     final chatId = _activeChatId;
-    final formatted = FormattedTextBuilder.buildFromComposer(raw);
+    final rawTransformed = _pluginManager?.transformOutgoingText(
+          context: PluginMessageContext(
+            chatId: chatId ?? 0,
+            messageId: 0,
+            isOutgoing: true,
+          ),
+          text: raw,
+        ) ??
+        raw;
+    final formatted = FormattedTextBuilder.buildFromComposer(rawTransformed);
     if (chatId == null || formatted.text.trim().isEmpty) {
       return;
     }
