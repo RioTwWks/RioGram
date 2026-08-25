@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../navigation/telegram_routes.dart';
 
@@ -99,6 +100,47 @@ abstract final class TelegramRadii {
   static const double searchField = 10;
   static const double mediaPreview = 8;
   static const double unreadBadge = 10;
+
+  static const double settingsGroupFlat = 0;
+}
+
+abstract final class TelegramAvatarColors {
+  static const List<Color> userpicPalette = [
+    Color(0xFFFF845E), Color(0xFF9AD164), Color(0xFFE5CA77), Color(0xFF5CAFFA),
+    Color(0xFFB694F9), Color(0xFFFF8AAC), Color(0xFF5BCBE3), Color(0xFFFEBB5B),
+  ];
+  static const List<int> _colorOrder = [0, 7, 4, 1, 6, 3, 5];
+
+  static Color colorForKey(String key) {
+    final hash = _hashKey(key);
+    return userpicPalette[_colorOrder[hash % _colorOrder.length]];
+  }
+
+  static int _hashKey(String key) {
+    var hash = 0;
+    for (final unit in key.runes) {
+      hash = (hash * 31 + unit) & 0x7FFFFFFF;
+    }
+    return hash;
+  }
+
+  static String initialsForTitle(String title) {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) return '?';
+    final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.length >= 2) {
+      return '${_firstGrapheme(words[0])}${_firstGrapheme(words[1])}'.toUpperCase();
+    }
+    final graphemes = trimmed.runes.map(String.fromCharCode).toList();
+    if (graphemes.length >= 2) return '${graphemes[0]}${graphemes[1]}'.toUpperCase();
+    return graphemes.first.toUpperCase();
+  }
+
+  static String _firstGrapheme(String word) {
+    final runes = word.runes;
+    if (runes.isEmpty) return '?';
+    return String.fromCharCode(runes.first);
+  }
 }
 
 /// Отступы и размеры компонентов.
@@ -123,10 +165,19 @@ abstract final class TelegramSpacing {
 
 /// Платформенный шрифт как у Telegram.
 abstract final class TelegramTypography {
+  static bool get isDesktopPlatform {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.windows || TargetPlatform.linux || TargetPlatform.macOS => true,
+      _ => false,
+    };
+  }
+
   static String? get platformFontFamily {
     return switch (defaultTargetPlatform) {
-      TargetPlatform.iOS || TargetPlatform.macOS => '.AppleSystemUIFont',
+      TargetPlatform.iOS => '.AppleSystemUIFont',
       TargetPlatform.android => 'Roboto',
+      TargetPlatform.macOS || TargetPlatform.windows || TargetPlatform.linux =>
+        GoogleFonts.openSans().fontFamily,
       _ => null,
     };
   }
@@ -159,7 +210,7 @@ abstract final class TelegramTypography {
       );
     }
 
-    return base.copyWith(
+    final themed = base.copyWith(
       titleLarge: styled(
         base.titleLarge,
         size: TelegramFontSizes.chatTitle,
@@ -202,6 +253,11 @@ abstract final class TelegramTypography {
         color: time,
       ),
     );
+
+    if (isDesktopPlatform && fontFamily == null) {
+      return GoogleFonts.openSansTextTheme(themed);
+    }
+    return themed;
   }
 }
 

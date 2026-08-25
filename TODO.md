@@ -889,6 +889,12 @@ MVP — прочный фундамент. Ниже — направления, 
 
 **Критерий готовности §9.11:** два скриншота (светлая + тёмная) RioGram и TG Desktop — отличия только в логотипе и уникальных RioGram-фишках; отступы и размеры в пределах ±2px.
 
+#### 9.11.11. Типографика, аватары, polish настроек (P2 #11, P3 #18–19)
+
+- [x] **Open Sans на Desktop** — `google_fonts`, `TelegramTypography.platformFontFamily` (Windows/Linux/macOS)
+- [x] **Цветные placeholder-аватары** — `ChatAvatar` + `TelegramAvatarColors`
+- [x] **Настройки desktop** — плоские группы на широких экранах (`telegram_settings_tile.dart`)
+
 ---
 
 ## ❗ Замечания

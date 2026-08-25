@@ -4,17 +4,19 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/telegram_theme.dart';
 
-/// Аватар чата: локальный файл или буква из названия.
+/// Аватар чата: локальный файл или цветной placeholder с инициалами (как TG).
 class ChatAvatar extends StatelessWidget {
   const ChatAvatar({
     super.key,
     required this.title,
     this.localPath,
+    this.colorKey,
     this.radius = TelegramRadii.avatarList,
   });
 
   final String title;
   final String? localPath;
+  final String? colorKey;
   final double radius;
 
   @override
@@ -23,17 +25,28 @@ class ChatAvatar extends StatelessWidget {
     if (path != null && path.isNotEmpty) {
       final file = File(path);
       if (file.existsSync()) {
-        return CircleAvatar(
-          radius: radius,
-          backgroundImage: FileImage(file),
-        );
+        return CircleAvatar(radius: radius, backgroundImage: FileImage(file));
       }
     }
 
-    final letter = title.trim().isNotEmpty ? title.trim()[0].toUpperCase() : '?';
+    final key = colorKey ?? title;
+    final initials = TelegramAvatarColors.initialsForTitle(title);
+    final fontSize = radius < 28
+        ? radius * 0.9
+        : radius * (initials.length > 1 ? 0.72 : 0.85);
+
     return CircleAvatar(
       radius: radius,
-      child: Text(letter),
+      backgroundColor: TelegramAvatarColors.colorForKey(key),
+      child: Text(
+        initials,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w500,
+          height: 1,
+        ),
+      ),
     );
   }
 }

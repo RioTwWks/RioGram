@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
@@ -35,6 +36,16 @@ void main() {
       expect(TelegramFontSizes.time, 12);
     });
 
+    test('desktop использует Open Sans', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        expect(TelegramTypography.isDesktopPlatform, isTrue);
+        expect(TelegramTypography.platformFontFamily!.toLowerCase(), contains('open'));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
     test('textTheme использует semibold для заголовка чата', () {
       final theme = TelegramTypography.textTheme(
         brightness: Brightness.light,
@@ -46,6 +57,25 @@ void main() {
       expect(theme.titleMedium?.fontSize, TelegramFontSizes.chatTitle);
       expect(theme.titleMedium?.fontWeight, FontWeight.w600);
       expect(theme.bodyLarge?.height, TelegramLineHeights.message);
+    });
+  });
+
+  group('TelegramAvatarColors', () {
+    test('детерминированный цвет по ключу', () {
+      expect(
+        TelegramAvatarColors.colorForKey('Alice'),
+        TelegramAvatarColors.colorForKey('Alice'),
+      );
+      expect(
+        TelegramAvatarColors.colorForKey('Alice'),
+        isNot(equals(TelegramAvatarColors.colorForKey('Bob'))),
+      );
+    });
+
+    test('инициалы из названия', () {
+      expect(TelegramAvatarColors.initialsForTitle('Alice'), 'AL');
+      expect(TelegramAvatarColors.initialsForTitle('Alice Smith'), 'AS');
+      expect(TelegramAvatarColors.initialsForTitle(''), '?');
     });
   });
 
