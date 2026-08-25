@@ -465,7 +465,7 @@ class ChatManager extends ChangeNotifier {
       }
       final status = message.id > 0 && message.id <= lastRead
           ? MessageDeliveryStatus.read
-          : MessageDeliveryStatus.sent;
+          : MessageDeliveryStatus.delivered;
       if (status != message.deliveryStatus) {
         _messages[i] = message.copyWith(deliveryStatus: status);
         changed = true;

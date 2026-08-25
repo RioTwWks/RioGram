@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/telegram_icons.dart';
 import '../core/theme/telegram_theme.dart';
 
 class MobileTabBar extends StatelessWidget {
@@ -13,9 +14,9 @@ class MobileTabBar extends StatelessWidget {
   final ValueChanged<int> onDestinationSelected;
 
   static const destinations = <({IconData icon, String label})>[
-    (icon: Icons.chat_bubble_outline, label: 'Чаты'),
-    (icon: Icons.contacts_outlined, label: 'Контакты'),
-    (icon: Icons.settings_outlined, label: 'Настройки'),
+    (icon: TelegramIcons.chats, label: 'Чаты'),
+    (icon: TelegramIcons.contacts, label: 'Контакты'),
+    (icon: TelegramIcons.settings, label: 'Настройки'),
   ];
 
   @override
@@ -86,7 +87,7 @@ class _TabItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 24),
+            Icon(icon, color: color, size: TelegramIcons.size),
             const SizedBox(height: 4),
             Text(
               label,
