@@ -51,7 +51,6 @@ flutter:
     - assets/web/
     - assets/plugins/
 
-
 flutter_launcher_icons:
   android: true
   ios: true
@@ -62,9 +61,12 @@ flutter_launcher_icons:
   web:
     generate: true
     image_path: assets/icons/app_icon_1024.png
+    background_color: '#3390EC'
+    theme_color: '#3390EC'
   windows:
     generate: true
     image_path: assets/icons/app_icon_1024.png
+    icon_size: 256
   macos:
     generate: true
     image_path: assets/icons/app_icon_1024.png

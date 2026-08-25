@@ -87,12 +87,12 @@ class _TabItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: TelegramIcons.size),
+            Icon(icon, color: color, size: TelegramSpacing.tabBarIconSize),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                fontSize: TelegramFontSizes.time,
+                fontSize: TelegramSpacing.tabBarLabelFontSize,
                 color: color,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),

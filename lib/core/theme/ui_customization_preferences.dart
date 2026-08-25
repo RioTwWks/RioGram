@@ -17,6 +17,7 @@ class UiCustomizationPreferences {
   static const _hideMuteIconsKey = 'ui_hide_mute_icons';
   static const _hideNavigationBarKey = 'ui_hide_navigation_bar';
   static const _hideListIconsKey = 'ui_hide_list_icons';
+  static const _hideStoriesStripKey = 'ui_hide_stories_strip';
   static const _chatSwipeEndKey = 'ui_chat_swipe_end';
   static const _chatSwipeStartKey = 'ui_chat_swipe_start';
   static const _messageSwipeEndKey = 'ui_message_swipe_end';
@@ -44,6 +45,7 @@ class UiCustomizationPreferences {
   bool get hideMuteIcons => _preferences?.getBool(_hideMuteIconsKey) ?? false;
   bool get hideNavigationBar =>
       _preferences?.getBool(_hideNavigationBarKey) ?? false;
+  bool get hideStoriesStrip => _preferences?.getBool(_hideStoriesStripKey) ?? false;
   bool get hideListIcons => _preferences?.getBool(_hideListIconsKey) ?? false;
 
   ChatSwipeAction get chatSwipeEndToStart => _chatSwipe(
@@ -100,6 +102,11 @@ class UiCustomizationPreferences {
   Future<void> setHideListIcons(bool value) async {
     await init();
     await _preferences!.setBool(_hideListIconsKey, value);
+  }
+
+  Future<void> setHideStoriesStrip(bool value) async {
+    await init();
+    await _preferences!.setBool(_hideStoriesStripKey, value);
   }
 
   Future<void> setChatSwipeEndToStart(ChatSwipeAction action) async {

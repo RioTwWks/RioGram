@@ -12,9 +12,11 @@ import '../../models/chat_models.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/stories_strip.dart';
 import '../../widgets/chat_desktop_shortcuts.dart';
+import '../../core/navigation/desktop_layout_preferences.dart';
 import '../../core/navigation/telegram_routes.dart';
 import '../../widgets/mobile_tab_bar.dart';
 import '../../widgets/chat_folder_sidebar.dart';
+import '../../widgets/chat_list_resize_handle.dart';
 import '../../widgets/chat_list_tile.dart';
 import '../../widgets/chat_search_panel.dart';
 import '../../widgets/new_chat_dialog.dart';
@@ -47,8 +49,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
   /// Три колонки: папки | чаты | переписка (как Telegram Desktop).
   static const _threeColumnBreakpoint = TelegramLayoutBreakpoints.threeColumn;
 
-  static const _chatListWidth = TelegramLayoutBreakpoints.chatListWidth;
-
+  final _desktopLayoutPreferences = DesktopLayoutPreferences();
+  var _chatListWidth = TelegramLayoutBreakpoints.chatListWidth;
+  @override void initState(){super.initState();_loadDesktopLayout();}
+  Future<void> _loadDesktopLayout() async {await _desktopLayoutPreferences.init(); if(!mounted)return; setState(()=>_chatListWidth=_desktopLayoutPreferences.chatListWidth);}
+  void _resizeChatList(double d){setState(()=>_chatListWidth=(_chatListWidth+d).clamp(TelegramLayoutBreakpoints.chatListWidthMin,TelegramLayoutBreakpoints.chatListWidthMax)); _desktopLayoutPreferences.setChatListWidth(_chatListWidth);}
   @override
   void dispose() {
     _searchController.dispose();
@@ -203,7 +208,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
               ],
             ),
           ),
-          const VerticalDivider(width: 1),
+          ChatListResizeHandle(onDrag: _resizeChatList),
           Expanded(child: _buildConversationPane(chatManager)),
         ],
       ),
@@ -262,7 +267,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
               ],
             ),
           ),
-          const VerticalDivider(width: 1),
+          ChatListResizeHandle(onDrag: _resizeChatList),
           Expanded(child: _buildConversationPane(chatManager)),
         ],
       ),
@@ -341,7 +346,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           const Divider(height: 1),
         ],
         if (!searchManager.isGlobalSearchActive)
-          const StoriesStrip(),
+          StoriesStrip(classicMode: context.watch<UiCustomizationManager>().hideStoriesStrip),
         if (!searchManager.isGlobalSearchActive)
           const Divider(height: 1),
         Expanded(

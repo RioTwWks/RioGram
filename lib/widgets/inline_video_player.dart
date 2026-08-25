@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import '../core/features/riogram_features_manager.dart';
 import '../core/theme/telegram_theme.dart';
+import 'video_duration_badge.dart';
 import 'video_playback_speed_controls.dart';
 
 /// Inline-воспроизведение видео в пузыре сообщения.
@@ -174,7 +175,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
             Positioned(
               right: 8,
               bottom: 8,
-              child: _DurationBadge(label: widget.durationLabel!),
+              child: VideoDurationBadge(label: widget.durationLabel!),
             ),
           if (widget.onOpenFullscreen != null)
             Positioned(
@@ -233,7 +234,7 @@ class _VideoPlaceholder extends StatelessWidget {
             Positioned(
               right: 8,
               bottom: 8,
-              child: _DurationBadge(label: label!),
+              child: VideoDurationBadge(label: label!),
             ),
         ],
       ),
@@ -241,25 +242,3 @@ class _VideoPlaceholder extends StatelessWidget {
   }
 }
 
-class _DurationBadge extends StatelessWidget {
-  const _DurationBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        child: Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-        ),
-      ),
-    );
-  }
-}
