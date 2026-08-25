@@ -8,7 +8,11 @@ import 'core/call/group_call_manager.dart';
 import 'core/chat/chat_manager.dart';
 import 'core/chat/sticker_manager.dart';
 import 'core/config/app_config.dart';
+import 'core/locale/app_locale_manager.dart';
+import 'core/notifications/notification_settings_manager.dart';
+import 'core/privacy/privacy_settings_manager.dart';
 import 'core/search/search_manager.dart';
+import 'core/security/security_settings_manager.dart';
 import 'core/user/contact_manager.dart';
 import 'core/user/profile_manager.dart';
 import 'core/media/media_cache_manager.dart';
@@ -81,6 +85,10 @@ class _AppScopeState extends State<_AppScope> {
   late final ContactManager _contactManager;
   late final ProfileManager _profileManager;
   late final SearchManager _searchManager;
+  late final NotificationSettingsManager _notificationSettingsManager;
+  late final PrivacySettingsManager _privacySettingsManager;
+  late final SecuritySettingsManager _securitySettingsManager;
+  late final AppLocaleManager _appLocaleManager;
   late final ChatManager _chatManager;
 
   @override
@@ -106,10 +114,20 @@ class _AppScopeState extends State<_AppScope> {
     _contactManager = ContactManager(client: _client);
     _profileManager = ProfileManager(client: _client);
     _searchManager = SearchManager(client: _client);
+    _notificationSettingsManager = NotificationSettingsManager(
+      client: _client,
+      onBadgeCountChanged: (count) {
+        _notificationService.updateBadgeCount(count);
+      },
+    );
+    _privacySettingsManager = PrivacySettingsManager(client: _client);
+    _securitySettingsManager = SecuritySettingsManager(client: _client);
+    _appLocaleManager = AppLocaleManager(client: _client)..load();
 
     _chatManager = ChatManager(
       client: _client,
       notificationService: _notificationService,
+      notificationSettings: _notificationSettingsManager,
       mediaCache: _mediaCacheManager,
     );
 
@@ -118,6 +136,7 @@ class _AppScopeState extends State<_AppScope> {
       config: widget.config,
       proxyManager: _proxyManager,
       onAuthorized: () {
+        _appLocaleManager.startListening();
         _mediaCacheManager.startListening();
         _stickerManager.startListening();
         _callManager.startListening();
@@ -125,6 +144,9 @@ class _AppScopeState extends State<_AppScope> {
         _contactManager.startListening();
         _profileManager.startListening();
         _searchManager.startListening();
+        _notificationSettingsManager.startListening();
+        _privacySettingsManager.startListening();
+        _securitySettingsManager.startListening();
         _profileManager.loadOwnProfile();
         _contactManager.loadContacts();
         _chatManager.startListening();
@@ -142,6 +164,10 @@ class _AppScopeState extends State<_AppScope> {
     _contactManager.dispose();
     _profileManager.dispose();
     _searchManager.dispose();
+    _notificationSettingsManager.dispose();
+    _privacySettingsManager.dispose();
+    _securitySettingsManager.dispose();
+    _appLocaleManager.dispose();
     _stickerManager.dispose();
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
@@ -177,6 +203,18 @@ class _AppScopeState extends State<_AppScope> {
         ),
         ChangeNotifierProvider<SearchManager>.value(
           value: _searchManager,
+        ),
+        ChangeNotifierProvider<NotificationSettingsManager>.value(
+          value: _notificationSettingsManager,
+        ),
+        ChangeNotifierProvider<PrivacySettingsManager>.value(
+          value: _privacySettingsManager,
+        ),
+        ChangeNotifierProvider<SecuritySettingsManager>.value(
+          value: _securitySettingsManager,
+        ),
+        ChangeNotifierProvider<AppLocaleManager>.value(
+          value: _appLocaleManager,
         ),
         if (_proxyManager != null)
           ChangeNotifierProvider<ProxyManager>.value(value: _proxyManager!),

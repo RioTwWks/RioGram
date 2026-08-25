@@ -13,6 +13,7 @@ import '../../models/location_models.dart';
 import '../../models/message_enrichment.dart';
 import '../location/live_location_tracker.dart';
 import '../media/media_cache_manager.dart';
+import '../notifications/notification_settings_manager.dart';
 import '../notifications/notification_service.dart';
 import '../../models/sticker_models.dart';
 import '../tdlib/tdlib_client.dart';
@@ -28,13 +29,16 @@ class ChatManager extends ChangeNotifier {
   ChatManager({
     required TdlibClient client,
     NotificationService? notificationService,
+    NotificationSettingsManager? notificationSettings,
     MediaCacheManager? mediaCache,
   })  : _client = client,
         _notifications = notificationService ?? NotificationService(),
+        _notificationSettings = notificationSettings,
         _mediaCache = mediaCache;
 
   final TdlibClient _client;
   final NotificationService _notifications;
+  final NotificationSettingsManager? _notificationSettings;
   final MediaCacheManager? _mediaCache;
   final LiveLocationTracker _liveLocationTracker = LiveLocationTracker();
 
@@ -3125,11 +3129,25 @@ class ChatManager extends ChangeNotifier {
     }
 
     if (message.chatId != _activeChatId) {
-      final chatTitle = _chatsById[message.chatId]?.title ?? 'Новое сообщение';
-      _notifications.showMessageNotification(
-        title: chatTitle,
-        body: message.content.preview,
-      );
+      final chat = _chatsById[message.chatId];
+      final chatTitle = chat?.title ?? 'Новое сообщение';
+      final shouldNotify = _notificationSettings?.shouldNotify(
+            chatId: message.chatId,
+            kind: chat?.kind ?? ChatKind.privateChat,
+          ) ??
+          !(chat?.isMuted ?? false);
+      if (shouldNotify) {
+        final body = _notificationSettings?.notificationBody(
+              chatId: message.chatId,
+              kind: chat?.kind ?? ChatKind.privateChat,
+              preview: message.content.preview,
+            ) ??
+            message.content.preview;
+        _notifications.showMessageNotification(
+          title: chatTitle,
+          body: body,
+        );
+      }
     }
   }
 

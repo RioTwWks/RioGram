@@ -10,6 +10,7 @@ import '../../models/channel_models.dart';
 import '../../models/chat_models.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/chat_list_tile.dart';
+import '../../widgets/chat_notification_settings_section.dart';
 import '../../widgets/user_status_subtitle.dart';
 import '../profile/user_profile_screen.dart';
 
@@ -332,6 +333,11 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
           ],
           if (chat.kind == ChatKind.privateChat && chat.privateUserId != null)
             ..._privateChatSection(context, chat, profile, contacts),
+          const SizedBox(height: 24),
+          ChatNotificationSettingsSection(
+            chatId: widget.chatId,
+            chatKind: chat.kind,
+          ),
           if (info != null && info.description.isNotEmpty) ...[
             const SizedBox(height: 24),
             Text('Описание', style: Theme.of(context).textTheme.titleMedium),

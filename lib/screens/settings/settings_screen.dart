@@ -7,11 +7,13 @@ import '../../core/proxy/proxy_manager.dart';
 import '../../core/theme/theme_manager.dart';
 import '../../core/theme/theme_preferences.dart';
 import '../../core/user/profile_manager.dart';
+import '../../models/proxy_models.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/proxy_status_indicator.dart';
 import '../../widgets/storage_settings_section.dart';
 import '../profile/own_profile_screen.dart';
 import 'blocked_users_screen.dart';
+import 'notification_settings_screen.dart';
 
 /// Настройки: профиль, внешний вид, прокси, выход из аккаунта.
 class SettingsScreen extends StatelessWidget {
@@ -44,6 +46,8 @@ class SettingsScreen extends StatelessWidget {
             );
           },
         ),
+        const Divider(height: 32),
+        const SettingsNavigationSection(),
         const Divider(height: 32),
         Text('Внешний вид', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
@@ -250,6 +254,30 @@ class _ProxySettings extends StatelessWidget {
             onActivate: () => proxyManager.activateProxy(proxy.id),
           ),
         ),
+        if (proxyManager.userProxies.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Пользовательские прокси',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          ...proxyManager.userProxies.map(
+            (proxy) => ListTile(
+              dense: true,
+              leading: Icon(
+                proxy.type == UserProxyType.socks5
+                    ? Icons.vpn_lock
+                    : Icons.http,
+              ),
+              title: Text(proxy.name),
+              subtitle: Text('${proxy.host}:${proxy.port}'),
+            ),
+          ),
+        ],
+        OutlinedButton.icon(
+          onPressed: () => _showAddUserProxyDialog(context, proxyManager),
+          icon: const Icon(Icons.add),
+          label: const Text('Добавить SOCKS5 / HTTP'),
+        ),
         FilledButton.icon(
           onPressed: proxyManager.switchToNextProxy,
           icon: const Icon(Icons.swap_horiz),
@@ -257,6 +285,124 @@ class _ProxySettings extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _showAddUserProxyDialog(
+    BuildContext context,
+    ProxyManager manager,
+  ) async {
+    final nameController = TextEditingController();
+    final hostController = TextEditingController(text: '127.0.0.1');
+    final portController = TextEditingController(text: '1080');
+    final userController = TextEditingController();
+    final passController = TextEditingController();
+    var type = UserProxyType.socks5;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Новый прокси'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Название'),
+                ),
+                TextField(
+                  controller: hostController,
+                  decoration: const InputDecoration(labelText: 'Хост'),
+                ),
+                TextField(
+                  controller: portController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Порт'),
+                ),
+                DropdownButtonFormField<UserProxyType>(
+                  value: type,
+                  decoration: const InputDecoration(labelText: 'Тип'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: UserProxyType.socks5,
+                      child: Text('SOCKS5'),
+                    ),
+                    DropdownMenuItem(
+                      value: UserProxyType.http,
+                      child: Text('HTTP'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => type = value);
+                    }
+                  },
+                ),
+                TextField(
+                  controller: userController,
+                  decoration: const InputDecoration(
+                    labelText: 'Логин (необязательно)',
+                  ),
+                ),
+                TextField(
+                  controller: passController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Пароль (необязательно)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Добавить'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved == true && context.mounted) {
+      final host = hostController.text.trim();
+      final port = int.tryParse(portController.text.trim()) ?? 0;
+      if (host.isEmpty || port <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Укажите корректный хост и порт')),
+        );
+      } else {
+        await manager.addUserProxy(
+          UserProxyConfig(
+            id: '$host:$port:${type.name}',
+            name: nameController.text.trim().isEmpty
+                ? '$host:$port'
+                : nameController.text.trim(),
+            host: host,
+            port: port,
+            type: type,
+            username: userController.text.trim(),
+            password: passController.text,
+          ),
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Прокси добавлен')),
+          );
+        }
+      }
+    }
+
+    nameController.dispose();
+    hostController.dispose();
+    portController.dispose();
+    userController.dispose();
+    passController.dispose();
   }
 
   Future<void> _showTestResult(

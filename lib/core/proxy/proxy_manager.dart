@@ -40,6 +40,8 @@ class ProxyManager extends ChangeNotifier {
 
   final List<ProxyEntry> _proxies = [];
   final List<ProxyConfig> _pendingConfigs = [];
+  final List<UserProxyConfig> _pendingUserConfigs = [];
+  List<UserProxyConfig> _savedUserProxies = [];
   /// TDLib `proxy` payload для pingProxy (MTProto и HTTP/SOCKS).
   final Map<int, Map<String, dynamic>> _proxyPayloadsById = {};
 
@@ -53,6 +55,7 @@ class ProxyManager extends ChangeNotifier {
   String? _lastError;
 
   List<ProxyEntry> get proxies => List.unmodifiable(_proxies);
+  List<UserProxyConfig> get userProxies => List.unmodifiable(_savedUserProxies);
   ProxyStatus get status => _status;
   bool get autoFailoverEnabled => _autoFailoverEnabled;
   String? get lastError => _lastError;
@@ -151,6 +154,7 @@ class ProxyManager extends ChangeNotifier {
       if (hasActiveProxy) {
         _startHealthChecks();
       }
+      await _registerSavedUserProxies();
       return;
     }
 
@@ -178,6 +182,57 @@ class ProxyManager extends ChangeNotifier {
     if (hasActiveProxy) {
       _startHealthChecks();
     }
+
+    await _registerSavedUserProxies();
+  }
+
+  /// Добавляет SOCKS5/HTTP прокси, заданный пользователем.
+  Future<void> addUserProxy(UserProxyConfig config) async {
+    _pendingUserConfigs.add(config);
+    await _preferences.addUserProxy(config);
+    _savedUserProxies = await _preferences.loadUserProxies();
+    _client.send({
+      '@type': 'addProxy',
+      'proxy': _userProxyPayload(config),
+      'enable': false,
+      'comment': config.name,
+      '@extra': 'addProxy_${config.name}',
+    });
+    notifyListeners();
+  }
+
+  Future<void> _registerSavedUserProxies() async {
+    _savedUserProxies = await _preferences.loadUserProxies();
+    for (final proxy in _savedUserProxies) {
+      _pendingUserConfigs.add(proxy);
+      _client.send({
+        '@type': 'addProxy',
+        'proxy': _userProxyPayload(proxy),
+        'enable': false,
+        'comment': proxy.name,
+        '@extra': 'addProxy_${proxy.name}',
+      });
+    }
+  }
+
+  Map<String, dynamic> _userProxyPayload(UserProxyConfig proxy) {
+    return {
+      '@type': 'proxy',
+      'server': proxy.host,
+      'port': proxy.port,
+      'type': proxy.type == UserProxyType.socks5
+          ? {
+              '@type': 'proxyTypeSocks5',
+              'username': proxy.username,
+              'password': proxy.password,
+            }
+          : {
+              '@type': 'proxyTypeHttp',
+              'username': proxy.username,
+              'password': proxy.password,
+              'http_only': proxy.httpOnly,
+            },
+    };
   }
 
   /// Удаляет все прокси из TDLib (включая transport из прошлого запуска).
@@ -498,11 +553,19 @@ class ProxyManager extends ChangeNotifier {
       }
     } else if (extra != null && extra.startsWith('addProxy_')) {
       final name = extra.substring('addProxy_'.length);
-      final index = _pendingConfigs.indexWhere((item) => item.name == name);
-      if (index >= 0) {
-        config = _pendingConfigs.removeAt(index);
-        displayName = config.name;
-        payload = _proxyPayload(config);
+      final userIndex =
+          _pendingUserConfigs.indexWhere((item) => item.name == name);
+      if (userIndex >= 0) {
+        final userConfig = _pendingUserConfigs.removeAt(userIndex);
+        displayName = userConfig.name;
+        payload = _userProxyPayload(userConfig);
+      } else {
+        final index = _pendingConfigs.indexWhere((item) => item.name == name);
+        if (index >= 0) {
+          config = _pendingConfigs.removeAt(index);
+          displayName = config.name;
+          payload = _proxyPayload(config);
+        }
       }
     } else if (_pendingConfigs.isNotEmpty) {
       config = _pendingConfigs.removeAt(0);
