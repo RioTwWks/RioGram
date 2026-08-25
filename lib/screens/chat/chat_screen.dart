@@ -10,7 +10,8 @@ import '../../core/call/group_call_manager.dart';
 import '../../core/chat/chat_manager.dart';
 import '../../core/features/riogram_features_manager.dart';
 import '../../core/secret/secret_chat_manager.dart';
-import '../../core/user/profile_manager.dart';
+import '../../core/theme/ui_customization_manager.dart';
+import '../../widgets/message_swipe_wrapper.dart';
 import '../../widgets/scroll_to_bottom_button.dart';
 import '../../widgets/message_bubble_grouping.dart';
 import '../../widgets/date_separator.dart';
@@ -959,6 +960,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _handleMessageCountChange(messages.length);
 
     final tg = context.telegramTheme;
+    final ui = context.watch<UiCustomizationManager>();
     final listEntries = MessageBubbleGrouping.buildListEntries(messages: messages, showSenderNamesInGroups: showSenderName);
 
     return Scaffold(
@@ -1073,7 +1075,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               final msgEntry = entry as ChatListMessageEntry;
                               final message = msgEntry.message;
                               final album = _albumMessagesFor(listItems, message);
-                              return MessageBubble(
+                              final bubble = MessageBubble(
                                 message: message,
                                 albumMessages: album,
                                 groupPosition: msgEntry.groupPosition,
@@ -1133,6 +1135,28 @@ class _ChatScreenState extends State<ChatScreen> {
                                     : null,
                                 activeLiveLocationMessageId:
                                     chatManager.activeLiveLocationMessageId,
+                              );
+                              if (selectionMode || message.isServiceMessage) {
+                                return bubble;
+                              }
+                              return MessageSwipeWrapper(
+                                message: message,
+                                endToStartAction: ui.messageSwipeEndToStart,
+                                startToEndAction: ui.messageSwipeStartToEnd,
+                                onReply: () {
+                                  chatManager.setReplyToMessage(message);
+                                },
+                                onForward: () {
+                                  chatManager.enterSelectionMode(
+                                    initialMessageId: message.id,
+                                  );
+                                  _forwardSelected();
+                                },
+                                onDelete: () => chatManager.deleteMessage(
+                                  message.id,
+                                  revoke: false,
+                                ),
+                                child: bubble,
                               );
                             },
                           ), if (_newMessagesBelow > 0) Positioned(bottom: 12, left: 0, right: 0, child: Center(child: ScrollToBottomButton(newMessageCount: _newMessagesBelow, onPressed: () => _scrollToBottom()))), ],),

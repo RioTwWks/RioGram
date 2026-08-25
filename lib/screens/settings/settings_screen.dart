@@ -15,6 +15,7 @@ import '../../widgets/storage_settings_section.dart';
 import '../../widgets/telegram_settings_tile.dart';
 import '../profile/own_profile_screen.dart';
 import 'accounts_screen.dart';
+import 'ui_customization_settings_screen.dart';
 import 'active_sessions_screen.dart';
 import 'app_lock_settings_screen.dart';
 import 'change_phone_screen.dart';
@@ -74,6 +75,17 @@ class SettingsScreen extends StatelessWidget {
           children: [
             _ThemeModeTile(themeManager: themeManager),
             _AccentColorTile(themeManager: themeManager),
+            TelegramSettingsTile(
+              title: 'Кастомизация UI',
+              subtitle: 'Шрифты, скругления, жесты, видимость',
+              onTap: () {
+                TelegramRoutes.push(
+                  context,
+                  const UiCustomizationSettingsScreen(),
+                );
+              },
+              showDivider: false,
+            ),
           ],
         ),
         if (mediaCache != null) const StorageSettingsSection(),
