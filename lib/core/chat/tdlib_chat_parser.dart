@@ -70,6 +70,7 @@ class TdlibChatParser {
           chat['can_be_deleted_for_all_users'] as bool? ?? false,
       basicGroupId: typeInfo.basicGroupId,
       supergroupId: typeInfo.supergroupId,
+      secretChatId: typeInfo.secretChatId,
       isForum: typeInfo.isForum ||
           (chat['view_as_topics'] as bool? ?? false),
       canSendMessages: TdlibChatInfoParser.parsePermissions(
@@ -225,7 +226,11 @@ class TdlibChatParser {
               : ChatKind.group,
           supergroupId: tdInt(type['supergroup_id']),
         ),
-      'chatTypeSecret' => const ChatTypeInfo(kind: ChatKind.secret),
+      'chatTypeSecret' => ChatTypeInfo(
+          kind: ChatKind.secret,
+          secretChatId: tdInt(type['secret_chat_id']),
+          privateUserId: tdInt(type['user_id']),
+        ),
       'chatTypePrivate' => () {
           final private = _parsePrivateChatType(
             tdInt(type['user_id']),

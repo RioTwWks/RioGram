@@ -4,10 +4,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/bot/bot_manager.dart';
 import '../../core/call/call_manager.dart';
 import '../../core/call/group_call_manager.dart';
 import '../../core/chat/chat_manager.dart';
+import '../../core/secret/secret_chat_manager.dart';
 import '../../core/user/profile_manager.dart';
+import '../../models/bot_models.dart';
+import '../../models/message_enrichment.dart';
 import '../../models/call_models.dart';
 import '../../models/channel_models.dart';
 import '../../models/chat_models.dart';
@@ -18,6 +22,8 @@ import '../../widgets/channel_status_bar.dart';
 import '../../widgets/forward_messages_dialog.dart';
 import '../../widgets/media_attach_sheet.dart';
 import '../../widgets/location_picker_sheet.dart';
+import '../../widgets/bot_command_menu.dart';
+import '../../widgets/inline_query_results_sheet.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/message_input_bar.dart';
 import '../../widgets/message_reactions_row.dart';
@@ -29,6 +35,7 @@ import 'media_viewer_screen.dart';
 import 'chat_message_search_screen.dart';
 import 'chat_info_screen.dart';
 import 'message_thread_screen.dart';
+import '../webapp/web_app_screen.dart';
 
 /// Экран переписки: форматирование, ответ, пересылка, редактирование, удаление.
 class ChatScreen extends StatefulWidget {
@@ -56,12 +63,16 @@ class _ChatScreenState extends State<ChatScreen> {
   final _scrollController = ScrollController();
   Timer? _typingTimer;
   var _isSubscribing = false;
+  BotManager? _botManager;
+  int _lastShownInlineQueryId = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final manager = context.read<ChatManager>();
+      _botManager = context.read<BotManager>();
+      _botManager!.addListener(_onBotManagerChanged);
       if (widget.forumTopicId != null) {
         if (manager.activeForumTopicId != widget.forumTopicId ||
             manager.activeChatId != widget.chatId) {
@@ -78,13 +89,95 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       _loadCallCapabilities(manager);
       _loadPrivateUserProfile(manager);
+      _loadSecretChatState(manager);
     });
     _controller.addListener(_onTextChanged);
+  }
+
+  void _loadSecretChatState(ChatManager chatManager) {
+    final chat = chatManager.chatById(widget.chatId);
+    if (chat?.kind != ChatKind.secret || chat?.secretChatId == null) {
+      return;
+    }
+    context.read<SecretChatManager>().loadSecretChat(chat!.secretChatId!);
+  }
+
+  void _onBotManagerChanged() {
+    final bot = _botManager;
+    if (bot == null || !mounted) {
+      return;
+    }
+
+    final answer = bot.lastCallbackAnswer;
+    if (answer != null) {
+      bot.clearLastCallbackAnswer();
+      if (answer.showAlert && answer.text.isNotEmpty) {
+        showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            content: Text(answer.text),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      } else if (answer.text.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(answer.text)),
+        );
+      }
+      if (answer.url.isNotEmpty) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => WebAppScreen(
+              url: answer.url,
+              launchId: 0,
+              title: 'Бот',
+            ),
+          ),
+        );
+      }
+    }
+
+    final webUrl = bot.pendingWebAppUrl;
+    final launchId = bot.pendingWebAppLaunchId;
+    if (webUrl != null && launchId != null) {
+      bot.clearPendingWebApp();
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => WebAppScreen(
+            url: webUrl,
+            launchId: launchId,
+            title: 'Mini App',
+          ),
+        ),
+      );
+    }
+
+    final inline = bot.inlineQueryState;
+    if (inline.queryId != 0 &&
+        inline.queryId != _lastShownInlineQueryId &&
+        inline.isActive &&
+        !inline.isLoading &&
+        inline.results.isNotEmpty) {
+      _lastShownInlineQueryId = inline.queryId;
+      showModalBottomSheet<void>(
+        context: context,
+        builder: (_) => InlineQueryResultsSheet(
+          chatId: widget.chatId,
+          state: inline,
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
     _typingTimer?.cancel();
+    _botManager?.removeListener(_onBotManagerChanged);
     _controller
       ..removeListener(_onTextChanged)
       ..dispose();
@@ -113,7 +206,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     final chat = chatManager.activeChat;
     final userId = chat?.privateUserId;
-    if (userId == null || chat?.kind != ChatKind.privateChat) {
+    if (userId == null ||
+        (chat?.kind != ChatKind.privateChat && chat?.kind != ChatKind.bot)) {
       return;
     }
     context.read<ProfileManager>().loadUserProfile(userId);
@@ -149,6 +243,29 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _onTextChanged() {
+    final text = _controller.text;
+    final chatManager = context.read<ChatManager>();
+    final botManager = context.read<BotManager>();
+    final profileManager = context.read<ProfileManager>();
+
+    botManager.handleComposerText(
+      text: text,
+      chatId: widget.chatId,
+    );
+
+    final chat = chatManager.activeChat;
+    final userId = chat?.privateUserId;
+    if (userId != null && chat?.kind == ChatKind.bot) {
+      final user = profileManager.userById(userId);
+      if (user?.username != null) {
+        botManager.registerUsername(user!.username!, userId);
+      }
+      final fullInfo = profileManager.fullInfoFor(userId);
+      if (fullInfo != null) {
+        botManager.cacheBotInfo(userId, fullInfo.botInfo);
+      }
+    }
+
     _typingTimer?.cancel();
     _typingTimer = Timer(const Duration(milliseconds: 400), () {
       if (_controller.text.trim().isNotEmpty &&
@@ -166,6 +283,22 @@ class _ChatScreenState extends State<ChatScreen> {
     context.read<ChatManager>().sendText(text);
     _controller.clear();
     _scrollToBottom();
+  }
+
+  void _handleInlineButton({
+    required ChatManager chatManager,
+    required BotManager botManager,
+    required ChatMessage message,
+    required InlineKeyboardButtonModel button,
+  }) {
+    final chat = chatManager.activeChat;
+    final botUserId = chat?.privateUserId ?? message.senderUserId ?? 0;
+    botManager.pressInlineButton(
+      chatId: widget.chatId,
+      messageId: message.id,
+      button: button,
+      botUserId: botUserId,
+    );
   }
 
   void _clearComposer({bool clearText = true}) {
@@ -727,6 +860,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatManager = context.watch<ChatManager>();
     final callManager = context.watch<CallManager>();
     final profileManager = context.watch<ProfileManager>();
+    final botManager = context.watch<BotManager>();
+    final secretManager = context.watch<SecretChatManager>();
     final chat = chatManager.activeChat;
     final messages = chatManager.messages;
     final listItems = MediaAlbumGrouper.group(messages);
@@ -757,6 +892,24 @@ class _ChatScreenState extends State<ChatScreen> {
         chat?.kind == ChatKind.privateChat &&
         privateUserId != null &&
         callCaps.canBeCalled;
+    final isBotChat = chat?.kind == ChatKind.bot;
+    final isSecretChat = chat?.kind == ChatKind.secret;
+    final botUserId = isBotChat ? privateUserId : null;
+    final botCommands = botUserId != null
+        ? botManager.commandsFor(botUserId)
+        : const <BotCommandModel>[];
+    final filteredCommands = _controller.text.startsWith('/')
+        ? botCommands
+            .where(
+              (cmd) => cmd.slashCommand.startsWith(
+                _controller.text.split(' ').first,
+              ),
+            )
+            .toList()
+        : const <BotCommandModel>[];
+    final secretChat = chat?.secretChatId != null
+        ? secretManager.secretChatForId(chat!.secretChatId!)
+        : null;
     final showGroupCallActions =
         !selectionMode &&
         widget.forumTopicId == null &&
@@ -789,7 +942,39 @@ class _ChatScreenState extends State<ChatScreen> {
                           chat?.title ??
                           'Чат',
                     ),
-                    if (widget.forumTopicId != null && chat != null)
+                    if (isSecretChat)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.lock,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            secretChat?.isReady == true
+                                ? 'E2E шифрование'
+                                : 'Секретный чат',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
+                      )
+                    else if (isBotChat)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.smart_toy_outlined,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Бот',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
+                      )
+                    else if (widget.forumTopicId != null && chat != null)
                       Text(
                         chat.title,
                         style: Theme.of(context).textTheme.labelSmall,
@@ -964,14 +1149,25 @@ class _ChatScreenState extends State<ChatScreen> {
                                 onPollVote: (optionId) => chatManager
                                     .setPollAnswer(message.id, [optionId]),
                                 onInlineButtonTap: (button) {
-                                  if (button.callbackData != null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Callback: ${button.callbackData}',
-                                        ),
-                                      ),
-                                    );
+                                  _handleInlineButton(
+                                    chatManager: chatManager,
+                                    botManager: botManager,
+                                    message: message,
+                                    button: button,
+                                  );
+                                },
+                                onInlineWebAppTap: (button) {
+                                  _handleInlineButton(
+                                    chatManager: chatManager,
+                                    botManager: botManager,
+                                    message: message,
+                                    button: button,
+                                  );
+                                },
+                                onInlineSwitchTap: (button) {
+                                  if (button.switchInlineQuery != null) {
+                                    _controller.text =
+                                        '@bot ${button.switchInlineQuery}';
                                   }
                                 },
                                 onMediaTap: selectionMode
@@ -996,6 +1192,16 @@ class _ChatScreenState extends State<ChatScreen> {
             if (showReadOnlyBar)
               const ChannelReadOnlyBar()
             else ...[
+              if (isBotChat && filteredCommands.isNotEmpty)
+                BotCommandMenu(
+                  commands: filteredCommands,
+                  onCommandSelected: (command) {
+                    _controller.text = '${command.slashCommand} ';
+                    _controller.selection = TextSelection.collapsed(
+                      offset: _controller.text.length,
+                    );
+                  },
+                ),
               const Divider(height: 1),
               MessageInputBar(
               controller: _controller,

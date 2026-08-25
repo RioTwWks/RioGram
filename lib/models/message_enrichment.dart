@@ -50,17 +50,48 @@ class MessageReactionSummary {
       };
 }
 
+/// Тип inline-кнопки TDLib.
+enum InlineKeyboardButtonKind {
+  url,
+  callback,
+  webApp,
+  loginUrl,
+  switchInline,
+  user,
+  copyText,
+  buy,
+  game,
+  callbackWithPassword,
+  unknown,
+}
+
 /// Кнопка inline-клавиатуры.
 class InlineKeyboardButtonModel {
   const InlineKeyboardButtonModel({
     required this.text,
+    this.kind = InlineKeyboardButtonKind.unknown,
     this.url,
     this.callbackData,
+    this.webAppUrl,
+    this.switchInlineQuery,
+    this.userId,
+    this.copyText,
   });
 
   final String text;
+  final InlineKeyboardButtonKind kind;
   final String? url;
+  /// TDLib bytes field (base64 string in JSON).
   final String? callbackData;
+  final String? webAppUrl;
+  final String? switchInlineQuery;
+  final int? userId;
+  final String? copyText;
+
+  bool get isCallback =>
+      kind == InlineKeyboardButtonKind.callback ||
+      kind == InlineKeyboardButtonKind.callbackWithPassword ||
+      kind == InlineKeyboardButtonKind.game;
 }
 
 /// Вариант ответа в опросе.
@@ -207,14 +238,49 @@ class MessageEnrichmentParser {
         final typeName = type['@type'] as String? ?? '';
         return InlineKeyboardButtonModel(
           text: button['text'] as String? ?? '',
+          kind: _buttonKind(typeName),
           url: typeName == 'inlineKeyboardButtonTypeUrl'
               ? type['url'] as String?
               : null,
-          callbackData: typeName == 'inlineKeyboardButtonTypeCallback'
-              ? type['data'] as String?
+          callbackData: switch (typeName) {
+            'inlineKeyboardButtonTypeCallback' ||
+            'inlineKeyboardButtonTypeCallbackWithPassword' =>
+              type['data'] as String?,
+            'inlineKeyboardButtonTypeCallbackGame' => '',
+            _ => null,
+          },
+          webAppUrl: typeName == 'inlineKeyboardButtonTypeWebApp'
+              ? type['url'] as String?
+              : null,
+          switchInlineQuery: typeName == 'inlineKeyboardButtonTypeSwitchInline'
+              ? type['query'] as String?
+              : null,
+          userId: typeName == 'inlineKeyboardButtonTypeUser'
+              ? tdInt(type['user_id'])
+              : null,
+          copyText: typeName == 'inlineKeyboardButtonTypeCopyText'
+              ? type['text'] as String?
               : null,
         );
       }).toList();
     }).toList();
+  }
+
+  static InlineKeyboardButtonKind _buttonKind(String typeName) {
+    return switch (typeName) {
+      'inlineKeyboardButtonTypeUrl' => InlineKeyboardButtonKind.url,
+      'inlineKeyboardButtonTypeCallback' => InlineKeyboardButtonKind.callback,
+      'inlineKeyboardButtonTypeWebApp' => InlineKeyboardButtonKind.webApp,
+      'inlineKeyboardButtonTypeLoginUrl' => InlineKeyboardButtonKind.loginUrl,
+      'inlineKeyboardButtonTypeSwitchInline' =>
+        InlineKeyboardButtonKind.switchInline,
+      'inlineKeyboardButtonTypeUser' => InlineKeyboardButtonKind.user,
+      'inlineKeyboardButtonTypeCopyText' => InlineKeyboardButtonKind.copyText,
+      'inlineKeyboardButtonTypeBuy' => InlineKeyboardButtonKind.buy,
+      'inlineKeyboardButtonTypeCallbackGame' => InlineKeyboardButtonKind.game,
+      'inlineKeyboardButtonTypeCallbackWithPassword' =>
+        InlineKeyboardButtonKind.callbackWithPassword,
+      _ => InlineKeyboardButtonKind.unknown,
+    };
   }
 }

@@ -1,3 +1,5 @@
+import 'bot_models.dart';
+
 /// Тип статуса пользователя TDLib.
 enum UserStatusKind {
   empty,
@@ -101,6 +103,7 @@ class UserProfileFullInfo {
     this.supportsVideoCalls = false,
     this.groupInCommonCount = 0,
     this.personalChatId,
+    this.botInfo = const BotInfoModel(),
   });
 
   final int userId;
@@ -110,6 +113,7 @@ class UserProfileFullInfo {
   final bool supportsVideoCalls;
   final int groupInCommonCount;
   final int? personalChatId;
+  final BotInfoModel botInfo;
 }
 
 /// Заблокированный пользователь.

@@ -7,6 +7,7 @@ class ChatTypeInfo {
     this.privateUserId,
     this.basicGroupId,
     this.supergroupId,
+    this.secretChatId,
     this.isForum = false,
   });
 
@@ -14,6 +15,7 @@ class ChatTypeInfo {
   final int? privateUserId;
   final int? basicGroupId;
   final int? supergroupId;
+  final int? secretChatId;
   final bool isForum;
 
   bool get isBasicGroup => basicGroupId != null;

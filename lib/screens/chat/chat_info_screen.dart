@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/chat/chat_manager.dart';
+import '../../core/secret/secret_chat_manager.dart';
+import '../../models/secret_chat_models.dart';
 import '../../core/user/contact_manager.dart';
 import '../../core/user/profile_manager.dart';
 import '../../models/chat_info_models.dart';
@@ -11,6 +13,7 @@ import '../../models/chat_models.dart';
 import '../../widgets/chat_avatar.dart';
 import '../../widgets/chat_list_tile.dart';
 import '../../widgets/chat_notification_settings_section.dart';
+import '../../widgets/secret_chat_widgets.dart';
 import '../../widgets/user_status_subtitle.dart';
 import '../profile/user_profile_screen.dart';
 
@@ -252,6 +255,7 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
   Widget build(BuildContext context) {
     final manager = context.watch<ChatManager>();
     final profile = context.watch<ProfileManager>();
+    final secretManager = context.watch<SecretChatManager>();
     final contacts = context.read<ContactManager>();
     final chat = manager.chatById(widget.chatId);
     final info = manager.chatInfoFor(widget.chatId);
@@ -333,6 +337,33 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
           ],
           if (chat.kind == ChatKind.privateChat && chat.privateUserId != null)
             ..._privateChatSection(context, chat, profile, contacts),
+          if (chat.kind == ChatKind.bot && chat.privateUserId != null) ...[
+            const SizedBox(height: 24),
+            Text('Бот', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            ..._botInfoSection(context, profile, chat.privateUserId!),
+          ],
+          if (chat.kind == ChatKind.secret && chat.secretChatId != null) ...[
+            const SizedBox(height: 24),
+            SecretChatKeyIndicator(
+              secretChat: secretManager.secretChatForId(chat.secretChatId!) ??
+                  SecretChatSummary(
+                    id: chat.secretChatId!,
+                    userId: chat.privateUserId ?? 0,
+                  ),
+            ),
+            SecretChatTtlPicker(
+              value: secretManager.ttlForChat(chat.id),
+              onChanged: (preset) =>
+                  secretManager.setChatTtl(chat.id, preset),
+            ),
+            OutlinedButton.icon(
+              onPressed: () =>
+                  secretManager.closeSecretChat(chat.secretChatId!),
+              icon: const Icon(Icons.lock_open_outlined),
+              label: const Text('Закрыть секретный чат'),
+            ),
+          ],
           const SizedBox(height: 24),
           ChatNotificationSettingsSection(
             chatId: widget.chatId,
@@ -592,6 +623,50 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
         },
       ),
       const Divider(height: 32),
+    ];
+  }
+
+  List<Widget> _botInfoSection(
+    BuildContext context,
+    ProfileManager profile,
+    int botUserId,
+  ) {
+    final fullInfo = profile.fullInfoFor(botUserId);
+    if (fullInfo == null) {
+      return const [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text('Загрузка информации о боте…'),
+        ),
+      ];
+    }
+
+    final botInfo = fullInfo.botInfo;
+    return [
+      if (botInfo.shortDescription.isNotEmpty)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(botInfo.shortDescription),
+        ),
+      if (botInfo.description.isNotEmpty)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(botInfo.description),
+        ),
+      if (botInfo.commands.isNotEmpty) ...[
+        const ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text('Команды'),
+        ),
+        ...botInfo.commands.map(
+          (cmd) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: Text(cmd.slashCommand),
+            subtitle: Text(cmd.description),
+          ),
+        ),
+      ],
     ];
   }
 
