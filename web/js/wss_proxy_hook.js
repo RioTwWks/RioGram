@@ -5,7 +5,22 @@
   const TELEGRAM_WS_RE =
     /^wss:\/\/([a-z0-9.-]+\.(?:web\.)?telegram\.org)(\/.*)?$/i;
 
-  const OriginalWebSocket = window.WebSocket;
+  const transportState = {
+    state: 'idle',
+    activeUrl: null,
+    lastError: null,
+    reconnectAttempt: 0,
+  };
+
+  function defaultConfig() {
+    return {
+      enabled: false,
+      url: '',
+      autoReconnect: true,
+      maxReconnectAttempts: 5,
+      reconnectDelayMs: 2000,
+    };
+  }
 
   function readConfig() {
     try {
@@ -17,16 +32,6 @@
     } catch (_) {
       return defaultConfig();
     }
-  }
-
-  function defaultConfig() {
-    return {
-      enabled: false,
-      url: '',
-      autoReconnect: true,
-      maxReconnectAttempts: 5,
-      reconnectDelayMs: 2000,
-    };
   }
 
   function normalizeProxyBase(raw) {
@@ -47,12 +52,12 @@
     return value;
   }
 
-  function rewriteUrl(originalUrl) {
-    const config = readConfig();
-    if (!config.enabled || !config.url) {
+  function rewriteUrl(originalUrl, config) {
+    const cfg = config || readConfig();
+    if (!cfg.enabled || !cfg.url) {
       return originalUrl;
     }
-    const proxyBase = normalizeProxyBase(config.url);
+    const proxyBase = normalizeProxyBase(cfg.url);
     if (!proxyBase) {
       return originalUrl;
     }
@@ -64,13 +69,6 @@
     const path = match[2] || '/apiws';
     return proxyBase + '/' + host + path;
   }
-
-  const transportState = {
-    state: 'idle',
-    activeUrl: null,
-    lastError: null,
-    reconnectAttempt: 0,
-  };
 
   function notifyTransportState() {
     if (
@@ -86,55 +84,124 @@
     notifyTransportState();
   }
 
-  function PatchedWebSocket(url, protocols) {
-    const targetUrl = rewriteUrl(url);
-    const isTelegram = TELEGRAM_WS_RE.test(String(url));
-    const ws =
-      protocols === undefined
-        ? new OriginalWebSocket(targetUrl)
-        : new OriginalWebSocket(targetUrl, protocols);
-
-    if (isTelegram) {
-      setTransportState({
-        state: 'connecting',
-        activeUrl: targetUrl,
-        lastError: null,
-      });
-
-      ws.addEventListener('open', function () {
-        setTransportState({
-          state: 'connected',
-          activeUrl: targetUrl,
-          lastError: null,
-          reconnectAttempt: 0,
-        });
-      });
-
-      ws.addEventListener('error', function () {
-        setTransportState({
-          state: 'failed',
-          lastError: 'WebSocket error',
-        });
-      });
-
-      ws.addEventListener('close', function (event) {
-        setTransportState({
-          state: 'failed',
-          lastError: event.reason || 'WebSocket closed (code ' + event.code + ')',
-        });
-      });
+  function installWebSocketHook(globalScope, getConfig, trackTelegram) {
+    const OriginalWebSocket = globalScope.WebSocket;
+    if (!OriginalWebSocket) {
+      return;
     }
 
-    return ws;
+    function PatchedWebSocket(url, protocols) {
+      const targetUrl = rewriteUrl(url, getConfig());
+      const isTelegram = TELEGRAM_WS_RE.test(String(url));
+      const ws =
+        protocols === undefined
+          ? new OriginalWebSocket(targetUrl)
+          : new OriginalWebSocket(targetUrl, protocols);
+
+      if (trackTelegram && isTelegram) {
+        setTransportState({
+          state: 'connecting',
+          activeUrl: targetUrl,
+          lastError: null,
+        });
+
+        ws.addEventListener('open', function () {
+          setTransportState({
+            state: 'connected',
+            activeUrl: targetUrl,
+            lastError: null,
+            reconnectAttempt: 0,
+          });
+        });
+
+        ws.addEventListener('error', function () {
+          setTransportState({
+            state: 'failed',
+            lastError: 'WebSocket error',
+          });
+        });
+
+        ws.addEventListener('close', function (event) {
+          setTransportState({
+            state: 'failed',
+            lastError:
+              event.reason || 'WebSocket closed (code ' + event.code + ')',
+          });
+        });
+      }
+
+      return ws;
+    }
+
+    PatchedWebSocket.prototype = OriginalWebSocket.prototype;
+    PatchedWebSocket.CONNECTING = OriginalWebSocket.CONNECTING;
+    PatchedWebSocket.OPEN = OriginalWebSocket.OPEN;
+    PatchedWebSocket.CLOSING = OriginalWebSocket.CLOSING;
+    PatchedWebSocket.CLOSED = OriginalWebSocket.CLOSED;
+
+    globalScope.WebSocket = PatchedWebSocket;
   }
 
-  PatchedWebSocket.prototype = OriginalWebSocket.prototype;
-  PatchedWebSocket.CONNECTING = OriginalWebSocket.CONNECTING;
-  PatchedWebSocket.OPEN = OriginalWebSocket.OPEN;
-  PatchedWebSocket.CLOSING = OriginalWebSocket.CLOSING;
-  PatchedWebSocket.CLOSED = OriginalWebSocket.CLOSED;
+  // Main thread: patch window.WebSocket before tdweb spawns workers.
+  installWebSocketHook(window, readConfig, true);
 
-  window.WebSocket = PatchedWebSocket;
+  // tdweb opens Telegram sockets inside *.worker.js — inject hook via Worker wrapper.
+  const OriginalWorker = window.Worker;
+  window.Worker = function (scriptURL, options) {
+    const resolved =
+      scriptURL instanceof URL
+        ? scriptURL.href
+        : new URL(String(scriptURL), document.baseURI).href;
+    if (!/\.worker\.js(\?|$)/.test(resolved)) {
+      return new OriginalWorker(scriptURL, options);
+    }
+
+    const config = readConfig();
+    const bootstrap =
+      '(function(){' +
+      'var CONFIG=' +
+      JSON.stringify(config) +
+      ';' +
+      'var TELEGRAM_WS_RE=' +
+      TELEGRAM_WS_RE.toString() +
+      ';' +
+      'function normalizeProxyBase(raw){' +
+      'if(!raw||!String(raw).trim())return null;' +
+      'var value=String(raw).trim();' +
+      "if(value.startsWith('https://'))value='wss://'+value.slice(8);" +
+      "else if(value.startsWith('http://'))value='ws://'+value.slice(7);" +
+      "else if(!value.startsWith('wss://')&&!value.startsWith('ws://'))value='wss://'+value;" +
+      "while(value.endsWith('/'))value=value.slice(0,-1);" +
+      'return value;' +
+      '}' +
+      'function rewriteUrl(url){' +
+      'if(!CONFIG.enabled||!CONFIG.url)return url;' +
+      'var proxyBase=normalizeProxyBase(CONFIG.url);' +
+      'if(!proxyBase)return url;' +
+      'var match=String(url).match(TELEGRAM_WS_RE);' +
+      'if(!match)return url;' +
+      'return proxyBase+"/"+match[1]+(match[2]||"/apiws");' +
+      '}' +
+      'var OriginalWebSocket=self.WebSocket;' +
+      'function PatchedWebSocket(url,protocols){' +
+      'var targetUrl=rewriteUrl(url);' +
+      'return protocols===undefined?new OriginalWebSocket(targetUrl):new OriginalWebSocket(targetUrl,protocols);' +
+      '}' +
+      'PatchedWebSocket.prototype=OriginalWebSocket.prototype;' +
+      'PatchedWebSocket.CONNECTING=OriginalWebSocket.CONNECTING;' +
+      'PatchedWebSocket.OPEN=OriginalWebSocket.OPEN;' +
+      'PatchedWebSocket.CLOSING=OriginalWebSocket.CLOSING;' +
+      'PatchedWebSocket.CLOSED=OriginalWebSocket.CLOSED;' +
+      'self.WebSocket=PatchedWebSocket;' +
+      "importScripts('" +
+      resolved.replace(/'/g, "\\'") +
+      "');" +
+      '})();';
+
+    const blob = new Blob([bootstrap], { type: 'application/javascript' });
+    return new OriginalWorker(URL.createObjectURL(blob), options);
+  };
+  window.Worker.prototype = OriginalWorker.prototype;
 
   window.RioGramWssProxy = {
     readConfig: readConfig,
@@ -143,7 +210,9 @@
       localStorage.setItem(CONFIG_KEY, JSON.stringify(merged));
       return merged;
     },
-    rewriteUrl: rewriteUrl,
+    rewriteUrl: function (url) {
+      return rewriteUrl(url);
+    },
     getTransportStatus: function () {
       return Object.assign({}, transportState);
     },

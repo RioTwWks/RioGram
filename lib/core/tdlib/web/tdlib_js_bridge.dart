@@ -82,16 +82,19 @@ abstract final class TdlibJsBridge {
         'jsLogVerbosityLevel': kDebugMode ? 'info' : 'warning',
         'logVerbosityLevel': kDebugMode ? 2 : 0,
         'useDatabase': true,
-        'onUpdate': (dynamic update) {
-          if (update is Map) {
-            onUpdate(Map<String, dynamic>.from(update));
-          }
-        },
       },
     ]);
     if (!created) {
       throw StateError('Не удалось создать tdweb-клиент');
     }
+
+    JsBridgeImpl.setCallback('RioGramTdlib', 'setUpdateCallback', (
+      dynamic update,
+    ) {
+      if (update is Map) {
+        onUpdate(Map<String, dynamic>.from(update));
+      }
+    });
   }
 
   static void sendTdlibQuery(Map<String, dynamic> request) {
