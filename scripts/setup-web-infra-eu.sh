@@ -32,8 +32,11 @@ install -d -m 755 /var/log/riogram
 
 echo "==> Config"
 if [[ ! -f /etc/riogram/web.env ]]; then
-  install -m 640 "${ROOT_DIR}/deploy/env/riogram-web.env.example" /etc/riogram/web.env
+  install -m 640 -g riogram "${ROOT_DIR}/deploy/env/riogram-web.env.example" /etc/riogram/web.env
   echo "Created /etc/riogram/web.env — edit before starting tunnel"
+else
+  chown root:riogram /etc/riogram/web.env
+  chmod 640 /etc/riogram/web.env
 fi
 
 # Prefer env override, else value from web.env, else 8080.

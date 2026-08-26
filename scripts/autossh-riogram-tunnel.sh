@@ -3,15 +3,22 @@
 set -euo pipefail
 
 ENV_FILE="${RIOGRAM_ENV_FILE:-/etc/riogram/web.env}"
-if [[ ! -f "${ENV_FILE}" ]]; then
-  echo "Missing ${ENV_FILE}" >&2
-  exit 1
-fi
 
-# shellcheck disable=SC1090
-set -a
-source "${ENV_FILE}"
-set +a
+# systemd loads EnvironmentFile as root before User=riogram; only source when vars missing.
+if [[ -z "${TUNNEL_SSH_USER:-}" ]]; then
+  if [[ ! -f "${ENV_FILE}" ]]; then
+    echo "Missing ${ENV_FILE}" >&2
+    exit 1
+  fi
+  if [[ ! -r "${ENV_FILE}" ]]; then
+    echo "Cannot read ${ENV_FILE} (fix: chown root:riogram && chmod 640)" >&2
+    exit 1
+  fi
+  # shellcheck disable=SC1090
+  set -a
+  source "${ENV_FILE}"
+  set +a
+fi
 
 : "${TUNNEL_SSH_USER:?TUNNEL_SSH_USER required}"
 : "${TUNNEL_RU_HOST:?TUNNEL_RU_HOST required}"

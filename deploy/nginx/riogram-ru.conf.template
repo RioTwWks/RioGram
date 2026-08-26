@@ -36,7 +36,7 @@ server {
     # Prefer: certbot certonly --webroot -w /var/www/certbot -d __RIOGRAM_DOMAIN__
     # (works with non-443 HTTPS listen). For :443 only, certbot --nginx also works.
     ssl_certificate     /etc/letsencrypt/live/__RIOGRAM_DOMAIN__/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/__RIOGRAM_DOMAIN__/privatekey.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__RIOGRAM_DOMAIN__/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
