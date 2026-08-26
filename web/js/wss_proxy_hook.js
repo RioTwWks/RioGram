@@ -145,64 +145,6 @@
   // Main thread: patch window.WebSocket before tdweb spawns workers.
   installWebSocketHook(window, readConfig, true);
 
-  // tdweb opens Telegram sockets inside *.worker.js — inject hook via Worker wrapper.
-  const OriginalWorker = window.Worker;
-  window.Worker = function (scriptURL, options) {
-    const resolved =
-      scriptURL instanceof URL
-        ? scriptURL.href
-        : new URL(String(scriptURL), document.baseURI).href;
-    if (!/\.worker\.js(\?|$)/.test(resolved)) {
-      return new OriginalWorker(scriptURL, options);
-    }
-
-    const config = readConfig();
-    const bootstrap =
-      '(function(){' +
-      'var CONFIG=' +
-      JSON.stringify(config) +
-      ';' +
-      'var TELEGRAM_WS_RE=' +
-      TELEGRAM_WS_RE.toString() +
-      ';' +
-      'function normalizeProxyBase(raw){' +
-      'if(!raw||!String(raw).trim())return null;' +
-      'var value=String(raw).trim();' +
-      "if(value.startsWith('https://'))value='wss://'+value.slice(8);" +
-      "else if(value.startsWith('http://'))value='ws://'+value.slice(7);" +
-      "else if(!value.startsWith('wss://')&&!value.startsWith('ws://'))value='wss://'+value;" +
-      "while(value.endsWith('/'))value=value.slice(0,-1);" +
-      'return value;' +
-      '}' +
-      'function rewriteUrl(url){' +
-      'if(!CONFIG.enabled||!CONFIG.url)return url;' +
-      'var proxyBase=normalizeProxyBase(CONFIG.url);' +
-      'if(!proxyBase)return url;' +
-      'var match=String(url).match(TELEGRAM_WS_RE);' +
-      'if(!match)return url;' +
-      'return proxyBase+"/"+match[1]+(match[2]||"/apiws");' +
-      '}' +
-      'var OriginalWebSocket=self.WebSocket;' +
-      'function PatchedWebSocket(url,protocols){' +
-      'var targetUrl=rewriteUrl(url);' +
-      'return protocols===undefined?new OriginalWebSocket(targetUrl):new OriginalWebSocket(targetUrl,protocols);' +
-      '}' +
-      'PatchedWebSocket.prototype=OriginalWebSocket.prototype;' +
-      'PatchedWebSocket.CONNECTING=OriginalWebSocket.CONNECTING;' +
-      'PatchedWebSocket.OPEN=OriginalWebSocket.OPEN;' +
-      'PatchedWebSocket.CLOSING=OriginalWebSocket.CLOSING;' +
-      'PatchedWebSocket.CLOSED=OriginalWebSocket.CLOSED;' +
-      'self.WebSocket=PatchedWebSocket;' +
-      "importScripts('" +
-      resolved.replace(/'/g, "\\'") +
-      "');" +
-      '})();';
-
-    const blob = new Blob([bootstrap], { type: 'application/javascript' });
-    return new OriginalWorker(URL.createObjectURL(blob), options);
-  };
-  window.Worker.prototype = OriginalWorker.prototype;
-
   window.RioGramWssProxy = {
     readConfig: readConfig,
     writeConfig: function (config) {

@@ -32,6 +32,19 @@ fi
 
 flutter "${BUILD_ARGS[@]}"
 
+# worker-loader resolves *.worker.js / *.wasm / *.mem from site root.
+BUILD_WEB="${ROOT_DIR}/build/web"
+if [[ -d "${BUILD_WEB}/tdweb" ]]; then
+  for pattern in '*.worker.js' '*.wasm' '*.mem'; do
+    for f in "${BUILD_WEB}/tdweb"/${pattern}; do
+      [[ -f "${f}" ]] || continue
+      cp -f "${f}" "${BUILD_WEB}/"
+    done
+  done
+fi
+
+"${ROOT_DIR}/scripts/patch-tdweb-worker-wss.sh" "${BUILD_WEB}"
+
 echo ""
 echo "✅ Production Web собран: build/web/"
 echo "   Локально:  cd build/web && python3 -m http.server 8765"
