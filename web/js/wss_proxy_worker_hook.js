@@ -9,14 +9,31 @@
   // Replaced at build/patch time from WEB_WSS_PROXY_URL (.env).
   var __RIOGRAM_BAKED_PROXY__ = '__RIOGRAM_BAKED_PROXY_URL__';
 
+  // Emscripten/tdweb often passes :443 explicitly; Chrome omits it in error text.
   var TELEGRAM_WS_RE =
-    /^wss?:\/\/([a-z0-9.-]+\.(?:web\.)?telegram\.org)(\/.*)?$/i;
+    /^wss?:\/\/([a-z0-9.-]+\.(?:web\.)?telegram\.org)(?::\d+)?(\/.*)?$/i;
+
+  function normalizeUrlInput(url) {
+    if (url == null) {
+      return '';
+    }
+    if (typeof url === 'object' && typeof url.href === 'string') {
+      return url.href;
+    }
+    return String(url)
+      .replace(/\0/g, '')
+      .replace(/\r/g, '')
+      .trim();
+  }
 
   function normalizeProxyBase(raw) {
     if (!raw || !String(raw).trim()) {
       return null;
     }
     var value = String(raw).trim();
+    if (value.indexOf('__RIOGRAM_BAKED_PROXY_URL__') !== -1) {
+      return null;
+    }
     if (value.indexOf('https://') === 0) {
       value = 'wss://' + value.slice(8);
     } else if (value.indexOf('http://') === 0) {
@@ -73,7 +90,7 @@
       }
     }
     var config = self.RIOGRAM_WSS_CONFIG;
-    if (config && config.url) {
+    if (config && config.enabled !== false && config.url) {
       var fromConfig = normalizeProxyBase(config.url);
       if (fromConfig) {
         return fromConfig;
@@ -83,7 +100,11 @@
   }
 
   function rewriteUrl(url) {
-    var match = String(url).match(TELEGRAM_WS_RE);
+    var raw = normalizeUrlInput(url);
+    if (!raw) {
+      return url;
+    }
+    var match = raw.match(TELEGRAM_WS_RE);
     if (!match) {
       return url;
     }
@@ -94,9 +115,21 @@
     return base + '/' + match[1] + (match[2] || '/apiws');
   }
 
+  function debugRewrite(url, targetUrl) {
+    try {
+      if (
+        self.location &&
+        self.location.search.indexOf('riogram_wss_debug=1') !== -1
+      ) {
+        console.log('[RioGram WSS worker]', url, '->', targetUrl);
+      }
+    } catch (_) {}
+  }
+
   var OriginalWebSocket = self.WebSocket;
   function PatchedWebSocket(url, protocols) {
     var targetUrl = rewriteUrl(url);
+    debugRewrite(url, targetUrl);
     return protocols === undefined
       ? new OriginalWebSocket(targetUrl)
       : new OriginalWebSocket(targetUrl, protocols);

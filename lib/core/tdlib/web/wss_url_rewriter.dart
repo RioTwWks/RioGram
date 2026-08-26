@@ -7,7 +7,7 @@ import '../../../models/wss_proxy_models.dart';
 /// → `wss://your-domain.ru/venus.web.telegram.org/apiws`
 abstract final class WssUrlRewriter {
   static final RegExp _telegramHostPattern = RegExp(
-    r'^wss://([a-z0-9.-]+\.(?:web\.)?telegram\.org)(/.*)?$',
+    r'^wss?://([a-z0-9.-]+\.(?:web\.)?telegram\.org)(?::\d+)?(/.*)?$',
     caseSensitive: false,
   );
 
