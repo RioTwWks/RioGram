@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/wss_proxy_models.dart';
@@ -12,14 +13,22 @@ class WebSocketProxyPreferences {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_configKey);
     if (raw == null || raw.isEmpty) {
-      return const WssProxyConfig();
+      return _defaultFromEnv();
     }
     try {
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       return WssProxyConfig.fromJson(decoded);
     } catch (_) {
+      return _defaultFromEnv();
+    }
+  }
+
+  WssProxyConfig _defaultFromEnv() {
+    final url = dotenv.maybeGet('WEB_WSS_PROXY_URL')?.trim() ?? '';
+    if (url.isEmpty) {
       return const WssProxyConfig();
     }
+    return WssProxyConfig(enabled: true, url: url);
   }
 
   Future<void> save(WssProxyConfig config) async {
