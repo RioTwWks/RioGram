@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,10 +26,16 @@ class WebSocketProxyPreferences {
 
   WssProxyConfig _defaultFromEnv() {
     final url = dotenv.maybeGet('WEB_WSS_PROXY_URL')?.trim() ?? '';
-    if (url.isEmpty) {
-      return const WssProxyConfig();
+    if (url.isNotEmpty) {
+      return WssProxyConfig(enabled: true, url: url);
     }
-    return WssProxyConfig(enabled: true, url: url);
+    if (kIsWeb) {
+      final base = Uri.base;
+      if (base.scheme == 'https' && base.host.isNotEmpty) {
+        return WssProxyConfig(enabled: true, url: 'wss://${base.host}');
+      }
+    }
+    return const WssProxyConfig();
   }
 
   Future<void> save(WssProxyConfig config) async {

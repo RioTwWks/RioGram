@@ -12,10 +12,22 @@
     reconnectAttempt: 0,
   };
 
+  function sameOriginProxyUrl() {
+    if (
+      typeof location !== 'undefined' &&
+      location.host &&
+      location.protocol === 'https:'
+    ) {
+      return 'wss://' + location.host;
+    }
+    return '';
+  }
+
   function defaultConfig() {
+    const autoUrl = sameOriginProxyUrl();
     return {
-      enabled: false,
-      url: '',
+      enabled: !!autoUrl,
+      url: autoUrl,
       autoReconnect: true,
       maxReconnectAttempts: 5,
       reconnectDelayMs: 2000,
@@ -28,7 +40,12 @@
       if (!raw) {
         return defaultConfig();
       }
-      return Object.assign(defaultConfig(), JSON.parse(raw));
+      const stored = Object.assign(defaultConfig(), JSON.parse(raw));
+      if (!stored.url && sameOriginProxyUrl()) {
+        stored.url = sameOriginProxyUrl();
+        stored.enabled = true;
+      }
+      return stored;
     } catch (_) {
       return defaultConfig();
     }

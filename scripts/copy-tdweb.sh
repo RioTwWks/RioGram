@@ -25,6 +25,7 @@ for pattern in '*.worker.js' '*.wasm' '*.mem'; do
   done
 done
 
+"${ROOT_DIR}/scripts/generate-wss-worker-config.sh"
 "${ROOT_DIR}/scripts/patch-tdweb-worker-wss.sh" "${WEB_ROOT}"
 
 echo "✅ Скопировано: ${DEST}/"
