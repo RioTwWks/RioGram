@@ -35,7 +35,12 @@ UI, чаты, темы, уведомления ✅
 §8 Web (WSS transport, E2E) ✅  
 Сборка на всех платформах (CI + Release) ✅  
 
-Дальше: функциональный паритет §6.3+, pixel parity §9.11 — [TODO.md](TODO.md).
+§9 Классический дизайн Telegram (до Liquid Glass) ✅  
+Дальше: функциональный паритет §6.3+, ручная сверка §9.11.9 — [TODO.md](TODO.md).
+
+## Дизайн
+
+RioGram визуально ориентирован на **официальный Telegram до редизайна Liquid Glass**: плоский UI, акцент `#3390EC`, без frosted glass и blur-панелей. Токены, `context.telegramTheme`, `TelegramIcons`, `ChatWallpaper` и анти-паттерны — в [docs/DESIGN.md](docs/DESIGN.md). Release notes визуального редизайна: [docs/RELEASE_NOTES_1.1.0.md](docs/RELEASE_NOTES_1.1.0.md).
 
 ## Быстрый старт
 
@@ -55,6 +60,8 @@ flutter run -d linux
 ## Документация
 
 - [Быстрый старт](docs/QUICKSTART.md)
+- [Дизайн §9 — классический Telegram](docs/DESIGN.md)
+- [Release notes 1.1.0 (визуальный редизайн)](docs/RELEASE_NOTES_1.1.0.md)
 - [Список чатов (§6.2)](docs/CHATS.md)
 - [Настройка прокси](docs/PROXY.md)
 - [Патчи TDLib (DPI)](docs/TDLIB_PATCHES.md)

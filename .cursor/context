@@ -120,9 +120,30 @@ EU VPS nginx :8080 (aggregator)
 - **§6** ⏳ функциональный паритет — в работе (§6.2 ✅, далее сообщения/медиа/группы)
 - **§7.3–§7.7** ✅
 - **§8 Web** ✅ PoC + WSS + infra + E2E; ручной деплой ops — открыт
-- **§9** ⏳ классический дизайн Telegram — токены и §9.11 pixel parity в работе
+- **§9** ✅ классический дизайн Telegram (токены §9.1–§9.10, pixel parity §9.11); docs: `docs/DESIGN.md`
+- **§9.11.9** ⏳ ручная side-by-side — `docs/SIDE_BY_SIDE_CHECKLIST.md`; widget-регрессия ✅
 
 Актуальный чеклист: `TODO.md`, план: `PLAN.md`.
+
+## Дизайн §9 (классический Telegram)
+
+| Компонент | Путь |
+|-----------|------|
+| Токены, тема | `lib/core/theme/telegram_theme.dart` — `TelegramColors`, `TelegramSpacing`, `TelegramThemeData`, `TelegramDesignConstraints` |
+| Иконки | `lib/core/theme/telegram_icons.dart` — `TelegramIcons` (outline 24dp) |
+| Фон переписки | `lib/widgets/chat_wallpaper.dart` — `ChatWallpaper` |
+| Настройки UI | `lib/widgets/telegram_settings_tile.dart` |
+| Список чатов | `lib/widgets/chat_list_tile.dart` (row 72px) |
+| Пузыри | `lib/widgets/message_bubble.dart` |
+| Ввод | `lib/widgets/message_input_bar.dart` |
+
+**Правила:** `context.telegramTheme` вместо хардкода цветов; **запрет** `BackdropFilter`/blur на панелях; flat shell (elevation 0). Кастомизация §7.3 поверх §9 — `ThemeManager`.
+
+**Документация:** `docs/DESIGN.md`, `docs/RELEASE_NOTES_1.1.0.md`, `docs/SIDE_BY_SIDE_CHECKLIST.md`, `docs/APP_ICON.md`.
+
+**Тесты:** `flutter test test/telegram_refinement_test.dart` + связанные `telegram_*_test.dart`, `chat_list_tile_test.dart`, `message_bubble_test.dart`, `desktop_layout_regression_test.dart`.
+
+**Cursor:** `.cursor/commands/telegram-design.md`, правила в `.cursor/rules/flutter.mdc`.
 
 ## Лицензия
 

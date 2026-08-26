@@ -13,6 +13,9 @@ globs: ["lib/**/*.dart", "test/**/*.dart"]
   - `models/` — chat, auth, proxy, plugin, …
 - **Именование**: `snake_case` файлы, `PascalCase` классы, `camelCase` методы.
 - **Темы**: §9 — `TelegramTheme` / `telegram_theme.dart`; кастомизация §7.3 — `ThemeManager`, `UiCustomizationPreferences`.
+- **Дизайн §9**: `context.telegramTheme` — не хардкодить `#3390EC` и TG-серые; `TelegramIcons`, `ChatWallpaper`, `TelegramSettingsTile`.
+- **Анти-паттерны**: без `BackdropFilter` / blur на панелях; без drop-shadow на пузырях; shell elevation 0; `TelegramFlatChip` вместо M3 chips в chat UI.
+- **Документация**: `docs/DESIGN.md`, `.cursor/commands/telegram-design.md`.
 - **Логирование**: `package:logging`, не `print()`.
 
 ## ChatManager и TDLib

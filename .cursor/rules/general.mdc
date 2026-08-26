@@ -28,5 +28,5 @@ globs: ["*"]
 | Web (§8) | `docs/WEB*.md`, `.cursor/commands/web.md`, `.cursor/context` |
 | TDLib патчи / merge | `docs/TDLIB_PATCHES.md`, `docs/TDLIB_UPSTREAM_SYNC.md`, `td/upstream-base.json`, `.cursor/commands/tdlib-upstream.md` |
 | Плагины (§7.6) | `docs/PLUGINS.md`, `.cursor/context` |
-| Дизайн §9 | `lib/core/theme/telegram_theme.dart`, тесты `telegram_*_test.dart` |
+| Дизайн §9 | `docs/DESIGN.md`, `docs/RELEASE_NOTES_1.1.0.md`, `.cursor/commands/telegram-design.md`, тесты `telegram_*_test.dart` |
 | CI / workflows | `docs/CI.md`, `.cursor/commands/ci.md` |
