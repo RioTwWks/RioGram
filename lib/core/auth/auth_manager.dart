@@ -76,6 +76,16 @@ class AuthManager extends ChangeNotifier {
         return;
       }
 
+      final webProxyManager = _webProxyManager;
+      if (webProxyManager != null) {
+        await webProxyManager.setup();
+        if (webProxyManager.lastError != null) {
+          debugPrint(
+            'AuthManager: WSS proxy warning: ${webProxyManager.lastError}',
+          );
+        }
+      }
+
       await _client.ensureClient();
       _subscription?.cancel();
       _subscription = _client.updates.listen(_handleUpdate);
@@ -95,16 +105,6 @@ class AuthManager extends ChangeNotifier {
         }
         if (proxyManager.lastError != null) {
           debugPrint('AuthManager: proxy warning: ${proxyManager.lastError}');
-        }
-      }
-
-      final webProxyManager = _webProxyManager;
-      if (webProxyManager != null) {
-        await webProxyManager.setup();
-        if (webProxyManager.lastError != null) {
-          debugPrint(
-            'AuthManager: WSS proxy warning: ${webProxyManager.lastError}',
-          );
         }
       }
 
