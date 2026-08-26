@@ -14,6 +14,7 @@ import '../models/anti_recall_models.dart';
 import '../models/audio_models.dart';
 import '../models/chat_models.dart';
 import '../models/formatted_text.dart';
+import '../models/link_preview_models.dart';
 import '../models/message_enrichment.dart';
 import '../models/sticker_models.dart';
 import '../core/chat/latex_parser.dart';
@@ -25,6 +26,7 @@ import 'formatted_text_widget.dart';
 import 'latex_formatted_text_widget.dart';
 import 'inline_keyboard_widget.dart';
 import 'inline_video_player.dart';
+import 'link_preview_widget.dart';
 import 'video_duration_badge.dart';
 import 'location_message_body.dart';
 import 'media_album_grid.dart';
@@ -281,39 +283,70 @@ class _BubbleTail extends StatelessWidget {
   final Color color;
   @override
   Widget build(BuildContext context) => CustomPaint(
-        size: const Size(8, 12),
+        size: const Size(9, 13),
         painter: _BubbleTailPainter(isOutgoing: isOutgoing, color: color),
       );
 }
 
+/// Хвост пузыря — дуга как в Telegram Android `MessageDrawable`.
 class _BubbleTailPainter extends CustomPainter {
   _BubbleTailPainter({required this.isOutgoing, required this.color});
   final bool isOutgoing;
   final Color color;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    canvas.drawPath(_tailPath(size, isOutgoing), paint);
+  }
+
+  /// Path из TG Android: `smallRad=6`, `padding=2`, tail inset `8dp`, sweep `±83°`.
+  static Path _tailPath(Size size, bool isOutgoing) {
     final path = Path();
+    const padding = 2.0;
+    const smallRad = 6.0;
+    const tailInset = 8.0;
+    final w = size.width;
+    final h = size.height;
+
     if (isOutgoing) {
-      path.moveTo(0, 0);
-      path.cubicTo(size.width * 0.55, size.height * 0.02, size.width * 1.05,
-          size.height * 0.38, size.width * 0.92, size.height * 0.62);
-      path.cubicTo(size.width * 0.72, size.height * 0.92, size.width * 0.28,
-          size.height * 1.02, 0, size.height * 0.58);
-      path.cubicTo(size.width * -0.08, size.height * 0.34, size.width * -0.02,
-          size.height * 0.12, 0, 0);
+      path.moveTo(w * (2.6 / tailInset), 0);
+      path.lineTo(0, 0);
+      path.lineTo(0, h - padding - smallRad - 3);
+      path.arcTo(
+        Rect.fromLTWH(
+          0,
+          h - padding - smallRad * 2 - 9,
+          w + smallRad * 2 - 1,
+          h - padding - 1,
+        ),
+        math.pi,
+        -83 * math.pi / 180,
+        false,
+      );
     } else {
-      path.moveTo(size.width, 0);
-      path.cubicTo(size.width * 0.45, size.height * 0.02, size.width * -0.05,
-          size.height * 0.38, size.width * 0.08, size.height * 0.62);
-      path.cubicTo(size.width * 0.28, size.height * 0.92, size.width * 0.72,
-          size.height * 1.02, size.width, size.height * 0.58);
-      path.cubicTo(size.width * 1.08, size.height * 0.34, size.width * 1.02,
-          size.height * 0.12, size.width, 0);
+      path.moveTo(w - w * (2.6 / tailInset), 0);
+      path.lineTo(w, 0);
+      path.lineTo(w, h - padding - smallRad - 3);
+      path.arcTo(
+        Rect.fromLTWH(
+          w - (smallRad * 2 - 1) - 5,
+          h - padding - smallRad * 2 - 9,
+          w,
+          h - padding - 1,
+        ),
+        0,
+        83 * math.pi / 180,
+        false,
+      );
     }
     path.close();
-    canvas.drawPath(path, paint);
+    return path;
   }
+
   @override
   bool shouldRepaint(covariant _BubbleTailPainter o) =>
       o.color != color || o.isOutgoing != isOutgoing;
@@ -337,13 +370,25 @@ class _BubbleMetaContent extends StatelessWidget {
         fontSize: TelegramFontSizes.bubbleMeta, color: timeColor);
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
         if (showViewCount && (message.interactionInfo?.viewCount ?? 0) > 0) ...[
-          MessageViewCountLabel(viewCount: message.interactionInfo!.viewCount),
+          Baseline(
+            baseline: TelegramFontSizes.bubbleMeta,
+            baselineType: TextBaseline.alphabetic,
+            child: MessageViewCountLabel(
+              viewCount: message.interactionInfo!.viewCount,
+            ),
+          ),
           const SizedBox(width: 6),
         ],
         if (message.schedulingInfo != null) ...[
-          Icon(Icons.schedule, size: 12, color: timeColor),
+          Baseline(
+            baseline: TelegramFontSizes.bubbleMeta,
+            baselineType: TextBaseline.alphabetic,
+            child: Icon(Icons.schedule, size: 12, color: timeColor),
+          ),
           const SizedBox(width: 3),
         ],
         if (message.isEdited) ...[
@@ -353,11 +398,15 @@ class _BubbleMetaContent extends StatelessWidget {
         Text(time, style: meta),
         if (message.isOutgoing && message.deliveryStatus != null) ...[
           const SizedBox(width: 3),
-          MessageDeliveryIcon(
-            status: message.deliveryStatus!,
-            size: 12,
-            readColor: accent,
-            defaultColor: timeColor,
+          Baseline(
+            baseline: TelegramFontSizes.bubbleMeta,
+            baselineType: TextBaseline.alphabetic,
+            child: MessageDeliveryIcon(
+              status: message.deliveryStatus!,
+              size: 12,
+              readColor: accent,
+              defaultColor: timeColor,
+            ),
           ),
         ],
       ],
@@ -660,6 +709,8 @@ class _MessageBody extends StatelessWidget {
 
     if (content.kind == MessageKind.text) {
       final formatted = content.formattedText;
+      final linkPreview = content.linkPreview;
+      final tg = context.telegramTheme;
       if (formatted != null && formatted.text.isNotEmpty) {
         final pluginManager = context.read<PluginManager>();
         final displayFormatted = pluginManager.transformDisplayFormatted(
@@ -670,9 +721,42 @@ class _MessageBody extends StatelessWidget {
           ),
           formatted: formatted,
         );
-        return _formattedWithInlineMeta(
+        final textBody = _formattedWithInlineMeta(
           formatted: displayFormatted,
           meta: metaWidget,
+        );
+        if (linkPreview != null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              textBody,
+              const SizedBox(height: 6),
+              LinkPreviewWidget(
+                preview: linkPreview,
+                accent: tg.accent,
+                textSecondary: tg.textSecondary,
+              ),
+            ],
+          );
+        }
+        return textBody;
+      }
+      if (linkPreview != null) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _textWithInlineMeta(
+              text: content.preview,
+              style: Theme.of(context).textTheme.bodyMedium,
+              meta: metaWidget,
+            ),
+            const SizedBox(height: 6),
+            LinkPreviewWidget(
+              preview: linkPreview,
+              accent: tg.accent,
+              textSecondary: tg.textSecondary,
+            ),
+          ],
         );
       }
       return _textWithInlineMeta(
@@ -1067,11 +1151,17 @@ class _StickerMessageBubble extends StatelessWidget {
                   const SizedBox(height: 2),
                   Row(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
                       if (showViewCount &&
                           (message.interactionInfo?.viewCount ?? 0) > 0) ...[
-                        MessageViewCountLabel(
-                          viewCount: message.interactionInfo!.viewCount,
+                        Baseline(
+                          baseline: TelegramFontSizes.bubbleMeta,
+                          baselineType: TextBaseline.alphabetic,
+                          child: MessageViewCountLabel(
+                            viewCount: message.interactionInfo!.viewCount,
+                          ),
                         ),
                         const SizedBox(width: 6),
                       ],
@@ -1085,7 +1175,13 @@ class _StickerMessageBubble extends StatelessWidget {
                       if (message.isOutgoing &&
                           message.deliveryStatus != null) ...[
                         const SizedBox(width: 4),
-                        MessageDeliveryIcon(status: message.deliveryStatus!),
+                        Baseline(
+                          baseline: TelegramFontSizes.bubbleMeta,
+                          baselineType: TextBaseline.alphabetic,
+                          child: MessageDeliveryIcon(
+                            status: message.deliveryStatus!,
+                          ),
+                        ),
                       ],
                     ],
                   ),
@@ -1115,29 +1211,17 @@ class _ServiceMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final background = isDark
-        ? TelegramColors.serviceMessageBackgroundDark
-        : TelegramColors.serviceMessageBackgroundLight;
+    final tg = context.telegramTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
       child: Center(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Text(
-              message.content.preview,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: TelegramFontSizes.preview,
-                color: TelegramColors.dateSeparatorText,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+        child: Text(
+          message.content.preview,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: TelegramFontSizes.preview,
+            color: tg.textSecondary,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ),

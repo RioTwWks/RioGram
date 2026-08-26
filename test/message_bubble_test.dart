@@ -6,15 +6,19 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:riogram/core/features/anti_recall_store.dart';
 import 'package:riogram/core/features/riogram_features_manager.dart';
+import 'package:riogram/core/plugins/plugin_manager.dart';
 import 'package:riogram/core/theme/telegram_icons.dart';
 import 'package:riogram/core/theme/telegram_theme.dart';
 import 'package:riogram/models/chat_models.dart';
 import 'package:riogram/models/formatted_text.dart';
+import 'package:riogram/models/link_preview_models.dart';
 import 'package:riogram/models/message_enrichment.dart';
 import 'package:riogram/widgets/date_separator.dart';
+import 'package:riogram/widgets/link_preview_widget.dart';
 import 'package:riogram/widgets/message_bubble.dart';
 import 'package:riogram/widgets/message_bubble_grouping.dart';
 import 'package:riogram/widgets/message_delivery_icon.dart';
+import 'package:riogram/widgets/scroll_to_bottom_button.dart';
 
 void main() {
   setUpAll(() async {
@@ -26,6 +30,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => AntiRecallStore()),
         ChangeNotifierProvider(create: (_) => RioGramMediaFeaturesManager()),
+        ChangeNotifierProvider(create: (_) => PluginManager()),
       ],
       child: MaterialApp(
         theme: TelegramTheme.build(brightness: Brightness.light),
@@ -114,7 +119,8 @@ void main() {
       expect(decoration.color!.a, closeTo(0.12, 0.01));
     });
 
-    testWidgets('service message renders centered capsule', (tester) async {
+    testWidgets('service message renders centered gray text without capsule',
+        (tester) async {
       final message = ChatMessage(
         id: 3,
         chatId: 1,
@@ -131,14 +137,11 @@ void main() {
       );
 
       expect(find.text('Alice joined the group'), findsOneWidget);
-      final capsule = tester.widget<DecoratedBox>(
-        find.ancestor(
-          of: find.text('Alice joined the group'),
-          matching: find.byType(DecoratedBox),
-        ),
-      );
-      final decoration = capsule.decoration as BoxDecoration;
-      expect(decoration.color, TelegramColors.serviceMessageBackgroundLight);
+      expect(find.byType(DecoratedBox), findsNothing);
+
+      final text = tester.widget<Text>(find.text('Alice joined the group'));
+      expect(text.textAlign, TextAlign.center);
+      expect(text.style?.color, TelegramColors.textSecondaryLight);
     });
 
     testWidgets('group last shows Bezier tail', (tester) async {
@@ -153,6 +156,94 @@ void main() {
       final expected = MessageBubbleGrouping.bubbleBorderRadius(isOutgoing: true, position: BubbleGroupPosition.first);
       final decorated = tester.widget<DecoratedBox>(find.descendant(of: find.byType(MessageBubble), matching: find.byType(DecoratedBox)).first);
       expect((decorated.decoration as BoxDecoration).borderRadius, expected);
+    });
+
+    testWidgets('link preview card shows domain', (tester) async {
+      final message = ChatMessage(
+        id: 7,
+        chatId: 1,
+        date: DateTime(2025, 8, 15, 14, 40),
+        isOutgoing: false,
+        content: MessageContent(
+          kind: MessageKind.text,
+          preview: 'Check https://example.com',
+          formattedText: const FormattedText(
+            text: 'Check https://example.com',
+            entities: [
+              TextEntity(
+                offset: 6,
+                length: 19,
+                kind: TextEntityKind.url,
+              ),
+            ],
+          ),
+          linkPreview: const LinkPreviewInfo(
+            url: 'https://example.com',
+            displayUrl: 'example.com',
+            title: 'Example Domain',
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(wrap(MessageBubble(message: message)));
+
+      expect(find.byType(LinkPreviewWidget), findsOneWidget);
+      expect(find.text('example.com'), findsOneWidget);
+      expect(find.text('Example Domain'), findsOneWidget);
+    });
+
+    testWidgets('meta row uses baseline alignment', (tester) async {
+      final message = ChatMessage(
+        id: 8,
+        chatId: 1,
+        date: DateTime(2025, 8, 15, 14, 41),
+        isOutgoing: true,
+        deliveryStatus: MessageDeliveryStatus.read,
+        content: const MessageContent(
+          kind: MessageKind.text,
+          preview: 'Meta',
+        ),
+      );
+
+      await tester.pumpWidget(wrap(MessageBubble(message: message)));
+
+      final row = tester.widgetList<Row>(
+        find.descendant(
+          of: find.byType(MessageBubble),
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Row &&
+                w.crossAxisAlignment == CrossAxisAlignment.baseline &&
+                w.textBaseline == TextBaseline.alphabetic,
+          ),
+        ),
+      ).first;
+      expect(row.children.length, greaterThan(1));
+    });
+  });
+
+  group('ScrollToBottomButton', () {
+    testWidgets('uses stadium capsule shape', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: TelegramTheme.build(brightness: Brightness.light),
+          home: Scaffold(
+            body: ScrollToBottomButton(
+              newMessageCount: 3,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      );
+
+      final material = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(ScrollToBottomButton),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(material.shape, isA<StadiumBorder>());
+      expect(find.text('3 новых сообщений'), findsOneWidget);
     });
   });
 

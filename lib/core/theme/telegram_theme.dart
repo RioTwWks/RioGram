@@ -184,6 +184,12 @@ abstract final class TelegramSpacing {
   /// §9.11.4 — панель ввода.
   static const double inputTouchTarget = 48;
   static const double stickerPanelHeight = 320;
+
+  /// §9.11.3 — кнопка «↓ N новых» над панелью ввода.
+  static const double scrollToBottomBottomPadding = 8;
+  static const double scrollToBottomCapsuleRadius = 16;
+  static const double scrollToBottomHorizontalPadding = 12;
+  static const double scrollToBottomVerticalPadding = 6;
 }
 
 /// §9.11.7 — медиа и спец-сообщения (pixel parity).

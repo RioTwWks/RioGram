@@ -841,12 +841,12 @@ MVP — прочный фундамент. Ниже — направления, 
 
 - [x] Wallpaper / doodle pattern фона — #91 `ChatWallpaper`
 - [x] `ChatWallpaper` виджет: pattern tile (blur для фото-обоев — позже)
-- [ ] Bubble tail — SVG/path как в мобильном TG (сейчас упрощённый path)
+- [x] Bubble tail — SVG/path как в мобильном TG (сейчас упрощённый path)
 - [x] Иконки доставки — `TelegramIcons` (#92: sent / delivered / read)
-- [ ] Meta-строка (время + галочки) — baseline alignment в пузыре
-- [ ] Link preview card: скругление, thumbnail, домен
-- [ ] Service messages: центрированный серый текст без пузыря
-- [ ] Кнопка «↓ N новых» — точный capsule radius и отступ от низа
+- [x] Meta-строка (время + галочки) — baseline alignment в пузыре
+- [x] Link preview card: скругление, thumbnail, домен
+- [x] Service messages: центрированный серый текст без пузыря
+- [x] Кнопка «↓ N новых» — точный capsule radius и отступ от низа
 
 #### 9.11.4. Панель ввода (доп. к §9.4)
 

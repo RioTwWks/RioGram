@@ -1183,7 +1183,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 child: bubble,
                               );
                             },
-                          ), if (_newMessagesBelow > 0) Positioned(bottom: 12, left: 0, right: 0, child: Center(child: ScrollToBottomButton(newMessageCount: _newMessagesBelow, onPressed: () => _scrollToBottom()))), ],),
+                          ), if (_newMessagesBelow > 0) Positioned(bottom: TelegramSpacing.scrollToBottomBottomPadding, left: 0, right: 0, child: Center(child: ScrollToBottomButton(newMessageCount: _newMessagesBelow, onPressed: () => _scrollToBottom()))), ],),
               ],
             ),
           ),
