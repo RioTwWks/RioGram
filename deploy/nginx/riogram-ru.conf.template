@@ -29,8 +29,9 @@ server {
 }
 
 server {
-    listen __RIOGRAM_HTTPS_PORT__ ssl http2;
-    listen [::]:__RIOGRAM_HTTPS_PORT__ ssl http2;
+    # WebSocket upgrade requires HTTP/1.1 — do not enable http2 here.
+    listen __RIOGRAM_HTTPS_PORT__ ssl;
+    listen [::]:__RIOGRAM_HTTPS_PORT__ ssl;
     server_name __RIOGRAM_DOMAIN__;
 
     # Prefer: certbot certonly --webroot -w /var/www/certbot -d __RIOGRAM_DOMAIN__
@@ -51,6 +52,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Sec-WebSocket-Protocol $http_sec_websocket_protocol;
         proxy_read_timeout 86400s;
         proxy_send_timeout 86400s;
         proxy_buffering off;
