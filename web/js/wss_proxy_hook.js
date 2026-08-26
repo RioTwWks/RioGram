@@ -40,12 +40,12 @@
       if (!raw) {
         return defaultConfig();
       }
-      const stored = Object.assign(defaultConfig(), JSON.parse(raw));
-      if (!stored.url && sameOriginProxyUrl()) {
-        stored.url = sameOriginProxyUrl();
-        stored.enabled = true;
+      const parsed = JSON.parse(raw);
+      const auto = defaultConfig();
+      if (parsed.enabled === false && !parsed.url && auto.url) {
+        return auto;
       }
-      return stored;
+      return Object.assign(auto, parsed);
     } catch (_) {
       return defaultConfig();
     }
@@ -70,16 +70,19 @@
   }
 
   function rewriteUrl(originalUrl, config) {
-    const cfg = config || readConfig();
-    if (!cfg.enabled || !cfg.url) {
-      return originalUrl;
-    }
-    const proxyBase = normalizeProxyBase(cfg.url);
-    if (!proxyBase) {
-      return originalUrl;
-    }
     const match = String(originalUrl).match(TELEGRAM_WS_RE);
     if (!match) {
+      return originalUrl;
+    }
+    const cfg = config || readConfig();
+    if (cfg.enabled === false) {
+      return originalUrl;
+    }
+    let proxyBase = normalizeProxyBase(cfg.url);
+    if (!proxyBase) {
+      proxyBase = normalizeProxyBase(sameOriginProxyUrl());
+    }
+    if (!proxyBase) {
       return originalUrl;
     }
     const host = match[1];
