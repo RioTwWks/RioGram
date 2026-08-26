@@ -35,6 +35,16 @@ rsync -a --delete "${ROOT_DIR}/build/web/" "${DEST}/" 2>/dev/null || {
   cp -a "${ROOT_DIR}/build/web/." "${DEST}/"
 }
 
+# worker-loader expects tdweb chunks at site root (not only /tdweb/).
+if [[ -d "${DEST}/tdweb" ]]; then
+  for pattern in '*.worker.js' '*.wasm' '*.mem'; do
+    for f in "${DEST}/tdweb"/${pattern}; do
+      [[ -f "${f}" ]] || continue
+      cp -f "${f}" "${DEST}/"
+    done
+  done
+fi
+
 if id riogram &>/dev/null; then
   chown -R riogram:riogram "${DEST}"
 fi
