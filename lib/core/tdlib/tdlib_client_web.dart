@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../config/app_config.dart';
 import 'tdlib_client_interface.dart';
@@ -166,13 +165,14 @@ class TdlibClient {
   Future<({String database, String files})> _resolveDirectories({
     String? accountSuffix,
   }) async {
-    final appDir = await getApplicationSupportDirectory();
+    // tdweb хранит данные в IndexedDB; path_provider на Web не поддерживает
+    // getApplicationSupportDirectory — используем виртуальные пути.
     final suffix = accountSuffix != null && accountSuffix.isNotEmpty
         ? '/account_$accountSuffix'
         : '';
     return (
-      database: '${appDir.path}/tdlib_db$suffix',
-      files: '${appDir.path}/tdlib_files$suffix',
+      database: 'tdlib_db$suffix',
+      files: 'tdlib_files$suffix',
     );
   }
 }
