@@ -1,10 +1,17 @@
 (function () {
   'use strict';
 
+  if (self.__RIOGRAM_WSS_HOOK__) {
+    return;
+  }
+  self.__RIOGRAM_WSS_HOOK__ = true;
+
   try {
-    importScripts('js/wss_proxy_worker_config.js');
+    importScripts('/js/wss_proxy_worker_config.js');
   } catch (_) {
-    // Optional override; same-origin fallback below.
+    try {
+      importScripts('js/wss_proxy_worker_config.js');
+    } catch (_2) {}
   }
 
   var TELEGRAM_WS_RE =
@@ -28,35 +35,47 @@
     return value;
   }
 
-  function resolveConfig() {
+  function sameOriginProxyBase() {
+    try {
+      var loc = self.location;
+      if (!loc || !loc.host) {
+        return null;
+      }
+      var href = String(loc.href || '');
+      if (loc.protocol === 'https:' || loc.protocol === 'wss:' || href.indexOf('https://') === 0) {
+        return 'wss://' + loc.host;
+      }
+      if (loc.protocol === 'http:' || loc.protocol === 'ws:' || href.indexOf('http://') === 0) {
+        return 'ws://' + loc.host;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function proxyBase() {
     var config = self.RIOGRAM_WSS_CONFIG;
-    if (config && config.enabled && config.url) {
-      return config;
+    if (config && config.enabled === false) {
+      return null;
     }
-    if (
-      typeof self.location !== 'undefined' &&
-      self.location.host &&
-      self.location.protocol === 'https:'
-    ) {
-      return { enabled: true, url: 'wss://' + self.location.host };
+    if (config && config.url) {
+      var fromConfig = normalizeProxyBase(config.url);
+      if (fromConfig) {
+        return fromConfig;
+      }
     }
-    return { enabled: false, url: '' };
+    return sameOriginProxyBase();
   }
 
   function rewriteUrl(url) {
-    var config = resolveConfig();
-    if (!config.enabled || !config.url) {
-      return url;
-    }
-    var proxyBase = normalizeProxyBase(config.url);
-    if (!proxyBase) {
-      return url;
-    }
     var match = String(url).match(TELEGRAM_WS_RE);
     if (!match) {
       return url;
     }
-    return proxyBase + '/' + match[1] + (match[2] || '/apiws');
+    var base = proxyBase();
+    if (!base) {
+      return url;
+    }
+    return base + '/' + match[1] + (match[2] || '/apiws');
   }
 
   var OriginalWebSocket = self.WebSocket;
