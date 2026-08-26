@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Prepend WSS WebSocket hook loader into tdweb entry *.worker.js only.
+# Inline WSS WebSocket hook into tdweb entry *.worker.js (not webpack chunks).
 #
-# worker-loader spawns hash.worker.js; webpack chunks (1.hash.worker.js) are pulled
-# via importScripts into the same global scope — patch only the entry worker.
+# Embeds WEB_WSS_PROXY_URL from .env directly into the worker — no importScripts.
 #
 # Usage:
 #   ./scripts/patch-tdweb-worker-wss.sh
@@ -12,19 +11,39 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_DIR="${1:-${ROOT_DIR}/web}"
 MARKER='/* riogram-wss-worker-hook */'
-LOADER="${MARKER}
-importScripts('/js/wss_proxy_worker_hook.js');
-"
+HOOK_TEMPLATE="${ROOT_DIR}/web/js/wss_proxy_worker_hook.js"
+ENV_FILE="${ROOT_DIR}/.env"
 
 if [[ ! -d "${TARGET_DIR}" ]]; then
   echo "Directory not found: ${TARGET_DIR}" >&2
   exit 1
 fi
 
-if [[ ! -f "${ROOT_DIR}/web/js/wss_proxy_worker_hook.js" ]]; then
-  echo "Missing web/js/wss_proxy_worker_hook.js" >&2
+if [[ ! -f "${HOOK_TEMPLATE}" ]]; then
+  echo "Missing ${HOOK_TEMPLATE}" >&2
   exit 1
 fi
+
+WSS_URL=""
+if [[ -f "${ENV_FILE}" ]]; then
+  # shellcheck disable=SC1090
+  set -a
+  source "${ENV_FILE}"
+  set +a
+fi
+WSS_URL="${WEB_WSS_PROXY_URL:-}"
+
+INLINE_HOOK="$(python3 - "${HOOK_TEMPLATE}" "${WSS_URL}" <<'PY'
+import json
+import sys
+
+template_path, wss_url = sys.argv[1], sys.argv[2]
+template = open(template_path, encoding="utf-8").read()
+baked = json.dumps(wss_url)[1:-1]  # JS string literal contents
+inline = template.replace("__RIOGRAM_BAKED_PROXY_URL__", baked)
+print(inline.rstrip())
+PY
+)"
 
 is_entry_worker() {
   local base
@@ -33,36 +52,41 @@ is_entry_worker() {
   return 0
 }
 
+strip_hook() {
+  python3 - "$1" "${MARKER}" <<'PY'
+import re
+import sys
+
+path, marker = sys.argv[1], sys.argv[2]
+text = open(path, encoding="utf-8").read()
+if marker not in text:
+    sys.exit(0)
+text = re.sub(re.escape(marker) + r".*?\}\)\(\);\n?", "", text, count=1, flags=re.DOTALL)
+text = re.sub(re.escape(marker) + r".*?(?:\n|$)", "", text, count=1)
+open(path, "w", encoding="utf-8").write(text.lstrip("\n"))
+PY
+}
+
 patched=0
 skipped=0
 while IFS= read -r -d '' worker; do
   if ! is_entry_worker "${worker}"; then
+    strip_hook "${worker}"
     rel="${worker#${ROOT_DIR}/}"
-    echo "  skip chunk ${rel}"
+    echo "  stripped chunk ${rel}"
     skipped=$((skipped + 1))
     continue
   fi
-  python3 - "${worker}" "${MARKER}" "${LOADER}" <<'PY'
-import re
+  python3 - "${worker}" "${MARKER}" "${INLINE_HOOK}" <<'PY'
 import sys
 
-path, marker, loader = sys.argv[1], sys.argv[2], sys.argv[3]
+path, marker, hook = sys.argv[1], sys.argv[2], sys.argv[3]
 text = open(path, encoding="utf-8").read()
 if marker in text:
-    text = re.sub(
-        re.escape(marker) + r".*?(?:\n|$)",
-        "",
-        text,
-        count=1,
-    )
-    text = re.sub(
-        re.escape(marker) + r".*?\}\)\(\);\n?",
-        "",
-        text,
-        count=1,
-        flags=re.DOTALL,
-    )
-open(path, "w", encoding="utf-8").write(loader + "\n" + text.lstrip("\n"))
+    import re
+    text = re.sub(re.escape(marker) + r".*?\}\)\(\);\n?", "", text, count=1, flags=re.DOTALL)
+    text = re.sub(re.escape(marker) + r".*?(?:\n|$)", "", text, count=1)
+open(path, "w", encoding="utf-8").write(marker + "\n" + hook + "\n" + text.lstrip("\n"))
 PY
   rel="${worker#${ROOT_DIR}/}"
   echo "  patched ${rel}"
@@ -70,8 +94,8 @@ PY
 done < <(find "${TARGET_DIR}" -maxdepth 2 -name '*.worker.js' -print0)
 
 if [[ "${patched}" -eq 0 ]]; then
-  echo "No entry *.worker.js under ${TARGET_DIR} (run ./scripts/copy-tdweb.sh first)" >&2
-  exit 1
+  echo "⚠  No entry *.worker.js under ${TARGET_DIR} — skipped WSS worker patch"
+  exit 0
 fi
 
-echo "✅ Patched ${patched} entry worker(s), skipped ${skipped} chunk(s)"
+echo "✅ Patched ${patched} entry worker(s), skipped ${skipped} chunk(s) (baked proxy=${WSS_URL:-<same-origin>})"
