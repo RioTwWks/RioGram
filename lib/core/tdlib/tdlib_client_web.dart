@@ -41,12 +41,22 @@ class TdlibClient {
       );
     }
 
-    await TdlibJsBridge.createTdlibClient(
-      onUpdate: _handleUpdate,
-      instanceName: 'riogram',
-    );
-    _clientCreated = true;
     _isRunning = true;
+    try {
+      await TdlibJsBridge.createTdlibClient(
+        onUpdate: _handleUpdate,
+        instanceName: 'riogram',
+      );
+      await TdlibJsBridge.waitForAuthorizationUpdate(
+        timeout: kIsWeb
+            ? const Duration(seconds: 120)
+            : const Duration(seconds: 45),
+      );
+      _clientCreated = true;
+    } catch (error) {
+      _isRunning = false;
+      rethrow;
+    }
   }
 
   void setNetworkEnabled(bool enabled) {

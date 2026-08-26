@@ -62,12 +62,20 @@ if [[ -d "${BUILD_WEB}/tdweb" ]]; then
       cp -f "${f}" "${BUILD_WEB}/"
     done
   done
+  if [[ -d "${BUILD_WEB}/tdweb/prebuilt" ]]; then
+    mkdir -p "${BUILD_WEB}/prebuilt"
+    cp -a "${BUILD_WEB}/tdweb/prebuilt/." "${BUILD_WEB}/prebuilt/"
+  fi
 fi
 
 if compgen -G "${BUILD_WEB}/*.worker.js" >/dev/null || compgen -G "${BUILD_WEB}/tdweb/*.worker.js" >/dev/null; then
   "${ROOT_DIR}/scripts/patch-tdweb-worker-wss.sh" "${BUILD_WEB}"
 else
   echo "⚠  tdweb workers not found — WSS worker patch skipped (OK for SKIP_TDWEB_CHECK builds)"
+fi
+
+if [[ -f "${BUILD_WEB}/tdweb/tdweb.js" ]]; then
+  "${ROOT_DIR}/scripts/patch-tdweb-close-timeout.sh" "${BUILD_WEB}/tdweb/tdweb.js"
 fi
 
 echo ""

@@ -12,6 +12,12 @@ abstract final class JsBridgeImpl {
 
   static void callVoid(String objectName, String method, [List<dynamic>? args]) {}
 
+  static Future<void> callPromise(
+    String objectName,
+    String method, [
+    List<dynamic>? args,
+  ]) async {}
+
   static void setCallback(
     String objectName,
     String method,

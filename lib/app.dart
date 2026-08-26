@@ -495,22 +495,8 @@ class _RootScreenState extends State<_RootScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_initializeAuth());
+      context.read<AuthManager>().initialize();
     });
-  }
-
-  Future<void> _initializeAuth() async {
-    try {
-      await context.read<AuthManager>().initialize();
-    } catch (error, stackTrace) {
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stackTrace,
-          library: 'RioGram auth',
-        ),
-      );
-    }
   }
 
   @override

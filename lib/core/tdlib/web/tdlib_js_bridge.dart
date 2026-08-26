@@ -97,6 +97,19 @@ abstract final class TdlibJsBridge {
     }
   }
 
+  static Future<void> waitForAuthorizationUpdate({
+    Duration timeout = const Duration(seconds: 120),
+  }) async {
+    if (!JsBridgeImpl.hasGlobal('RioGramTdlib')) {
+      throw StateError('RioGramTdlib bridge не загружен');
+    }
+    await JsBridgeImpl.callPromise(
+      'RioGramTdlib',
+      'waitForAuthorizationUpdate',
+      [timeout.inMilliseconds],
+    );
+  }
+
   static void sendTdlibQuery(Map<String, dynamic> request) {
     JsBridgeImpl.callVoid('RioGramTdlib', 'send', [request]);
   }
