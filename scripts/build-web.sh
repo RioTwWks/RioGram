@@ -15,6 +15,25 @@ if [[ ! -f .env ]]; then
   echo "Создан .env из .env.example"
 fi
 
+if [[ -z "${TELEGRAM_API_ID:-}" || -z "${TELEGRAM_API_HASH:-}" ]]; then
+  # shellcheck disable=SC1091
+  set -a
+  source .env 2>/dev/null || true
+  set +a
+fi
+
+API_ID="${TELEGRAM_API_ID:-}"
+if [[ -z "${API_ID}" || "${API_ID}" == "0" ]]; then
+  echo "❌ TELEGRAM_API_ID не задан в .env"
+  echo "   export TELEGRAM_API_ID=... TELEGRAM_API_HASH=... && ./scripts/generate-env.sh"
+  echo "   или заполните .env вручную (см. docs/SECRETS.md)"
+  exit 1
+fi
+if [[ -z "${TELEGRAM_API_HASH:-}" ]]; then
+  echo "❌ TELEGRAM_API_HASH не задан в .env"
+  exit 1
+fi
+
 "${ROOT_DIR}/scripts/generate-wss-worker-config.sh"
 
 if [[ "${SKIP_TDWEB_CHECK:-0}" != "1" && ! -f web/tdweb/tdweb.js ]]; then
