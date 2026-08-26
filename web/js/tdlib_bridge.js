@@ -32,19 +32,23 @@
         );
       }
 
-      onUpdateCallback = options.onUpdate;
+      options = options || {};
       tdClient = new TdClient({
         instanceName: options.instanceName || 'riogram',
         jsLogVerbosityLevel: options.jsLogVerbosityLevel || 'warning',
         logVerbosityLevel: options.logVerbosityLevel || 2,
         useDatabase: options.useDatabase !== false,
         onUpdate: function (update) {
-          if (onUpdateCallback) {
+          if (typeof onUpdateCallback === 'function') {
             onUpdateCallback(update);
           }
         },
       });
       return true;
+    },
+
+    setUpdateCallback: function (callback) {
+      onUpdateCallback = callback;
     },
 
     send: function (query) {
