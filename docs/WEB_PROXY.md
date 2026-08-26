@@ -167,6 +167,8 @@ location / {
 | `403 Forbidden` | Path не содержит `*.web.telegram.org` |
 | `502 upstream error` | EU → Telegram сеть; `curl -I https://venus.web.telegram.org` |
 | WS сразу закрывается | Nginx: `proxy_http_version 1.1`, `Upgrade`, `Connection` |
+| WS handshake failed (Chrome) | Прокси должен отвечать `Sec-WebSocket-Protocol: binary` (tdweb) |
+| HTTP/2 + WebSocket | На RU nginx **не** включать `http2` на HTTPS listen |
 | Клиент не использует прокси | Настройки WSS в UI; `localStorage` → `riogram_wss_proxy_config` |
 
 ---

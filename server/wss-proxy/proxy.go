@@ -17,7 +17,11 @@ import (
 var telegramHostPattern = regexp.MustCompile(`(?i)^[a-z0-9\-]+\.(?:web\.)?telegram\.org$`)
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(_ *http.Request) bool { return true },
+	// tdweb/emscripten requires Sec-WebSocket-Protocol: binary; Chrome fails the
+	// handshake if the client offers subprotocols but the server omits the header.
+	Subprotocols:    []string{"binary"},
+	CheckOrigin:     func(_ *http.Request) bool { return true },
+	EnableCompression: false,
 }
 
 // Proxy serves health checks and WebSocket reverse proxy routes.

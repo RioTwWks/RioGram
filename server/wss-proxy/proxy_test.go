@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/gorilla/websocket"
 )
 
 func TestParseTargetPath(t *testing.T) {
@@ -104,5 +106,37 @@ func TestForbiddenHost(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status=%d want=403", rec.Code)
+	}
+}
+
+func TestUpgraderNegotiatesBinarySubprotocol(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer conn.Close()
+	}))
+	t.Cleanup(server.Close)
+
+	wsURL := "ws" + server.URL[len("http"):] + "/"
+	dialer := websocket.Dialer{Subprotocols: []string{"binary"}}
+	conn, resp, err := dialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		t.Fatalf("status=%d want=101", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Sec-WebSocket-Protocol"); got != "binary" {
+		t.Fatalf("Sec-WebSocket-Protocol=%q want=binary", got)
+	}
+	if conn.Subprotocol() != "binary" {
+		t.Fatalf("conn subprotocol=%q want=binary", conn.Subprotocol())
 	}
 }
