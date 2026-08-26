@@ -21,22 +21,32 @@ class ScrollToBottomButton extends StatelessWidget {
     return Material(
       elevation: 0,
       color: tg.elevatedSurface,
-      borderRadius: BorderRadius.circular(20),
+      shape: StadiumBorder(
+        side: BorderSide(color: tg.chatListDivider.withValues(alpha: 0.35)),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(20),
+        customBorder: const StadiumBorder(),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: TelegramSpacing.scrollToBottomHorizontalPadding,
+            vertical: TelegramSpacing.scrollToBottomVerticalPadding,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(TelegramIcons.arrowDown, size: 16, color: tg.accent),
               const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: TelegramFontSizes.preview,
-                      color: tg.accent,
-                      fontWeight: FontWeight.w500)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: TelegramFontSizes.preview,
+                  color: tg.accent,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                ),
+              ),
             ],
           ),
         ),

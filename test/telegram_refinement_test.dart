@@ -99,6 +99,15 @@ void main() {
       expect(TelegramSpacing.stickerPanelHeight, 320);
     });
   });
+
+  group('TelegramSpacing §9.11.3 scroll button', () {
+    test('capsule radius и отступ от низа', () {
+      expect(TelegramSpacing.scrollToBottomBottomPadding, 8);
+      expect(TelegramSpacing.scrollToBottomCapsuleRadius, 16);
+      expect(TelegramSpacing.scrollToBottomHorizontalPadding, 12);
+      expect(TelegramSpacing.scrollToBottomVerticalPadding, 6);
+    });
+  });
   group('TelegramTheme flat surfaces §9.11', () {
     test('AppBar и карточки без elevation (светлая)', () {
       final theme = TelegramTheme.build(brightness: Brightness.light);
