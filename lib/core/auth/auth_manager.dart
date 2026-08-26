@@ -7,6 +7,7 @@ import '../proxy/proxy_manager.dart';
 import '../proxy/web_proxy_manager.dart';
 import '../tdlib/tdlib_client.dart';
 import '../../models/auth_models.dart';
+import 'auth_state_predicates.dart';
 
 /// Управление авторизацией через TDLib.
 class AuthManager extends ChangeNotifier {
@@ -25,6 +26,7 @@ class AuthManager extends ChangeNotifier {
 
   static const Duration authRequestTimeout = Duration(seconds: 45);
   static const Duration initTimeout = Duration(seconds: 30);
+  static const Duration webWasmInitTimeout = Duration(seconds: 90);
 
   final TdlibClient _client;
   final AppConfig _config;
@@ -45,6 +47,7 @@ class AuthManager extends ChangeNotifier {
   bool _isInitializing = false;
   bool _isAuthRequestInProgress = false;
   bool _initialized = false;
+  String? _lastAuthorizationState;
   Timer? _authTimeoutTimer;
 
   AuthPhase get phase => _phase;
@@ -86,13 +89,16 @@ class AuthManager extends ChangeNotifier {
         }
       }
 
+      if (!_config.hasApiCredentials) {
+        throw StateError(
+          'Укажите TELEGRAM_API_ID и TELEGRAM_API_HASH в .env '
+          '(пересоберите Web: ./scripts/build-web.sh на EU).',
+        );
+      }
+
       await _client.ensureClient();
       _subscription?.cancel();
       _subscription = _client.updates.listen(_handleUpdate);
-      await _client.configure(
-        _config,
-        accountDirectorySuffix: accountDirectorySuffix,
-      );
 
       final proxyManager = _proxyManager;
       if (proxyManager != null) {
@@ -108,15 +114,20 @@ class AuthManager extends ChangeNotifier {
         }
       }
 
-      final authReady = _waitForAuthorizationState(
-        'authorizationStateWaitPhoneNumber',
+      await _applyTdlibParametersWhenReady();
+
+      final authReady = _waitForInteractiveAuthorization(
         timeout: initTimeout,
       );
 
-      final isReady = _isInteractiveAuthPhase(_phase) || await authReady;
+      final isReady =
+          _isInteractiveAuthPhase(_phase) || await authReady;
       if (!isReady && _phase == AuthPhase.initializing) {
+        final stateHint = _lastAuthorizationState != null
+            ? ' Последнее состояние: $_lastAuthorizationState.'
+            : '';
         throw StateError(
-          'TDLib не готов к авторизации. Проверьте API-ключи и прокси.',
+          'TDLib не готов к авторизации. Проверьте API-ключи и прокси.$stateHint',
         );
       }
 
@@ -291,6 +302,14 @@ class AuthManager extends ChangeNotifier {
     final type = update['@type'];
 
     switch (type) {
+      case 'updateFatalError':
+        _authTimeoutTimer?.cancel();
+        _isAuthRequestInProgress = false;
+        _phase = AuthPhase.error;
+        _errorMessage = update['error'] as String? ??
+            'Фатальная ошибка TDLib (WebAssembly)';
+        notifyListeners();
+        return;
       case 'updateAuthorizationState':
         _handleAuthorizationState(
           update['authorization_state'] as Map<String, dynamic>,
@@ -395,6 +414,7 @@ class AuthManager extends ChangeNotifier {
     _authTimeoutTimer?.cancel();
     _isAuthRequestInProgress = false;
     _errorMessage = null;
+    _lastAuthorizationState = state['@type'] as String?;
 
     switch (state['@type']) {
       case 'authorizationStateWaitPhoneNumber':
@@ -432,22 +452,58 @@ class AuthManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> _waitForAuthorizationState(
-    String expectedState, {
+  Future<void> _applyTdlibParametersWhenReady() async {
+    if (_isInteractiveAuthPhase(_phase)) {
+      return;
+    }
+
+    final wasmTimeout =
+        kIsWeb ? webWasmInitTimeout : initTimeout;
+    final paramsState = await _client.waitFor(
+      predicate: isTdlibParametersStageUpdate,
+      timeout: wasmTimeout,
+    );
+
+    if (paramsState == null) {
+      final stateHint = _lastAuthorizationState != null
+          ? ' Последнее состояние: $_lastAuthorizationState.'
+          : '';
+      throw StateError(
+        'TDLib не загрузился за ${wasmTimeout.inSeconds} с '
+        '(WASM/IndexedDB).$stateHint',
+      );
+    }
+
+    final stateType = authorizationStateType(paramsState);
+    if (stateType == 'authorizationStateWaitTdlibParameters') {
+      await _client.configure(
+        _config,
+        accountDirectorySuffix: accountDirectorySuffix,
+      );
+      return;
+    }
+
+    if (isPastTdlibParametersStage(stateType)) {
+      return;
+    }
+
+    throw StateError(
+      'Неожиданное состояние TDLib: ${stateType ?? 'unknown'}',
+    );
+  }
+
+  Future<bool> _waitForInteractiveAuthorization({
     required Duration timeout,
-  }) {
-    return _client
-        .waitFor(
-          predicate: (update) {
-            if (update['@type'] != 'updateAuthorizationState') {
-              return false;
-            }
-            final state = update['authorization_state'] as Map<String, dynamic>?;
-            return state?['@type'] == expectedState;
-          },
-          timeout: timeout,
-        )
-        .then((update) => update != null);
+  }) async {
+    if (_isInteractiveAuthPhase(_phase)) {
+      return true;
+    }
+
+    final update = await _client.waitFor(
+      predicate: isInteractiveAuthorizationUpdate,
+      timeout: timeout,
+    );
+    return update != null;
   }
 
   @override

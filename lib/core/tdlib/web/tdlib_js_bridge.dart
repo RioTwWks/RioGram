@@ -76,6 +76,14 @@ abstract final class TdlibJsBridge {
       throw StateError('RioGramTdlib bridge не загружен');
     }
 
+    JsBridgeImpl.setCallback('RioGramTdlib', 'setUpdateCallback', (
+      dynamic update,
+    ) {
+      if (update is Map) {
+        onUpdate(Map<String, dynamic>.from(update));
+      }
+    });
+
     final created = JsBridgeImpl.callBool('RioGramTdlib', 'create', [
       {
         'instanceName': instanceName,
@@ -87,14 +95,6 @@ abstract final class TdlibJsBridge {
     if (!created) {
       throw StateError('Не удалось создать tdweb-клиент');
     }
-
-    JsBridgeImpl.setCallback('RioGramTdlib', 'setUpdateCallback', (
-      dynamic update,
-    ) {
-      if (update is Map) {
-        onUpdate(Map<String, dynamic>.from(update));
-      }
-    });
   }
 
   static void sendTdlibQuery(Map<String, dynamic> request) {
