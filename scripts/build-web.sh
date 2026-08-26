@@ -15,6 +15,8 @@ if [[ ! -f .env ]]; then
   echo "Создан .env из .env.example"
 fi
 
+"${ROOT_DIR}/scripts/generate-wss-worker-config.sh"
+
 if [[ "${SKIP_TDWEB_CHECK:-0}" != "1" && ! -f web/tdweb/tdweb.js ]]; then
   echo "⚠  web/tdweb/tdweb.js не найден."
   echo "   TDLib в браузере не заработает без tdweb."
