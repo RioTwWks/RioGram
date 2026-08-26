@@ -165,6 +165,7 @@ location / {
 | Симптом | Проверка |
 |---------|----------|
 | `403 Forbidden` | Path не содержит `*.web.telegram.org` |
+| `405 Method Not Allowed` при `curl -I` | Нормально: `-I` шлёт **HEAD**, не WebSocket. Используйте `curl -X GET` или `./scripts/verify-wss-public.sh` |
 | `502 upstream error` | EU → Telegram сеть; `curl -I https://venus.web.telegram.org` |
 | WS сразу закрывается | Nginx: `proxy_http_version 1.1`, `Upgrade`, `Connection` |
 | WS handshake failed (Chrome) | Прокси должен отвечать `Sec-WebSocket-Protocol: binary` (tdweb) |
