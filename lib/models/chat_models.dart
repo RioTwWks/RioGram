@@ -1,6 +1,7 @@
 import 'audio_models.dart';
 import 'call_models.dart';
 import 'formatted_text.dart';
+import 'link_preview_models.dart';
 import 'location_models.dart';
 import 'media_models.dart';
 import 'message_enrichment.dart';
@@ -180,6 +181,7 @@ class MessageContent {
     this.callInfo,
     this.locationInfo,
     this.venueInfo,
+    this.linkPreview,
   });
 
   final MessageKind kind;
@@ -202,6 +204,7 @@ class MessageContent {
   final CallMessageInfo? callInfo;
   final LocationMessageInfo? locationInfo;
   final VenueMessageInfo? venueInfo;
+  final LinkPreviewInfo? linkPreview;
 
   bool get isServiceMessage => kind == MessageKind.service;
 
@@ -216,10 +219,16 @@ class MessageContent {
           final formatted = FormattedText.fromTdlib(
             content['text'] as Map<String, dynamic>?,
           );
+          final linkPreviewRaw =
+              content['link_preview'] as Map<String, dynamic>?;
+          final linkPreview = linkPreviewRaw != null
+              ? LinkPreviewInfo.fromTdlib(linkPreviewRaw)
+              : LinkPreviewInfo.fromFormattedText(formatted);
           return MessageContent(
             kind: MessageKind.text,
             preview: formatted.preview,
             formattedText: formatted,
+            linkPreview: linkPreview,
           );
         }(),
       'messagePhoto' => () {
@@ -557,6 +566,9 @@ class ChatSummary {
     this.secretChatId,
     this.isForum = false,
     this.canSendMessages = true,
+    this.lastMessageSenderName,
+    this.lastMessageSenderUserId,
+    this.lastMessageSenderChatId,
   });
 
   final int id;
@@ -565,6 +577,9 @@ class ChatSummary {
   final DateTime? lastMessageDate;
   final bool lastMessageIsOutgoing;
   final MessageDeliveryStatus? lastMessageDeliveryStatus;
+  final String? lastMessageSenderName;
+  final int? lastMessageSenderUserId;
+  final int? lastMessageSenderChatId;
   final int unreadCount;
   final int? avatarFileId;
   final String? avatarLocalPath;
@@ -600,6 +615,10 @@ class ChatSummary {
   /// Read-only канал для подписчика без права публикации.
   bool get isChannelReadOnly =>
       kind == ChatKind.channel && !canSendMessages;
+
+  /// Группа или канал — превью с префиксом отправителя.
+  bool get showsGroupSenderPrefix =>
+      kind == ChatKind.group || kind == ChatKind.channel;
 
   /// Текст превью: черновик имеет приоритет над последним сообщением.
   String? get previewText {
@@ -652,6 +671,10 @@ class ChatSummary {
     int? secretChatId,
     bool? isForum,
     bool? canSendMessages,
+    String? lastMessageSenderName,
+    int? lastMessageSenderUserId,
+    int? lastMessageSenderChatId,
+    bool clearLastMessageSender = false,
   }) {
     return ChatSummary(
       id: id,
@@ -662,6 +685,15 @@ class ChatSummary {
       lastMessageDeliveryStatus: clearLastMessageDeliveryStatus
           ? null
           : (lastMessageDeliveryStatus ?? this.lastMessageDeliveryStatus),
+      lastMessageSenderName: clearLastMessageSender
+          ? null
+          : (lastMessageSenderName ?? this.lastMessageSenderName),
+      lastMessageSenderUserId: clearLastMessageSender
+          ? null
+          : (lastMessageSenderUserId ?? this.lastMessageSenderUserId),
+      lastMessageSenderChatId: clearLastMessageSender
+          ? null
+          : (lastMessageSenderChatId ?? this.lastMessageSenderChatId),
       unreadCount: unreadCount ?? this.unreadCount,
       avatarFileId: avatarFileId ?? this.avatarFileId,
       avatarLocalPath: avatarLocalPath ?? this.avatarLocalPath,

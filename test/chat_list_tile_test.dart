@@ -58,6 +58,27 @@ void main() {
     });
   });
 
+  group('formatGroupChatPreviewText', () {
+    test('добавляет префикс отправителя в группах', () {
+      expect(
+        formatGroupChatPreviewText(
+          text: 'Привет',
+          senderName: 'Alice',
+          showPrefix: true,
+        ),
+        'Alice: Привет',
+      );
+      expect(
+        formatGroupChatPreviewText(
+          text: 'Привет',
+          senderName: 'Alice',
+          showPrefix: false,
+        ),
+        'Привет',
+      );
+    });
+  });
+
   group('ChatListTile', () {
     Widget wrap(Widget child) {
       return ChangeNotifierProvider(
@@ -70,11 +91,13 @@ void main() {
     }
 
     testWidgets('показывает имя, preview, время и badge', (tester) async {
+      final now = DateTime.now();
+      final todayAt = DateTime(now.year, now.month, now.day, 14, 32);
       final chat = ChatSummary(
         id: 1,
         title: 'Alice',
         lastMessage: '📷 Фото',
-        lastMessageDate: DateTime(2026, 8, 25, 14, 32),
+        lastMessageDate: todayAt,
         unreadCount: 3,
         positions: const [
           ChatPositionInfo(
@@ -132,7 +155,7 @@ void main() {
 
       expect(
         tester.getRect(find.byIcon(TelegramIcons.pin)).left,
-        greaterThan(tester.getRect(find.text('Alice')).right),
+        greaterThan(tester.getRect(find.text('Alice')).center.dx),
       );
     });
 
@@ -158,6 +181,85 @@ void main() {
       );
 
       expect(find.byType(MessageDeliveryIcon), findsOneWidget);
+    });
+
+    testWidgets('typing preview в accent цвете', (tester) async {
+      final chat = ChatSummary(
+        id: 5,
+        title: 'Group',
+        lastMessage: 'old',
+        lastMessageDate: DateTime.now(),
+        kind: ChatKind.group,
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatListTile(
+            chat: chat,
+            selected: false,
+            activeList: const ChatListMain(),
+            chatActionPreview: 'печатает…',
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('печатает…'), findsOneWidget);
+      expect(find.text('old'), findsNothing);
+
+      final preview = tester.widget<Text>(find.text('печатает…'));
+      final tg = TelegramTheme.build(brightness: Brightness.light)
+          .extension<TelegramThemeData>()!;
+      expect(preview.style?.color, tg.accent);
+    });
+
+    testWidgets('group sender prefix в preview', (tester) async {
+      final chat = ChatSummary(
+        id: 6,
+        title: 'Team',
+        lastMessage: 'Привет',
+        lastMessageDate: DateTime.now(),
+        kind: ChatKind.group,
+        lastMessageSenderName: 'Bob',
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatListTile(
+            chat: chat,
+            selected: false,
+            activeList: const ChatListMain(),
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Bob: Привет'), findsOneWidget);
+    });
+
+    testWidgets('badge на строке preview', (tester) async {
+      final chat = ChatSummary(
+        id: 7,
+        title: 'Unread',
+        lastMessage: 'msg',
+        lastMessageDate: DateTime.now(),
+        unreadCount: 2,
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          ChatListTile(
+            chat: chat,
+            selected: false,
+            activeList: const ChatListMain(),
+            onTap: () {},
+          ),
+        ),
+      );
+
+      final titleBox = tester.getRect(find.text('Unread'));
+      final badgeBox = tester.getRect(find.text('2'));
+      expect(badgeBox.top, greaterThan(titleBox.bottom));
     });
 
     testWidgets('row height 72', (tester) async {

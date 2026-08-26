@@ -100,6 +100,19 @@ String formatChatListTime(DateTime dateTime) {
   );
 }
 
+/// Префикс имени отправителя для групповых чатов (`Name: text`).
+@visibleForTesting
+String formatGroupChatPreviewText({
+  required String text,
+  String? senderName,
+  required bool showPrefix,
+}) {
+  if (!showPrefix || senderName == null || senderName.isEmpty) {
+    return text;
+  }
+  return '$senderName: $text';
+}
+
 /// Строка чата в списке с иконками типа, mute, pin и badge непрочитанных.
 class ChatListTile extends StatelessWidget {
   const ChatListTile({
@@ -108,6 +121,7 @@ class ChatListTile extends StatelessWidget {
     required this.selected,
     required this.activeList,
     required this.onTap,
+    this.chatActionPreview,
     this.onPinToggle,
     this.onArchiveToggle,
     this.onToggleUnread,
@@ -120,6 +134,7 @@ class ChatListTile extends StatelessWidget {
   final ChatSummary chat;
   final bool selected;
   final ChatListKey activeList;
+  final String? chatActionPreview;
   final VoidCallback onTap;
   final VoidCallback? onPinToggle;
   final VoidCallback? onArchiveToggle;
@@ -136,23 +151,40 @@ class ChatListTile extends StatelessWidget {
     final isPinned = chat.isPinnedIn(activeList);
     final preview = chat.previewText;
     final hasDraft = chat.draftPreview != null && chat.draftPreview!.isNotEmpty;
+    final showActionPreview =
+        chatActionPreview != null && chatActionPreview!.isNotEmpty && !hasDraft;
     final previewParts = parseChatPreviewParts(
       preview,
       hasDraft: hasDraft,
       isOutgoing: chat.lastMessageIsOutgoing,
       deliveryStatus: chat.lastMessageDeliveryStatus,
     );
+    final previewText = showActionPreview
+        ? chatActionPreview!
+        : formatGroupChatPreviewText(
+            text: previewParts.text,
+            senderName: chat.lastMessageSenderName,
+            showPrefix: chat.showsGroupSenderPrefix &&
+                !hasDraft &&
+                !chat.lastMessageIsOutgoing,
+          );
+    final hasPreviewRow = showActionPreview || previewParts.text.isNotEmpty;
     final time = chat.lastMessageDate != null
         ? formatChatListTime(chat.lastMessageDate!)
         : null;
 
     final previewOpacity = chat.isMuted ? 0.45 : 1.0;
     final previewStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: hasDraft
-          ? theme.colorScheme.error.withValues(alpha: previewOpacity)
-          : tg.textSecondary.withValues(alpha: previewOpacity),
+      color: showActionPreview
+          ? tg.accent.withValues(alpha: previewOpacity)
+          : hasDraft
+              ? theme.colorScheme.error.withValues(alpha: previewOpacity)
+              : tg.textSecondary.withValues(alpha: previewOpacity),
       fontWeight: chat.showsUnreadIndicator ? FontWeight.w600 : FontWeight.normal,
     );
+
+    final showOutgoingStatus =
+        previewParts.outgoingStatus != null && !hasDraft && !showActionPreview;
 
     final titleStyle = theme.textTheme.titleMedium?.copyWith(
       fontWeight: FontWeight.w600,
@@ -167,18 +199,21 @@ class ChatListTile extends StatelessWidget {
     final ui = context.watch<UiCustomizationManager>();
     final showPinIcon = !ui.hideListIcons && isPinned;
     final showMuteIcon = !ui.hideMuteIcons && chat.isMuted;
-    final showPreviewIcon = !ui.hideListIcons && previewParts.icon != null;
-    final showOutgoingStatus =
-        previewParts.outgoingStatus != null && !hasDraft;
+    final showPreviewIcon = !ui.hideListIcons &&
+        previewParts.icon != null &&
+        !showActionPreview;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Material(
-          color: selected ? tg.accent.withValues(alpha: 0.08) : tg.chatListBackground,
+          color: selected
+              ? tg.accent.withValues(alpha: 0.08)
+              : tg.chatListBackground,
           child: InkWell(
             onTap: onTap,
             onLongPress: () => _showActions(context),
+            hoverColor: tg.accent.withValues(alpha: 0.08),
             child: ConstrainedBox(
               constraints: const BoxConstraints(
                 minHeight: TelegramSpacing.chatListRowHeight,
@@ -198,78 +233,86 @@ class ChatListTile extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            chat.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: titleStyle,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  chat.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: titleStyle,
+                                ),
+                              ),
+                              if (showPinIcon) ...[
+                                Icon(
+                                  TelegramIcons.pin,
+                                  size: 14,
+                                  color: tg.textSecondary,
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                              if (showMuteIcon) ...[
+                                _MutedBellIcon(color: tg.textSecondary),
+                                const SizedBox(width: 4),
+                              ],
+                              if (time != null)
+                                Text(
+                                  time,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: timeStyle,
+                                ),
+                            ],
                           ),
-                          if (previewParts.text.isNotEmpty) ...[
+                          if (hasPreviewRow) ...[
                             const SizedBox(height: 3),
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                if (showOutgoingStatus) ...[
-                                  MessageDeliveryIcon(
-                                    status: previewParts.outgoingStatus!,
-                                    size: 16,
-                                    defaultColor: previewStyle?.color,
-                                    readColor: tg.accent,
-                                  ),
-                                  const SizedBox(width: 4),
-                                ],
-                                if (showPreviewIcon) ...[
-                                  Icon(
-                                    previewParts.icon,
-                                    size: 16,
-                                    color: previewStyle?.color,
-                                  ),
-                                  const SizedBox(width: 4),
-                                ],
                                 Expanded(
-                                  child: Text(
-                                    previewParts.text,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: previewStyle,
+                                  child: Row(
+                                    children: [
+                                      if (showOutgoingStatus) ...[
+                                        MessageDeliveryIcon(
+                                          status: previewParts.outgoingStatus!,
+                                          size: 16,
+                                          defaultColor: previewStyle?.color,
+                                          readColor: tg.accent,
+                                        ),
+                                        const SizedBox(width: 4),
+                                      ],
+                                      if (showPreviewIcon) ...[
+                                        Icon(
+                                          previewParts.icon,
+                                          size: 16,
+                                          color: previewStyle?.color,
+                                        ),
+                                        const SizedBox(width: 4),
+                                      ],
+                                      Expanded(
+                                        child: Text(
+                                          previewText,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: previewStyle,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
+                                const SizedBox(width: 8),
+                                _UnreadIndicator(chat: chat),
                               ],
+                            ),
+                          ] else if (chat.showsUnreadIndicator) ...[
+                            const SizedBox(height: 3),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: _UnreadIndicator(chat: chat),
                             ),
                           ],
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (showPinIcon) ...[
-                              Icon(
-                                TelegramIcons.pin,
-                                size: 14,
-                                color: tg.textSecondary,
-                              ),
-                              const SizedBox(width: 4),
-                            ],
-                            if (showMuteIcon) ...[
-                              _MutedBellIcon(color: tg.textSecondary),
-                              const SizedBox(width: 4),
-                            ],
-                            if (time != null)
-                              Text(
-                                time,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: timeStyle,
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        _UnreadIndicator(chat: chat),
-                      ],
                     ),
                   ],
                 ),

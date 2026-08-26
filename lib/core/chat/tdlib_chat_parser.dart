@@ -2,6 +2,7 @@ import '../../models/chat_models.dart';
 import '../../models/group_models.dart';
 import '../../models/message_enrichment.dart';
 import 'tdlib_chat_info_parser.dart';
+import 'tdlib_group_message_parser.dart';
 import '../tdlib/tdlib_json.dart';
 
 /// Данные аватара чата из TDLib chatPhotoInfo.
@@ -31,22 +32,11 @@ class TdlibChatParser {
     }
 
     final lastMessage = chat['last_message'] as Map<String, dynamic>?;
-    String? preview;
-    DateTime? date;
-    var lastMessageIsOutgoing = false;
-    MessageDeliveryStatus? lastMessageDeliveryStatus;
-    if (lastMessage != null) {
-      final content = lastMessage['content'] as Map<String, dynamic>? ?? {};
-      preview = MessageContent.fromTdlib(content).preview;
-      final dateSeconds = tdIntOr(lastMessage['date']);
-      date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
-      lastMessageIsOutgoing = lastMessage['is_outgoing'] as bool? ?? false;
-      lastMessageDeliveryStatus = MessageEnrichmentParser.parseDeliveryStatus(
-        lastMessage,
-        lastReadOutboxMessageId: tdIntOr(chat['last_read_outbox_message_id']),
-      );
-    }
-
+    final lastReadOutbox = tdIntOr(chat['last_read_outbox_message_id']);
+    final lastMeta = parseLastMessageMeta(
+      lastMessage,
+      lastReadOutboxMessageId: lastReadOutbox,
+    );
     final avatar = parseAvatar(chat['photo'] as Map<String, dynamic>?);
     final positions = parsePositions(chat['positions'] as List<dynamic>?);
     final notificationSettings =
@@ -58,13 +48,22 @@ class TdlibChatParser {
       botUsers: botUsers,
     );
 
+    int? lastMessageSenderUserId = lastMeta.senderUserId;
+    int? lastMessageSenderChatId = lastMeta.senderChatId;
+    if (typeInfo.kind != ChatKind.group && typeInfo.kind != ChatKind.channel) {
+      lastMessageSenderUserId = null;
+      lastMessageSenderChatId = null;
+    }
+
     return ChatSummary(
       id: id,
       title: title,
-      lastMessage: preview,
-      lastMessageDate: date,
-      lastMessageIsOutgoing: lastMessageIsOutgoing,
-      lastMessageDeliveryStatus: lastMessageDeliveryStatus,
+      lastMessage: lastMeta.preview,
+      lastMessageDate: lastMeta.date,
+      lastMessageIsOutgoing: lastMeta.isOutgoing,
+      lastMessageDeliveryStatus: lastMeta.deliveryStatus,
+      lastMessageSenderUserId: lastMessageSenderUserId,
+      lastMessageSenderChatId: lastMessageSenderChatId,
       unreadCount: tdIntOr(chat['unread_count']),
       avatarFileId: avatar.fileId,
       avatarLocalPath: avatar.localPath,
@@ -113,6 +112,59 @@ class TdlibChatParser {
         .whereType<Map<String, dynamic>>()
         .map(ChatPositionInfo.fromTdlib)
         .toList();
+  }
+
+  /// Метаданные last_message для списка чатов.
+  static ({
+    String? preview,
+    DateTime? date,
+    bool isOutgoing,
+    MessageDeliveryStatus? deliveryStatus,
+    int? senderUserId,
+    int? senderChatId,
+  }) parseLastMessageMeta(
+    Map<String, dynamic>? lastMessage, {
+    int lastReadOutboxMessageId = 0,
+  }) {
+    if (lastMessage == null) {
+      return (
+        preview: null,
+        date: null,
+        isOutgoing: false,
+        deliveryStatus: null,
+        senderUserId: null,
+        senderChatId: null,
+      );
+    }
+
+    final content = lastMessage['content'] as Map<String, dynamic>? ?? {};
+    final preview = MessageContent.fromTdlib(content).preview;
+    final dateSeconds = tdIntOr(lastMessage['date']);
+    final date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
+    final isOutgoing = lastMessage['is_outgoing'] as bool? ?? false;
+    final deliveryStatus = MessageEnrichmentParser.parseDeliveryStatus(
+      lastMessage,
+      lastReadOutboxMessageId: lastReadOutboxMessageId,
+    );
+
+    int? senderUserId;
+    int? senderChatId;
+    if (!isOutgoing) {
+      final senderIds = TdlibGroupMessageParser.parseSenderIds(
+        lastMessage['sender_id'] as Map<String, dynamic>?,
+      );
+      senderUserId = senderIds.userId;
+      senderChatId = senderIds.chatId;
+    }
+
+    return (
+      preview: preview,
+      date: date,
+      isOutgoing: isOutgoing,
+      deliveryStatus: deliveryStatus,
+      senderUserId: senderUserId,
+      senderChatId: senderChatId,
+    );
   }
 
   static ChatAvatarData parseAvatar(Map<String, dynamic>? photo) {
