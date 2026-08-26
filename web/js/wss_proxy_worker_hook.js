@@ -6,16 +6,11 @@
   }
   self.__RIOGRAM_WSS_HOOK__ = true;
 
-  try {
-    importScripts('/js/wss_proxy_worker_config.js');
-  } catch (_) {
-    try {
-      importScripts('js/wss_proxy_worker_config.js');
-    } catch (_2) {}
-  }
+  // Replaced at build/patch time from WEB_WSS_PROXY_URL (.env).
+  var __RIOGRAM_BAKED_PROXY__ = '__RIOGRAM_BAKED_PROXY_URL__';
 
   var TELEGRAM_WS_RE =
-    /^wss:\/\/([a-z0-9.-]+\.(?:web\.)?telegram\.org)(\/.*)?$/i;
+    /^wss?:\/\/([a-z0-9.-]+\.(?:web\.)?telegram\.org)(\/.*)?$/i;
 
   function normalizeProxyBase(raw) {
     if (!raw || !String(raw).trim()) {
@@ -38,25 +33,46 @@
   function sameOriginProxyBase() {
     try {
       var loc = self.location;
-      if (!loc || !loc.host) {
+      if (!loc) {
         return null;
       }
       var href = String(loc.href || '');
-      if (loc.protocol === 'https:' || loc.protocol === 'wss:' || href.indexOf('https://') === 0) {
-        return 'wss://' + loc.host;
+      var host = loc.host || '';
+      if (!host && href) {
+        var hostMatch = href.match(/^https?:\/\/([^/]+)/i);
+        if (hostMatch) {
+          host = hostMatch[1];
+        }
       }
-      if (loc.protocol === 'http:' || loc.protocol === 'ws:' || href.indexOf('http://') === 0) {
-        return 'ws://' + loc.host;
+      if (!host) {
+        return null;
+      }
+      if (
+        loc.protocol === 'https:' ||
+        loc.protocol === 'wss:' ||
+        href.indexOf('https://') === 0
+      ) {
+        return 'wss://' + host;
+      }
+      if (
+        loc.protocol === 'http:' ||
+        loc.protocol === 'ws:' ||
+        href.indexOf('http://') === 0
+      ) {
+        return 'ws://' + host;
       }
     } catch (_) {}
     return null;
   }
 
   function proxyBase() {
-    var config = self.RIOGRAM_WSS_CONFIG;
-    if (config && config.enabled === false) {
-      return null;
+    if (__RIOGRAM_BAKED_PROXY__) {
+      var baked = normalizeProxyBase(__RIOGRAM_BAKED_PROXY__);
+      if (baked) {
+        return baked;
+      }
     }
+    var config = self.RIOGRAM_WSS_CONFIG;
     if (config && config.url) {
       var fromConfig = normalizeProxyBase(config.url);
       if (fromConfig) {

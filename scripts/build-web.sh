@@ -45,7 +45,11 @@ if [[ -d "${BUILD_WEB}/tdweb" ]]; then
   done
 fi
 
-"${ROOT_DIR}/scripts/patch-tdweb-worker-wss.sh" "${BUILD_WEB}"
+if compgen -G "${BUILD_WEB}/*.worker.js" >/dev/null || compgen -G "${BUILD_WEB}/tdweb/*.worker.js" >/dev/null; then
+  "${ROOT_DIR}/scripts/patch-tdweb-worker-wss.sh" "${BUILD_WEB}"
+else
+  echo "⚠  tdweb workers not found — WSS worker patch skipped (OK for SKIP_TDWEB_CHECK builds)"
+fi
 
 echo ""
 echo "✅ Production Web собран: build/web/"
