@@ -143,6 +143,8 @@ class ChatManager extends ChangeNotifier {
   final Set<int> _selectedMessageIds = {};
   Timer? _typingStatusClearTimer;
   final Map<int, int> _lastReadOutboxMessageId = {};
+  final Map<int, String> _chatListActionPreview = {};
+  final Map<int, Timer> _chatListActionClearTimers = {};
 
   List<ChatSummary> get chats => List.unmodifiable(_visibleChats);
   List<ChatFolderTab> get chatFolders => List.unmodifiable(_chatFolders);
@@ -151,6 +153,7 @@ class ChatManager extends ChangeNotifier {
   int? get activeChatId => _activeChatId;
   int? get myUserId => _myUserId;
   String? get typingStatus => _typingStatus;
+  String? chatListActionPreview(int chatId) => _chatListActionPreview[chatId];
   bool get isLoadingMessages => _isLoadingMessages;
   String? get messagesError => _messagesError;
   bool get isArchiveList => _activeChatList is ChatListArchive;
@@ -347,6 +350,72 @@ class ChatManager extends ChangeNotifier {
         userName: (userId) => _userDisplayNames[userId] ?? '',
         chatTitle: (chatId) => _chatsById[chatId]?.title ?? '',
       );
+
+  String? _resolveLastMessageSenderName({
+    int? senderUserId,
+    int? senderChatId,
+  }) {
+    if (senderUserId != null) {
+      final name = _userDisplayNames[senderUserId];
+      if (name != null && name.isNotEmpty) {
+        return name;
+      }
+      return TdlibGroupMessageParser.parseSenderDisplayName(
+        {'@type': 'messageSenderUser', 'user_id': senderUserId},
+        _groupNameResolver,
+      );
+    }
+    if (senderChatId != null) {
+      return TdlibGroupMessageParser.parseSenderDisplayName(
+        {'@type': 'messageSenderChat', 'chat_id': senderChatId},
+        _groupNameResolver,
+      );
+    }
+    return null;
+  }
+
+  ChatSummary _enrichChatSummarySender(ChatSummary summary) {
+    if (!summary.showsGroupSenderPrefix ||
+        summary.lastMessageIsOutgoing ||
+        (summary.lastMessageSenderUserId == null &&
+            summary.lastMessageSenderChatId == null)) {
+      return summary;
+    }
+
+    final senderName = _resolveLastMessageSenderName(
+      senderUserId: summary.lastMessageSenderUserId,
+      senderChatId: summary.lastMessageSenderChatId,
+    );
+    if (senderName == null || senderName.isEmpty) {
+      if (summary.lastMessageSenderUserId != null) {
+        _requestUserIfNeeded(summary.lastMessageSenderUserId!);
+      }
+      return summary;
+    }
+    if (senderName == summary.lastMessageSenderName) {
+      return summary;
+    }
+    return summary.copyWith(lastMessageSenderName: senderName);
+  }
+
+  void _refreshChatsForUser(int userId) {
+    final name = _userDisplayNames[userId];
+    if (name == null) {
+      return;
+    }
+    var changed = false;
+    for (final entry in _chatsById.entries) {
+      final chat = entry.value;
+      if (chat.lastMessageSenderUserId == userId &&
+          chat.lastMessageSenderName != name) {
+        _chatsById[entry.key] = chat.copyWith(lastMessageSenderName: name);
+        changed = true;
+      }
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
 
   bool get _isAntiRecallEnabled =>
       _mediaFeatures?.antiRecallEnabled == true && _antiRecallStore != null;
@@ -2426,6 +2495,7 @@ class ChatManager extends ChangeNotifier {
       _userDisplayNames[userId] = displayName;
       _refreshMemberDisplayNames(userId);
       _refreshMessagesForUser(userId);
+      _refreshChatsForUser(userId);
     }
 
     if (user['@type'] == 'user' && (user['is_self'] as bool? ?? false)) {
@@ -2696,12 +2766,29 @@ class ChatManager extends ChangeNotifier {
       return;
     }
 
+    summary = _enrichChatSummarySender(summary);
+
     final existing = _chatsById[summary.id];
     if (existing != null) {
       _chatsById[summary.id] = existing.copyWith(
         title: summary.title,
         lastMessage: summary.lastMessage ?? existing.lastMessage,
         lastMessageDate: summary.lastMessageDate ?? existing.lastMessageDate,
+        lastMessageIsOutgoing: summary.lastMessage != null
+            ? summary.lastMessageIsOutgoing
+            : existing.lastMessageIsOutgoing,
+        lastMessageDeliveryStatus: summary.lastMessage != null
+            ? summary.lastMessageDeliveryStatus
+            : existing.lastMessageDeliveryStatus,
+        lastMessageSenderName: summary.lastMessage != null
+            ? summary.lastMessageSenderName
+            : existing.lastMessageSenderName,
+        lastMessageSenderUserId: summary.lastMessage != null
+            ? summary.lastMessageSenderUserId
+            : existing.lastMessageSenderUserId,
+        lastMessageSenderChatId: summary.lastMessage != null
+            ? summary.lastMessageSenderChatId
+            : existing.lastMessageSenderChatId,
         unreadCount: summary.unreadCount,
         avatarFileId: summary.avatarFileId ?? existing.avatarFileId,
         avatarLocalPath: summary.avatarLocalPath ?? existing.avatarLocalPath,
@@ -2722,7 +2809,8 @@ class ChatManager extends ChangeNotifier {
       _chatsById[summary.id] = summary;
     }
 
-    final chat = _chatsById[summary.id]!;
+    final chat = _enrichChatSummarySender(_chatsById[summary.id]!);
+    _chatsById[summary.id] = chat;
     _requestAvatarDownload(chat.avatarFileId, chat.avatarLocalPath);
     _requestUserForPrivateChat(chat);
     notifyListeners();
@@ -2753,16 +2841,33 @@ class ChatManager extends ChangeNotifier {
     DateTime? date = chat.lastMessageDate;
     var lastMessageIsOutgoing = chat.lastMessageIsOutgoing;
     MessageDeliveryStatus? lastMessageDeliveryStatus = chat.lastMessageDeliveryStatus;
+    int? senderUserId = chat.lastMessageSenderUserId;
+    int? senderChatId = chat.lastMessageSenderChatId;
+    String? senderName = chat.lastMessageSenderName;
     if (lastMessage != null) {
-      final content = lastMessage['content'] as Map<String, dynamic>? ?? {};
-      preview = MessageContent.fromTdlib(content).preview;
-      final dateSeconds = tdIntOr(lastMessage['date']);
-      date = DateTime.fromMillisecondsSinceEpoch(dateSeconds * 1000);
-      lastMessageIsOutgoing = lastMessage['is_outgoing'] as bool? ?? false;
-      lastMessageDeliveryStatus = MessageEnrichmentParser.parseDeliveryStatus(
+      final meta = TdlibChatParser.parseLastMessageMeta(
         lastMessage,
         lastReadOutboxMessageId: _lastReadOutboxMessageId[chatId] ?? 0,
       );
+      preview = meta.preview;
+      date = meta.date;
+      lastMessageIsOutgoing = meta.isOutgoing;
+      lastMessageDeliveryStatus = meta.deliveryStatus;
+      if (chat.showsGroupSenderPrefix && !meta.isOutgoing) {
+        senderUserId = meta.senderUserId;
+        senderChatId = meta.senderChatId;
+        senderName = _resolveLastMessageSenderName(
+          senderUserId: senderUserId,
+          senderChatId: senderChatId,
+        );
+        if (senderUserId != null) {
+          _requestUserIfNeeded(senderUserId);
+        }
+      } else {
+        senderUserId = null;
+        senderChatId = null;
+        senderName = null;
+      }
     }
 
     final positions = TdlibChatParser.parsePositions(update['positions'] as List<dynamic>?);
@@ -2771,6 +2876,10 @@ class ChatManager extends ChangeNotifier {
       lastMessageDate: date,
       lastMessageIsOutgoing: lastMessageIsOutgoing,
       lastMessageDeliveryStatus: lastMessageDeliveryStatus,
+      lastMessageSenderName: senderName,
+      lastMessageSenderUserId: senderUserId,
+      lastMessageSenderChatId: senderChatId,
+      clearLastMessageSender: lastMessage == null,
       positions: positions.isNotEmpty ? positions : chat.positions,
     );
     notifyListeners();
@@ -3458,17 +3567,36 @@ class ChatManager extends ChangeNotifier {
 
   void _handleTyping(Map<String, dynamic> update) {
     final chatId = tdInt(update['chat_id']);
-    if (chatId != _activeChatId) {
+    if (chatId == null) {
       return;
     }
 
-    _typingStatusClearTimer?.cancel();
-    _typingStatus = TdlibChatParser.parseTypingAction(update);
-    if (_typingStatus != null) {
-      _typingStatusClearTimer = Timer(const Duration(seconds: 6), () {
-        _typingStatus = null;
+    _chatListActionClearTimers.remove(chatId)?.cancel();
+    final actionText = TdlibChatParser.parseTypingAction(update);
+
+    if (actionText != null) {
+      _chatListActionPreview[chatId] = actionText;
+      _chatListActionClearTimers[chatId] = Timer(const Duration(seconds: 6), () {
+        _chatListActionPreview.remove(chatId);
+        _chatListActionClearTimers.remove(chatId);
+        if (chatId == _activeChatId) {
+          _typingStatus = null;
+        }
         notifyListeners();
       });
+    } else {
+      _chatListActionPreview.remove(chatId);
+    }
+
+    if (chatId == _activeChatId) {
+      _typingStatusClearTimer?.cancel();
+      _typingStatus = actionText;
+      if (actionText != null) {
+        _typingStatusClearTimer = Timer(const Duration(seconds: 6), () {
+          _typingStatus = null;
+          notifyListeners();
+        });
+      }
     }
     notifyListeners();
   }
@@ -3693,6 +3821,17 @@ class ChatManager extends ChangeNotifier {
       lastMessageDate: message.date,
       lastMessageIsOutgoing: message.isOutgoing,
       lastMessageDeliveryStatus: message.deliveryStatus,
+      lastMessageSenderName: chat.showsGroupSenderPrefix && !message.isOutgoing
+          ? message.senderName
+          : null,
+      lastMessageSenderUserId: chat.showsGroupSenderPrefix && !message.isOutgoing
+          ? message.senderUserId
+          : null,
+      lastMessageSenderChatId: chat.showsGroupSenderPrefix && !message.isOutgoing
+          ? message.senderChatId
+          : null,
+      clearLastMessageSender:
+          chat.showsGroupSenderPrefix && message.isOutgoing,
       unreadCount: message.chatId == _activeChatId ? 0 : chat.unreadCount + 1,
     );
     notifyListeners();
@@ -4173,6 +4312,10 @@ class ChatManager extends ChangeNotifier {
     _searchDebounce?.cancel();
     _newChatSearchDebounce?.cancel();
     _typingStatusClearTimer?.cancel();
+    for (final timer in _chatListActionClearTimers.values) {
+      timer.cancel();
+    }
+    _chatListActionClearTimers.clear();
     _subscription?.cancel();
     super.dispose();
   }

@@ -167,6 +167,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
               child: const Icon(Icons.edit_outlined),
             )
           : null,
+      floatingActionButtonLocation: const _TelegramChatListFabLocation(),
     );
   }
 
@@ -681,6 +682,7 @@ class _ChatsList extends StatelessWidget {
             chat: chat,
             selected: selected,
             activeList: activeList,
+            chatActionPreview: chatManager.chatListActionPreview(chat.id),
             showDivider: !isLast,
             onTap: () => onChatTap(chat.id),
             onPinToggle: () => _togglePin(chatManager, chat, activeList),
@@ -724,5 +726,20 @@ class _ChatsList extends StatelessWidget {
       chat.id,
       isMarkedAsUnread: !chat.isMarkedAsUnread,
     );
+  }
+}
+
+/// FAB над нижней навигацией: 16px отступ + safe area (§9.11.2).
+class _TelegramChatListFabLocation extends FloatingActionButtonLocation {
+  const _TelegramChatListFabLocation();
+
+  static const double margin = 16;
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry geometry) {
+    final fabSize = geometry.floatingActionButtonSize;
+    final x = geometry.scaffoldSize.width - fabSize.width - margin;
+    final y = geometry.contentBottom - fabSize.height - margin;
+    return Offset(x, y);
   }
 }
