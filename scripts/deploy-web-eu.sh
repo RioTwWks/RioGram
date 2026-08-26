@@ -2,8 +2,8 @@
 # Деплой Flutter Web на EU backend (§8.5).
 #
 # Usage:
-#   sudo ./scripts/deploy-web-eu.sh
-#   sudo env SKIP_BUILD=1 ./scripts/deploy-web-eu.sh
+#   ./scripts/build-web.sh && sudo ./scripts/deploy-web-eu.sh
+#   sudo env SKIP_BUILD=1 ./scripts/deploy-web-eu.sh   # deploy existing build/web only
 #   sudo env SKIP_TDWEB_CHECK=1 ./scripts/deploy-web-eu.sh
 # Note: `VAR=1 sudo ./script` does NOT pass VAR — use `sudo env VAR=1 ./script`.
 set -euo pipefail
@@ -43,6 +43,11 @@ if [[ -d "${DEST}/tdweb" ]]; then
       cp -f "${f}" "${DEST}/"
     done
   done
+fi
+
+# copy-tdweb may overwrite root workers with unpatched copies — re-apply WSS hook.
+if compgen -G "${DEST}/*.worker.js" >/dev/null; then
+  "${ROOT_DIR}/scripts/patch-tdweb-worker-wss.sh" "${DEST}"
 fi
 
 if id riogram &>/dev/null; then

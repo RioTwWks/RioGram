@@ -38,6 +38,13 @@ void main() {
         ),
         'wss://riogram.example.ru/venus.web.telegram.org/apiws',
       );
+      expect(
+        WssUrlRewriter.rewrite(
+          originalUrl: 'wss://venus.web.telegram.org:443/apiws',
+          config: config,
+        ),
+        'wss://riogram.example.ru/venus.web.telegram.org/apiws',
+      );
     });
 
     test('rewrite kws relay host', () {

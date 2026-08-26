@@ -3,7 +3,20 @@
 
   const CONFIG_KEY = 'riogram_wss_proxy_config';
   const TELEGRAM_WS_RE =
-    /^wss:\/\/([a-z0-9.-]+\.(?:web\.)?telegram\.org)(\/.*)?$/i;
+    /^wss?:\/\/([a-z0-9.-]+\.(?:web\.)?telegram\.org)(?::\d+)?(\/.*)?$/i;
+
+  function normalizeUrlInput(url) {
+    if (url == null) {
+      return '';
+    }
+    if (typeof url === 'object' && typeof url.href === 'string') {
+      return url.href;
+    }
+    return String(url)
+      .replace(/\0/g, '')
+      .replace(/\r/g, '')
+      .trim();
+  }
 
   const transportState = {
     state: 'idle',
@@ -70,7 +83,8 @@
   }
 
   function rewriteUrl(originalUrl, config) {
-    const match = String(originalUrl).match(TELEGRAM_WS_RE);
+    const raw = normalizeUrlInput(originalUrl);
+    const match = raw.match(TELEGRAM_WS_RE);
     if (!match) {
       return originalUrl;
     }
@@ -112,7 +126,7 @@
 
     function PatchedWebSocket(url, protocols) {
       const targetUrl = rewriteUrl(url, getConfig());
-      const isTelegram = TELEGRAM_WS_RE.test(String(url));
+      const isTelegram = TELEGRAM_WS_RE.test(normalizeUrlInput(url));
       const ws =
         protocols === undefined
           ? new OriginalWebSocket(targetUrl)

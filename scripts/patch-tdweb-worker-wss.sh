@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Inline WSS WebSocket hook into tdweb entry *.worker.js (not webpack chunks).
+# Inline WSS WebSocket hook into all tdweb *.worker.js files.
 #
 # Embeds WEB_WSS_PROXY_URL from .env directly into the worker — no importScripts.
+# Chunk workers (1.<hash>.worker.js) need the hook when used as pthread entry points.
+# importScripts into the main tdweb worker is safe: __RIOGRAM_WSS_HOOK__ guard skips re-install.
 #
 # Usage:
 #   ./scripts/patch-tdweb-worker-wss.sh
@@ -45,13 +47,6 @@ print(inline.rstrip())
 PY
 )"
 
-is_entry_worker() {
-  local base
-  base="$(basename "$1")"
-  [[ "${base}" =~ ^[0-9]+\..*\.worker\.js$ ]] && return 1
-  return 0
-}
-
 strip_hook() {
   python3 - "$1" "${MARKER}" <<'PY'
 import re
@@ -68,24 +63,13 @@ PY
 }
 
 patched=0
-skipped=0
 while IFS= read -r -d '' worker; do
-  if ! is_entry_worker "${worker}"; then
-    strip_hook "${worker}"
-    rel="${worker#${ROOT_DIR}/}"
-    echo "  stripped chunk ${rel}"
-    skipped=$((skipped + 1))
-    continue
-  fi
+  strip_hook "${worker}"
   python3 - "${worker}" "${MARKER}" "${INLINE_HOOK}" <<'PY'
 import sys
 
 path, marker, hook = sys.argv[1], sys.argv[2], sys.argv[3]
 text = open(path, encoding="utf-8").read()
-if marker in text:
-    import re
-    text = re.sub(re.escape(marker) + r".*?\}\)\(\);\n?", "", text, count=1, flags=re.DOTALL)
-    text = re.sub(re.escape(marker) + r".*?(?:\n|$)", "", text, count=1)
 open(path, "w", encoding="utf-8").write(marker + "\n" + hook + "\n" + text.lstrip("\n"))
 PY
   rel="${worker#${ROOT_DIR}/}"
@@ -94,8 +78,8 @@ PY
 done < <(find "${TARGET_DIR}" -maxdepth 2 -name '*.worker.js' -print0)
 
 if [[ "${patched}" -eq 0 ]]; then
-  echo "⚠  No entry *.worker.js under ${TARGET_DIR} — skipped WSS worker patch"
+  echo "⚠  No *.worker.js under ${TARGET_DIR} — skipped WSS worker patch"
   exit 0
 fi
 
-echo "✅ Patched ${patched} entry worker(s), skipped ${skipped} chunk(s) (baked proxy=${WSS_URL:-<same-origin>})"
+echo "✅ Patched ${patched} worker(s) (baked proxy=${WSS_URL:-<same-origin>})"
