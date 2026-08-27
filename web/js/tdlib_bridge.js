@@ -223,6 +223,37 @@
       tdClient = null;
     },
 
+    clearStorage: function (instanceName) {
+      instanceName = instanceName || 'riogram';
+      if (tdClient && typeof tdClient.close === 'function') {
+        try {
+          tdClient.close();
+        } catch (_) {}
+      }
+      tdClient = null;
+      lastAuthorizationUpdate = null;
+      for (const url of blobUrlByFileId.values()) {
+        URL.revokeObjectURL(url);
+      }
+      blobUrlByFileId.clear();
+      return new Promise(function (resolve) {
+        if (typeof indexedDB === 'undefined') {
+          resolve(false);
+          return;
+        }
+        const request = indexedDB.deleteDatabase(instanceName);
+        request.onsuccess = function () {
+          resolve(true);
+        };
+        request.onerror = function () {
+          resolve(false);
+        };
+        request.onblocked = function () {
+          resolve(false);
+        };
+      });
+    },
+
     _onTransportState: function (status) {
       if (onTransportStateCallback) {
         onTransportStateCallback(status);

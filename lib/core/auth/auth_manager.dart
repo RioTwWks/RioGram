@@ -6,6 +6,8 @@ import '../config/app_config.dart';
 import '../proxy/proxy_manager.dart';
 import '../proxy/web_proxy_manager.dart';
 import '../tdlib/tdlib_client.dart';
+import '../tdlib/web/tdlib_js_bridge.dart';
+import '../tdlib/web/tdweb_storage_recovery.dart';
 import '../../models/auth_models.dart';
 import 'auth_state_predicates.dart';
 
@@ -57,6 +59,9 @@ class AuthManager extends ChangeNotifier {
   RegistrationTerms? get registrationTerms => _registrationTerms;
   String? get pendingEmailAddress => _pendingEmailAddress;
   bool get isAuthRequestInProgress => _isAuthRequestInProgress;
+
+  bool get canResetWebStorage =>
+      kIsWeb && isTdlibDatabaseCorruptionMessage(_errorMessage);
 
   TdlibClient get client => _client;
 
@@ -138,12 +143,42 @@ class AuthManager extends ChangeNotifier {
       _initialized = true;
     } catch (error) {
       _phase = AuthPhase.error;
-      _errorMessage = error
-          .toString()
-          .replaceFirst(RegExp(r'^(StateError|Bad state): '), '');
+      _errorMessage = formatAuthErrorMessage(
+        error
+            .toString()
+            .replaceFirst(RegExp(r'^(StateError|Bad state): '), ''),
+      );
       notifyListeners();
     } finally {
       _isInitializing = false;
+    }
+  }
+
+  /// Сбрасывает IndexedDB tdweb и пересоздаёт клиент (после CRC/binlog ошибок).
+  Future<void> resetWebStorageAndInitialize() async {
+    if (!kIsWeb || _isInitializing) {
+      return;
+    }
+
+    _isInitializing = true;
+    _phase = AuthPhase.initializing;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await TdlibJsBridge.clearWebStorage();
+      _initialized = false;
+      await _client.resetForStorageClear();
+    } catch (error) {
+      _phase = AuthPhase.error;
+      _errorMessage = formatAuthErrorMessage(error.toString());
+      notifyListeners();
+    } finally {
+      _isInitializing = false;
+    }
+
+    if (_phase != AuthPhase.error) {
+      await initialize();
     }
   }
 
@@ -312,8 +347,10 @@ class AuthManager extends ChangeNotifier {
         _authTimeoutTimer?.cancel();
         _isAuthRequestInProgress = false;
         _phase = AuthPhase.error;
-        _errorMessage = update['error'] as String? ??
-            'Фатальная ошибка TDLib (WebAssembly)';
+        _errorMessage = formatAuthErrorMessage(
+          update['error'] as String? ??
+              'Фатальная ошибка TDLib (WebAssembly)',
+        );
         notifyListeners();
         return;
       case 'updateAuthorizationState':

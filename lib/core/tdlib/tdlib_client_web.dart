@@ -177,6 +177,18 @@ class TdlibClient {
     await _updatesController.close();
   }
 
+  /// Закрывает tdweb-клиент без уничтожения потока updates (пересоздание после сброса IndexedDB).
+  Future<void> resetForStorageClear() async {
+    _isRunning = false;
+    if (_clientCreated) {
+      TdlibJsBridge.closeTdlibClient();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    _clientCreated = false;
+    _initialAuthorizationUpdate = null;
+    _initialAuthorizationState = null;
+  }
+
   void _handleUpdate(Map<String, dynamic> update) {
     if (!_isRunning) {
       return;
