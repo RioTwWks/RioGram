@@ -59,7 +59,7 @@ abstract final class JsBridgeImpl {
     if (converted is! Map) {
       return null;
     }
-    return Map<String, dynamic>.from(converted as Map);
+    return Map<String, dynamic>.from(converted);
   }
 
   static dynamic _deepConvert(dynamic value) {
