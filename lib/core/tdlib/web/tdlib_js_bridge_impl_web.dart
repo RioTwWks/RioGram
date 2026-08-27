@@ -55,10 +55,10 @@ abstract final class JsBridgeImpl {
       return Map<String, dynamic>.from(value);
     }
     final dartified = js_util.dartify(value);
-    if (dartified is Map) {
-      return Map<String, dynamic>.from(dartified);
+    if (dartified == null) {
+      return null;
     }
-    return null;
+    return Map<String, dynamic>.from(dartified as Map);
   }
 
   static void setCallback(
