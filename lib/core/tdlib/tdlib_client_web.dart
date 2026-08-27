@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
+import 'auth_state_predicates.dart';
 import 'tdlib_client_interface.dart';
 import 'web/tdlib_js_bridge.dart';
 
@@ -14,6 +15,7 @@ class TdlibClient {
 
   bool _isRunning = false;
   bool _clientCreated = false;
+  Map<String, dynamic>? _initialAuthorizationUpdate;
 
   final StreamController<Map<String, dynamic>> _updatesController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -21,6 +23,20 @@ class TdlibClient {
   Stream<Map<String, dynamic>> get updates => _updatesController.stream;
 
   bool get isAvailable => _clientCreated;
+
+  String? get initialAuthorizationState {
+    final update = _initialAuthorizationUpdate;
+    if (update == null) {
+      return null;
+    }
+    return authorizationStateType(update);
+  }
+
+  Map<String, dynamic>? takeInitialAuthorizationUpdate() {
+    final update = _initialAuthorizationUpdate;
+    _initialAuthorizationUpdate = null;
+    return update;
+  }
 
   Future<void> ensureClient() async {
     if (_clientCreated) {
@@ -43,12 +59,10 @@ class TdlibClient {
 
     _isRunning = true;
     try {
-      await TdlibJsBridge.createTdlibClient(
+      _initialAuthorizationUpdate = await TdlibJsBridge.createTdlibClient(
         onUpdate: _handleUpdate,
         instanceName: 'riogram',
-      );
-      await TdlibJsBridge.waitForAuthorizationUpdate(
-        timeout: kIsWeb
+        authWaitTimeout: kIsWeb
             ? const Duration(seconds: 120)
             : const Duration(seconds: 45),
       );

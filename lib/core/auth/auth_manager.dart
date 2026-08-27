@@ -98,6 +98,11 @@ class AuthManager extends ChangeNotifier {
       _subscription = _client.updates.listen(_handleUpdate);
       await _client.ensureClient();
 
+      final initialUpdate = _client.takeInitialAuthorizationUpdate();
+      if (initialUpdate != null) {
+        _handleUpdate(initialUpdate);
+      }
+
       final proxyManager = _proxyManager;
       if (proxyManager != null) {
         await proxyManager.setupProxies();
@@ -457,7 +462,7 @@ class AuthManager extends ChangeNotifier {
       return;
     }
 
-    final state = _lastAuthorizationState;
+    var state = _lastAuthorizationState ?? _client.initialAuthorizationState;
     if (state == 'authorizationStateWaitTdlibParameters') {
       await _client.configure(
         _config,
@@ -472,13 +477,13 @@ class AuthManager extends ChangeNotifier {
 
     final paramsState = await _client.waitFor(
       predicate: isTdlibParametersStageUpdate,
-      timeout: const Duration(seconds: 5),
+      timeout: initTimeout,
     );
-    final resolvedState = paramsState != null
+    state = paramsState != null
         ? authorizationStateType(paramsState)
-        : _lastAuthorizationState;
+        : (_lastAuthorizationState ?? _client.initialAuthorizationState);
 
-    if (resolvedState == 'authorizationStateWaitTdlibParameters') {
+    if (state == 'authorizationStateWaitTdlibParameters') {
       await _client.configure(
         _config,
         accountDirectorySuffix: accountDirectorySuffix,
@@ -486,12 +491,12 @@ class AuthManager extends ChangeNotifier {
       return;
     }
 
-    if (isPastTdlibParametersStage(resolvedState)) {
+    if (isPastTdlibParametersStage(state)) {
       return;
     }
 
     throw StateError(
-      'Неожиданное состояние TDLib: ${resolvedState ?? 'none'}',
+      'Неожиданное состояние TDLib: ${state ?? 'none'}',
     );
   }
 

@@ -7,6 +7,33 @@
   let readyResolve = null;
   let readyReject = null;
   let readyTimer = null;
+  let lastAuthorizationUpdate = null;
+
+  function patchTdClientCloseOtherClients(TdClient) {
+    if (!TdClient || TdClient.__riogramClosePatched) {
+      return;
+    }
+    const proto = TdClient.prototype;
+    if (!proto || typeof proto.closeOtherClients !== 'function') {
+      return;
+    }
+    const original = proto.closeOtherClients;
+    proto.closeOtherClients = async function patchedCloseOtherClients(options) {
+      let finished = false;
+      await Promise.race([
+        original.call(this, options).then(function () {
+          finished = true;
+        }),
+        new Promise(function (resolve) {
+          setTimeout(resolve, 6000);
+        }),
+      ]);
+      if (!finished && typeof this.sendStart === 'function') {
+        this.sendStart();
+      }
+    };
+    TdClient.__riogramClosePatched = true;
+  }
 
   /** UMD webpack export: library name "tdweb", default export = TdClient */
   function getTdClientClass() {
@@ -27,6 +54,7 @@
   }
 
   function notifyReady(update) {
+    lastAuthorizationUpdate = update;
     if (!readyResolve) {
       return;
     }
@@ -72,6 +100,8 @@
       }
 
       options = options || {};
+      patchTdClientCloseOtherClients(TdClient);
+
       const instanceName =
         options.instanceName ||
         'riogram_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -91,6 +121,9 @@
     },
 
     waitForAuthorizationUpdate: function (timeoutMs) {
+      if (lastAuthorizationUpdate) {
+        return Promise.resolve(lastAuthorizationUpdate);
+      }
       clearReadyWait();
       const timeout = typeof timeoutMs === 'number' ? timeoutMs : 120000;
       return new Promise(function (resolve, reject) {
@@ -109,6 +142,12 @@
       });
     },
 
+    consumeLastAuthorizationUpdate: function () {
+      const update = lastAuthorizationUpdate;
+      lastAuthorizationUpdate = null;
+      return update;
+    },
+
     send: function (query) {
       if (!tdClient) {
         throw new Error('RioGramTdlib: клиент не создан');
@@ -118,6 +157,7 @@
 
     close: function () {
       clearReadyWait();
+      lastAuthorizationUpdate = null;
       if (tdClient && typeof tdClient.close === 'function') {
         tdClient.close();
       }
