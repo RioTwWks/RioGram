@@ -26,8 +26,9 @@ abstract final class TdlibJsBridge {
       return const WssProxyConfig();
     }
     final raw = JsBridgeImpl.callDynamic('RioGramWssProxy', 'readConfig');
-    if (raw is Map) {
-      return WssProxyConfig.fromJson(Map<String, dynamic>.from(raw));
+    final configMap = JsBridgeImpl.toDartMap(raw);
+    if (configMap != null) {
+      return WssProxyConfig.fromJson(configMap);
     }
     return const WssProxyConfig();
   }
@@ -51,10 +52,11 @@ abstract final class TdlibJsBridge {
       return const WssTransportStatus(state: WssTransportState.idle);
     }
     final raw = JsBridgeImpl.callDynamic('RioGramWssProxy', 'getTransportStatus');
-    if (raw is! Map) {
+    final statusMap = JsBridgeImpl.toDartMap(raw);
+    if (statusMap == null) {
       return const WssTransportStatus(state: WssTransportState.idle);
     }
-    return _parseStatus(raw);
+    return _parseStatus(statusMap);
   }
 
   static void setTransportStateCallback(void Function(WssTransportStatus) callback) {
@@ -62,8 +64,9 @@ abstract final class TdlibJsBridge {
       return;
     }
     JsBridgeImpl.setCallback('RioGramTdlib', 'setTransportStateCallback', (raw) {
-      if (raw is Map) {
-        callback(_parseStatus(raw));
+      final statusMap = JsBridgeImpl.toDartMap(raw);
+      if (statusMap != null) {
+        callback(_parseStatus(statusMap));
       }
     });
   }
@@ -80,8 +83,9 @@ abstract final class TdlibJsBridge {
     JsBridgeImpl.setCallback('RioGramTdlib', 'setUpdateCallback', (
       dynamic update,
     ) {
-      if (update is Map) {
-        onUpdate(Map<String, dynamic>.from(update));
+      final updateMap = JsBridgeImpl.toDartMap(update);
+      if (updateMap != null) {
+        onUpdate(updateMap);
       }
     });
 
@@ -100,10 +104,7 @@ abstract final class TdlibJsBridge {
     }
 
     final raw = await authFuture;
-    if (raw is Map) {
-      return Map<String, dynamic>.from(raw);
-    }
-    return null;
+    return JsBridgeImpl.toDartMap(raw);
   }
 
   static Future<dynamic> waitForAuthorizationUpdate({

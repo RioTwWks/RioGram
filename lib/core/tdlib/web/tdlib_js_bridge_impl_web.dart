@@ -46,6 +46,21 @@ abstract final class JsBridgeImpl {
     return result;
   }
 
+  /// Преобразует JSObject из JS-колбэков/promise в Dart [Map].
+  static Map<String, dynamic>? toDartMap(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    final dartified = js_util.dartify(value);
+    if (dartified is Map) {
+      return Map<String, dynamic>.from(dartified);
+    }
+    return null;
+  }
+
   static void setCallback(
     String objectName,
     String method,

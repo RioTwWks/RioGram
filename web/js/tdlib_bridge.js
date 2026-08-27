@@ -8,6 +8,34 @@
   let readyReject = null;
   let readyTimer = null;
   let lastAuthorizationUpdate = null;
+  let forceStartTimer = null;
+
+  function clearForceStartTimer() {
+    if (forceStartTimer) {
+      clearTimeout(forceStartTimer);
+      forceStartTimer = null;
+    }
+  }
+
+  function scheduleForceStart() {
+    clearForceStartTimer();
+    forceStartTimer = setTimeout(function () {
+      forceStartTimer = null;
+      if (lastAuthorizationUpdate || !tdClient) {
+        return;
+      }
+      try {
+        if (typeof tdClient.sendStart === 'function') {
+          tdClient.sendStart();
+        } else if (typeof tdClient.doSendStart === 'function') {
+          tdClient.wantSendStart = true;
+          tdClient.doSendStart();
+        }
+      } catch (error) {
+        console.warn('RioGramTdlib: forceStart failed', error);
+      }
+    }, 8000);
+  }
 
   function patchTdClientCloseOtherClients(TdClient) {
     if (!TdClient || TdClient.__riogramClosePatched) {
@@ -55,6 +83,7 @@
 
   function notifyReady(update) {
     lastAuthorizationUpdate = update;
+    clearForceStartTimer();
     if (!readyResolve) {
       return;
     }
@@ -113,6 +142,7 @@
         useDatabase: options.useDatabase !== false,
         onUpdate: dispatchUpdate,
       });
+      scheduleForceStart();
       return true;
     },
 
@@ -157,6 +187,7 @@
 
     close: function () {
       clearReadyWait();
+      clearForceStartTimer();
       lastAuthorizationUpdate = null;
       if (tdClient && typeof tdClient.close === 'function') {
         tdClient.close();

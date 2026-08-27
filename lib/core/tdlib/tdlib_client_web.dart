@@ -16,6 +16,7 @@ class TdlibClient {
   bool _isRunning = false;
   bool _clientCreated = false;
   Map<String, dynamic>? _initialAuthorizationUpdate;
+  String? _initialAuthorizationState;
 
   final StreamController<Map<String, dynamic>> _updatesController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -24,13 +25,7 @@ class TdlibClient {
 
   bool get isAvailable => _clientCreated;
 
-  String? get initialAuthorizationState {
-    final update = _initialAuthorizationUpdate;
-    if (update == null) {
-      return null;
-    }
-    return authorizationStateType(update);
-  }
+  String? get initialAuthorizationState => _initialAuthorizationState;
 
   Map<String, dynamic>? takeInitialAuthorizationUpdate() {
     final update = _initialAuthorizationUpdate;
@@ -65,6 +60,9 @@ class TdlibClient {
         authWaitTimeout: kIsWeb
             ? const Duration(seconds: 120)
             : const Duration(seconds: 45),
+      );
+      _initialAuthorizationState = authorizationStateType(
+        _initialAuthorizationUpdate ?? const {},
       );
       _clientCreated = true;
     } catch (error) {
