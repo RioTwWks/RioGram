@@ -137,6 +137,19 @@ abstract final class TdlibJsBridge {
     return result as String?;
   }
 
+  /// Удаляет IndexedDB tdweb (сброс повреждённой локальной БД).
+  static Future<bool> clearWebStorage({String instanceName = 'riogram'}) async {
+    if (!JsBridgeImpl.hasGlobal('RioGramTdlib')) {
+      return false;
+    }
+    final result = await JsBridgeImpl.callPromise(
+      'RioGramTdlib',
+      'clearStorage',
+      [instanceName],
+    );
+    return result == true;
+  }
+
   static void closeTdlibClient() {
     if (JsBridgeImpl.hasGlobal('RioGramTdlib')) {
       JsBridgeImpl.callVoid('RioGramTdlib', 'close');

@@ -216,4 +216,6 @@ class TdlibClient {
     await Directory(files).create(recursive: true);
     return (database: database, files: files);
   }
+
+  Future<void> resetForStorageClear() async {}
 }

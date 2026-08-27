@@ -550,6 +550,13 @@ class _RootScreenState extends State<_RootScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
+                  if (auth.canResetWebStorage) ...[
+                    FilledButton(
+                      onPressed: auth.resetWebStorageAndInitialize,
+                      child: const Text('Сбросить локальные данные'),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   FilledButton(
                     onPressed: auth.initialize,
                     child: const Text('Повторить'),
