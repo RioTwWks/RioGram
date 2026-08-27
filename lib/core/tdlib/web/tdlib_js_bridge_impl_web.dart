@@ -47,18 +47,31 @@ abstract final class JsBridgeImpl {
   }
 
   /// Преобразует JSObject из JS-колбэков/promise в Dart [Map].
+  ///
+  /// [dartify] возвращает [Map<Object?, Object?>]; shallow-copy ломает cast
+  /// вложенных полей (например `authorization_state`).
   static Map<String, dynamic>? toDartMap(dynamic value) {
     if (value == null) {
       return null;
     }
-    if (value is Map) {
-      return Map<String, dynamic>.from(value);
-    }
-    final dartified = js_util.dartify(value);
-    if (dartified == null) {
+    final dynamic normalized = value is Map ? value : js_util.dartify(value);
+    final converted = _deepConvert(normalized);
+    if (converted is! Map) {
       return null;
     }
-    return Map<String, dynamic>.from(dartified as Map);
+    return Map<String, dynamic>.from(converted as Map);
+  }
+
+  static dynamic _deepConvert(dynamic value) {
+    if (value is Map) {
+      return value.map<String, dynamic>(
+        (key, nested) => MapEntry(key.toString(), _deepConvert(nested)),
+      );
+    }
+    if (value is List) {
+      return value.map(_deepConvert).toList();
+    }
+    return value;
   }
 
   static void setCallback(

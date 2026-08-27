@@ -101,12 +101,21 @@
     );
   }
 
+  function cloneJsonObject(value) {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (error) {
+      return value;
+    }
+  }
+
   function dispatchUpdate(update) {
-    if (isAuthorizationUpdate(update)) {
-      notifyReady(update);
+    const plain = cloneJsonObject(update);
+    if (isAuthorizationUpdate(plain)) {
+      notifyReady(plain);
     }
     if (typeof onUpdateCallback === 'function') {
-      onUpdateCallback(update);
+      onUpdateCallback(plain);
     }
   }
 
