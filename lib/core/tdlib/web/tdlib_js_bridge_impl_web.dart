@@ -34,15 +34,16 @@ abstract final class JsBridgeImpl {
     callDynamic(objectName, method, args);
   }
 
-  static Future<void> callPromise(
+  static Future<dynamic> callPromise(
     String objectName,
     String method, [
     List<dynamic>? args,
   ]) async {
     final result = callDynamic(objectName, method, args);
     if (result != null && js_util.hasProperty(result, 'then')) {
-      await js_util.promiseToFuture(result as Object);
+      return js_util.promiseToFuture(result as Object);
     }
+    return result;
   }
 
   static void setCallback(

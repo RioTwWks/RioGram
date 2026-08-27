@@ -68,9 +68,10 @@ abstract final class TdlibJsBridge {
     });
   }
 
-  static Future<void> createTdlibClient({
+  static Future<Map<String, dynamic>?> createTdlibClient({
     required void Function(Map<String, dynamic> update) onUpdate,
     String instanceName = 'riogram',
+    Duration authWaitTimeout = const Duration(seconds: 120),
   }) async {
     if (!JsBridgeImpl.hasGlobal('RioGramTdlib')) {
       throw StateError('RioGramTdlib bridge не загружен');
@@ -84,6 +85,8 @@ abstract final class TdlibJsBridge {
       }
     });
 
+    final authFuture = waitForAuthorizationUpdate(timeout: authWaitTimeout);
+
     final created = JsBridgeImpl.callBool('RioGramTdlib', 'create', [
       {
         'instanceName': instanceName,
@@ -95,15 +98,21 @@ abstract final class TdlibJsBridge {
     if (!created) {
       throw StateError('Не удалось создать tdweb-клиент');
     }
+
+    final raw = await authFuture;
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    return null;
   }
 
-  static Future<void> waitForAuthorizationUpdate({
+  static Future<dynamic> waitForAuthorizationUpdate({
     Duration timeout = const Duration(seconds: 120),
   }) async {
     if (!JsBridgeImpl.hasGlobal('RioGramTdlib')) {
       throw StateError('RioGramTdlib bridge не загружен');
     }
-    await JsBridgeImpl.callPromise(
+    return JsBridgeImpl.callPromise(
       'RioGramTdlib',
       'waitForAuthorizationUpdate',
       [timeout.inMilliseconds],
