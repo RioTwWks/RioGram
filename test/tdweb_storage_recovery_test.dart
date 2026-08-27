@@ -25,5 +25,19 @@ void main() {
         tdlibDatabaseCorruptionUserMessage,
       );
     });
+
+    test('offers reset after message is formatted', () {
+      expect(
+        shouldOfferWebStorageReset(tdlibDatabaseCorruptionUserMessage),
+        isTrue,
+      );
+      expect(
+        shouldOfferWebStorageReset(
+          tdlibDatabaseCorruptionUserMessage,
+          flagged: true,
+        ),
+        isTrue,
+      );
+    });
   });
 }
