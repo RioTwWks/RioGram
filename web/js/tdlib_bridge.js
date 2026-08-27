@@ -4,6 +4,9 @@
   let tdClient = null;
   let onUpdateCallback = null;
   let onTransportStateCallback = null;
+  let readyResolve = null;
+  let readyReject = null;
+  let readyTimer = null;
 
   /** UMD webpack export: library name "tdweb", default export = TdClient */
   function getTdClientClass() {
@@ -12,6 +15,42 @@
       return undefined;
     }
     return lib.default || lib;
+  }
+
+  function clearReadyWait() {
+    if (readyTimer) {
+      clearTimeout(readyTimer);
+      readyTimer = null;
+    }
+    readyResolve = null;
+    readyReject = null;
+  }
+
+  function notifyReady(update) {
+    if (!readyResolve) {
+      return;
+    }
+    const resolve = readyResolve;
+    clearReadyWait();
+    resolve(update);
+  }
+
+  function isAuthorizationUpdate(update) {
+    return (
+      update &&
+      update['@type'] === 'updateAuthorizationState' &&
+      update.authorization_state &&
+      update.authorization_state['@type']
+    );
+  }
+
+  function dispatchUpdate(update) {
+    if (isAuthorizationUpdate(update)) {
+      notifyReady(update);
+    }
+    if (typeof onUpdateCallback === 'function') {
+      onUpdateCallback(update);
+    }
   }
 
   window.RioGramTdlib = {
@@ -33,22 +72,41 @@
       }
 
       options = options || {};
+      const instanceName =
+        options.instanceName ||
+        'riogram_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
       tdClient = new TdClient({
-        instanceName: options.instanceName || 'riogram',
+        instanceName: instanceName,
         jsLogVerbosityLevel: options.jsLogVerbosityLevel || 'warning',
         logVerbosityLevel: options.logVerbosityLevel || 2,
         useDatabase: options.useDatabase !== false,
-        onUpdate: function (update) {
-          if (typeof onUpdateCallback === 'function') {
-            onUpdateCallback(update);
-          }
-        },
+        onUpdate: dispatchUpdate,
       });
       return true;
     },
 
     setUpdateCallback: function (callback) {
       onUpdateCallback = callback;
+    },
+
+    waitForAuthorizationUpdate: function (timeoutMs) {
+      clearReadyWait();
+      const timeout = typeof timeoutMs === 'number' ? timeoutMs : 120000;
+      return new Promise(function (resolve, reject) {
+        readyResolve = resolve;
+        readyReject = reject;
+        readyTimer = setTimeout(function () {
+          clearReadyWait();
+          reject(
+            new Error(
+              'TDLib не прислал updateAuthorizationState за ' +
+                Math.round(timeout / 1000) +
+                ' с (WASM/IndexedDB/tdweb)',
+            ),
+          );
+        }, timeout);
+      });
     },
 
     send: function (query) {
@@ -59,6 +117,7 @@
     },
 
     close: function () {
+      clearReadyWait();
       if (tdClient && typeof tdClient.close === 'function') {
         tdClient.close();
       }

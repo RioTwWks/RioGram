@@ -43,11 +43,19 @@ if [[ -d "${DEST}/tdweb" ]]; then
       cp -f "${f}" "${DEST}/"
     done
   done
+  if [[ -d "${DEST}/tdweb/prebuilt" ]]; then
+    mkdir -p "${DEST}/prebuilt"
+    cp -a "${DEST}/tdweb/prebuilt/." "${DEST}/prebuilt/"
+  fi
 fi
 
 # copy-tdweb may overwrite root workers with unpatched copies — re-apply WSS hook.
 if compgen -G "${DEST}/*.worker.js" >/dev/null; then
   "${ROOT_DIR}/scripts/patch-tdweb-worker-wss.sh" "${DEST}"
+fi
+
+if [[ -f "${DEST}/tdweb/tdweb.js" ]]; then
+  "${ROOT_DIR}/scripts/patch-tdweb-close-timeout.sh" "${DEST}/tdweb/tdweb.js"
 fi
 
 if id riogram &>/dev/null; then

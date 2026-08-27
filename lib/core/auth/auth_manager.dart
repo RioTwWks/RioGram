@@ -26,7 +26,6 @@ class AuthManager extends ChangeNotifier {
 
   static const Duration authRequestTimeout = Duration(seconds: 45);
   static const Duration initTimeout = Duration(seconds: 30);
-  static const Duration webWasmInitTimeout = Duration(seconds: 90);
 
   final TdlibClient _client;
   final AppConfig _config;
@@ -91,14 +90,13 @@ class AuthManager extends ChangeNotifier {
 
       if (!_config.hasApiCredentials) {
         throw StateError(
-          'Укажите TELEGRAM_API_ID и TELEGRAM_API_HASH в .env '
-          '(пересоберите Web: ./scripts/build-web.sh на EU).',
+          'TELEGRAM_API_ID / TELEGRAM_API_HASH не загружены из .env',
         );
       }
 
-      await _client.ensureClient();
       _subscription?.cancel();
       _subscription = _client.updates.listen(_handleUpdate);
+      await _client.ensureClient();
 
       final proxyManager = _proxyManager;
       if (proxyManager != null) {
@@ -134,7 +132,9 @@ class AuthManager extends ChangeNotifier {
       _initialized = true;
     } catch (error) {
       _phase = AuthPhase.error;
-      _errorMessage = error.toString().replaceFirst('StateError: ', '');
+      _errorMessage = error
+          .toString()
+          .replaceFirst(RegExp(r'^(StateError|Bad state): '), '');
       notifyListeners();
     } finally {
       _isInitializing = false;
@@ -457,25 +457,8 @@ class AuthManager extends ChangeNotifier {
       return;
     }
 
-    final wasmTimeout =
-        kIsWeb ? webWasmInitTimeout : initTimeout;
-    final paramsState = await _client.waitFor(
-      predicate: isTdlibParametersStageUpdate,
-      timeout: wasmTimeout,
-    );
-
-    if (paramsState == null) {
-      final stateHint = _lastAuthorizationState != null
-          ? ' Последнее состояние: $_lastAuthorizationState.'
-          : '';
-      throw StateError(
-        'TDLib не загрузился за ${wasmTimeout.inSeconds} с '
-        '(WASM/IndexedDB).$stateHint',
-      );
-    }
-
-    final stateType = authorizationStateType(paramsState);
-    if (stateType == 'authorizationStateWaitTdlibParameters') {
+    final state = _lastAuthorizationState;
+    if (state == 'authorizationStateWaitTdlibParameters') {
       await _client.configure(
         _config,
         accountDirectorySuffix: accountDirectorySuffix,
@@ -483,12 +466,32 @@ class AuthManager extends ChangeNotifier {
       return;
     }
 
-    if (isPastTdlibParametersStage(stateType)) {
+    if (isPastTdlibParametersStage(state)) {
+      return;
+    }
+
+    final paramsState = await _client.waitFor(
+      predicate: isTdlibParametersStageUpdate,
+      timeout: const Duration(seconds: 5),
+    );
+    final resolvedState = paramsState != null
+        ? authorizationStateType(paramsState)
+        : _lastAuthorizationState;
+
+    if (resolvedState == 'authorizationStateWaitTdlibParameters') {
+      await _client.configure(
+        _config,
+        accountDirectorySuffix: accountDirectorySuffix,
+      );
+      return;
+    }
+
+    if (isPastTdlibParametersStage(resolvedState)) {
       return;
     }
 
     throw StateError(
-      'Неожиданное состояние TDLib: ${stateType ?? 'unknown'}',
+      'Неожиданное состояние TDLib: ${resolvedState ?? 'none'}',
     );
   }
 

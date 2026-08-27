@@ -381,9 +381,17 @@ class TdClient {
 
     await sleep(300);
     if (this.waitSet.size !== 0) {
-      await new Promise(resolve => {
-        this.onWaitSetEmpty = resolve;
-      });
+      await Promise.race([
+        new Promise(resolve => {
+          this.onWaitSetEmpty = resolve;
+        }),
+        sleep(5000).then(() => {
+          log.warn(
+            'closeOtherClients: waitSet not empty after 5s, proceeding anyway',
+            this.waitSet
+          );
+        })
+      ]);
     }
     this.sendStart();
   }
