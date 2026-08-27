@@ -9,6 +9,7 @@
   let readyTimer = null;
   let lastAuthorizationUpdate = null;
   let forceStartTimer = null;
+  const blobUrlByFileId = new Map();
 
   function clearForceStartTimer() {
     if (forceStartTimer) {
@@ -191,13 +192,31 @@
       if (!tdClient) {
         throw new Error('RioGramTdlib: клиент не создан');
       }
-      return tdClient.send(query);
+      const promise = tdClient.send(query);
+      if (promise && typeof promise.then === 'function') {
+        promise
+          .then(function (response) {
+            if (response && typeof onUpdateCallback === 'function') {
+              dispatchUpdate(response);
+            }
+          })
+          .catch(function (error) {
+            if (error && typeof onUpdateCallback === 'function') {
+              dispatchUpdate(error);
+            }
+          });
+      }
+      return promise;
     },
 
     close: function () {
       clearReadyWait();
       clearForceStartTimer();
       lastAuthorizationUpdate = null;
+      for (const url of blobUrlByFileId.values()) {
+        URL.revokeObjectURL(url);
+      }
+      blobUrlByFileId.clear();
       if (tdClient && typeof tdClient.close === 'function') {
         tdClient.close();
       }
@@ -212,6 +231,37 @@
 
     setTransportStateCallback: function (callback) {
       onTransportStateCallback = callback;
+    },
+
+    readFileBlobUrl: function (fileId) {
+      if (!tdClient) {
+        return Promise.resolve(null);
+      }
+      const cached = blobUrlByFileId.get(fileId);
+      if (cached) {
+        return Promise.resolve(cached);
+      }
+      return tdClient
+        .send({
+          '@type': 'readFile',
+          file_id: fileId,
+        })
+        .then(function (response) {
+          if (!response || response['@type'] === 'error' || !response.data) {
+            return null;
+          }
+          const blob = response.data;
+          const url = URL.createObjectURL(blob);
+          const previous = blobUrlByFileId.get(fileId);
+          if (previous) {
+            URL.revokeObjectURL(previous);
+          }
+          blobUrlByFileId.set(fileId, url);
+          return url;
+        })
+        .catch(function () {
+          return null;
+        });
     },
   };
 })();

@@ -9,6 +9,7 @@ class ChatAppBarTitle extends StatelessWidget {
     super.key,
     required this.title,
     this.avatarLocalPath,
+    this.avatarFileId,
     this.userStatus,
     this.typingStatus,
     this.subtitle,
@@ -16,6 +17,7 @@ class ChatAppBarTitle extends StatelessWidget {
   });
   final String title;
   final String? avatarLocalPath;
+  final int? avatarFileId;
   final UserStatusInfo? userStatus;
   final String? typingStatus;
   final Widget? subtitle;
@@ -47,6 +49,7 @@ class ChatAppBarTitle extends StatelessWidget {
         ChatAvatar(
             title: title,
             localPath: avatarLocalPath,
+            fileId: avatarFileId,
             radius: TelegramSpacing.avatarGroup / 2),
         const SizedBox(width: 10),
         Expanded(

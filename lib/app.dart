@@ -32,6 +32,7 @@ import 'core/security/security_settings_manager.dart';
 import 'core/user/contact_manager.dart';
 import 'core/user/profile_manager.dart';
 import 'core/media/media_cache_manager.dart';
+import 'core/media/web_avatar_cache.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/proxy/proxy_manager.dart';
 import 'core/proxy/web_proxy_manager.dart';
@@ -187,6 +188,7 @@ class _AppScopeState extends State<_AppScope> {
   late final NotificationService _notificationService;
   ProxyManager? _proxyManager;
   WebProxyManager? _webProxyManager;
+  WebAvatarCache? _webAvatarCache;
   late final AuthManager _authManager;
   late final MediaCacheManager _mediaCacheManager;
   late final StickerManager _stickerManager;
@@ -223,6 +225,7 @@ class _AppScopeState extends State<_AppScope> {
 
     if (kIsWeb) {
       _webProxyManager = WebProxyManager(client: _client);
+      _webAvatarCache = WebAvatarCache(client: _client)..start();
     } else {
       _proxyManager = ProxyManager(client: _client, config: widget.config);
     }
@@ -391,6 +394,7 @@ class _AppScopeState extends State<_AppScope> {
     _mediaCacheManager.dispose();
     _proxyManager?.dispose();
     _webProxyManager?.dispose();
+    _webAvatarCache?.dispose();
     _client.dispose();
     super.dispose();
   }
@@ -476,6 +480,10 @@ class _AppScopeState extends State<_AppScope> {
         if (_webProxyManager != null)
           ChangeNotifierProvider<WebProxyManager>.value(
             value: _webProxyManager!,
+          ),
+        if (_webAvatarCache != null)
+          ChangeNotifierProvider<WebAvatarCache>.value(
+            value: _webAvatarCache!,
           ),
       ],
       child: widget.child,
