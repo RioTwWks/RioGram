@@ -69,14 +69,8 @@ class WebProxyManager extends ChangeNotifier {
       TdlibJsBridge.applyWssConfig(config);
       TdlibJsBridge.setTransportStateCallback(_onTransportState);
 
-      if (!config.enabled || !config.isConfigured) {
-        _status = WebProxyStatus.disabled;
-        _lastError = null;
-      } else if (_transportStatus.state == WssTransportState.connected) {
-        _status = WebProxyStatus.active;
-      } else {
-        _status = WebProxyStatus.unknown;
-      }
+      _transportStatus = TdlibJsBridge.readTransportStatus();
+      _syncStatusFromTransport();
       notifyListeners();
     } finally {
       _isApplying = false;
@@ -103,23 +97,40 @@ class WebProxyManager extends ChangeNotifier {
   void _onTransportState(WssTransportStatus status) {
     _transportStatus = status;
     if (status.state == WssTransportState.connected) {
-      _status = WebProxyStatus.active;
       _reconnectAttempt = 0;
       _lastError = null;
-    } else if (status.state == WssTransportState.reconnecting) {
-      _status = WebProxyStatus.reconnecting;
     } else if (status.state == WssTransportState.failed && isProxyEnabled) {
-      _status = WebProxyStatus.error;
       _lastError = status.lastError;
       _scheduleReconnect();
     }
+    _syncStatusFromTransport();
     notifyListeners();
+  }
+
+  /// Worker-side WebSocket hook не всегда шлёт state на main thread;
+  /// при включённом и настроенном прокси показываем URL, а не «не настроен».
+  void _syncStatusFromTransport() {
+    if (!isProxyEnabled) {
+      _status = WebProxyStatus.disabled;
+      _lastError = null;
+      return;
+    }
+
+    _status = switch (_transportStatus.state) {
+      WssTransportState.connected => WebProxyStatus.active,
+      WssTransportState.connecting ||
+      WssTransportState.reconnecting =>
+        WebProxyStatus.reconnecting,
+      WssTransportState.failed => WebProxyStatus.error,
+      WssTransportState.idle => WebProxyStatus.active,
+    };
   }
 
   void _startHealthMonitor() {
     _healthTimer?.cancel();
     _healthTimer = Timer.periodic(healthCheckInterval, (_) {
       _transportStatus = TdlibJsBridge.readTransportStatus();
+      _syncStatusFromTransport();
       if (_transportStatus.state == WssTransportState.failed &&
           _config.autoReconnect &&
           isProxyEnabled) {

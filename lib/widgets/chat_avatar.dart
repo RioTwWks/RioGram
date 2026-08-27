@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'dart:io' show File;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/theme/telegram_theme.dart';
@@ -22,7 +23,7 @@ class ChatAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final path = localPath;
-    if (path != null && path.isNotEmpty) {
+    if (!kIsWeb && path != null && path.isNotEmpty) {
       final file = File(path);
       if (file.existsSync()) {
         return CircleAvatar(radius: radius, backgroundImage: FileImage(file));
