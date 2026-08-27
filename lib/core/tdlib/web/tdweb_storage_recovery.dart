@@ -20,3 +20,10 @@ String formatAuthErrorMessage(String? raw) {
   }
   return raw ?? 'Ошибка инициализации';
 }
+
+/// Нужна ли кнопка сброса IndexedDB (после [formatAuthErrorMessage] текст уже без CRC).
+bool shouldOfferWebStorageReset(String? message, {bool flagged = false}) {
+  return flagged ||
+      isTdlibDatabaseCorruptionMessage(message) ||
+      message == tdlibDatabaseCorruptionUserMessage;
+}

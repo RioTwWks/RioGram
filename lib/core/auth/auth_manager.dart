@@ -49,6 +49,7 @@ class AuthManager extends ChangeNotifier {
   bool _isInitializing = false;
   bool _isAuthRequestInProgress = false;
   bool _initialized = false;
+  bool _needsWebStorageReset = false;
   String? _lastAuthorizationState;
   Timer? _authTimeoutTimer;
 
@@ -61,9 +62,18 @@ class AuthManager extends ChangeNotifier {
   bool get isAuthRequestInProgress => _isAuthRequestInProgress;
 
   bool get canResetWebStorage =>
-      kIsWeb && isTdlibDatabaseCorruptionMessage(_errorMessage);
+      kIsWeb &&
+      shouldOfferWebStorageReset(
+        _errorMessage,
+        flagged: _needsWebStorageReset,
+      );
 
   TdlibClient get client => _client;
+
+  void _setAuthError(String? raw) {
+    _needsWebStorageReset = isTdlibDatabaseCorruptionMessage(raw);
+    _errorMessage = formatAuthErrorMessage(raw);
+  }
 
   Future<void> initialize() async {
     if (_isInitializing) {
@@ -73,6 +83,7 @@ class AuthManager extends ChangeNotifier {
     _isInitializing = true;
     _phase = AuthPhase.initializing;
     _errorMessage = null;
+    _needsWebStorageReset = false;
     notifyListeners();
 
     try {
@@ -143,7 +154,7 @@ class AuthManager extends ChangeNotifier {
       _initialized = true;
     } catch (error) {
       _phase = AuthPhase.error;
-      _errorMessage = formatAuthErrorMessage(
+      _setAuthError(
         error
             .toString()
             .replaceFirst(RegExp(r'^(StateError|Bad state): '), ''),
@@ -163,6 +174,7 @@ class AuthManager extends ChangeNotifier {
     _isInitializing = true;
     _phase = AuthPhase.initializing;
     _errorMessage = null;
+    _needsWebStorageReset = false;
     notifyListeners();
 
     try {
@@ -171,7 +183,7 @@ class AuthManager extends ChangeNotifier {
       await _client.resetForStorageClear();
     } catch (error) {
       _phase = AuthPhase.error;
-      _errorMessage = formatAuthErrorMessage(error.toString());
+      _setAuthError(error.toString());
       notifyListeners();
     } finally {
       _isInitializing = false;
@@ -347,9 +359,11 @@ class AuthManager extends ChangeNotifier {
         _authTimeoutTimer?.cancel();
         _isAuthRequestInProgress = false;
         _phase = AuthPhase.error;
-        _errorMessage = formatAuthErrorMessage(
-          update['error'] as String? ??
-              'Фатальная ошибка TDLib (WebAssembly)',
+        final rawError = update['error'];
+        _setAuthError(
+          rawError is String
+              ? rawError
+              : rawError?.toString() ?? 'Фатальная ошибка TDLib (WebAssembly)',
         );
         notifyListeners();
         return;
