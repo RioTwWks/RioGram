@@ -145,6 +145,9 @@ jobs:
           pip install websockets
 
       - name: Prepare build
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
         run: |
           ./scripts/generate-env.sh
           flutter pub get

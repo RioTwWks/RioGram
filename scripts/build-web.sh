@@ -24,14 +24,37 @@ fi
 
 API_ID="${TELEGRAM_API_ID:-}"
 if [[ -z "${API_ID}" || "${API_ID}" == "0" ]]; then
-  echo "❌ TELEGRAM_API_ID не задан в .env"
-  echo "   export TELEGRAM_API_ID=... TELEGRAM_API_HASH=... && ./scripts/generate-env.sh"
-  echo "   или заполните .env вручную (см. docs/SECRETS.md)"
-  exit 1
+  if [[ "${SKIP_TDWEB_CHECK:-0}" == "1" || "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    TELEGRAM_API_ID="${TELEGRAM_API_ID:-12345}"
+    TELEGRAM_API_HASH="${TELEGRAM_API_HASH:-ci_placeholder_api_hash}"
+    export TELEGRAM_API_ID TELEGRAM_API_HASH
+    echo "⚠  CI/SKIP_TDWEB_CHECK: placeholder TELEGRAM_API_* для сборки без tdweb"
+    # flutter_dotenv читает assets/.env — обновляем файл перед build.
+    if grep -q '^TELEGRAM_API_ID=' .env 2>/dev/null; then
+      sed -i "s/^TELEGRAM_API_ID=.*/TELEGRAM_API_ID=${TELEGRAM_API_ID}/" .env
+      sed -i "s/^TELEGRAM_API_HASH=.*/TELEGRAM_API_HASH=${TELEGRAM_API_HASH}/" .env
+    else
+      printf '\nTELEGRAM_API_ID=%s\nTELEGRAM_API_HASH=%s\n' \
+        "${TELEGRAM_API_ID}" "${TELEGRAM_API_HASH}" >> .env
+    fi
+  else
+    echo "❌ TELEGRAM_API_ID не задан в .env"
+    echo "   export TELEGRAM_API_ID=... TELEGRAM_API_HASH=... && ./scripts/generate-env.sh"
+    echo "   или заполните .env вручную (см. docs/SECRETS.md)"
+    exit 1
+  fi
 fi
 if [[ -z "${TELEGRAM_API_HASH:-}" ]]; then
-  echo "❌ TELEGRAM_API_HASH не задан в .env"
-  exit 1
+  if [[ "${SKIP_TDWEB_CHECK:-0}" == "1" || "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    TELEGRAM_API_HASH="${TELEGRAM_API_HASH:-ci_placeholder_api_hash}"
+    export TELEGRAM_API_HASH
+    if grep -q '^TELEGRAM_API_HASH=' .env 2>/dev/null; then
+      sed -i "s/^TELEGRAM_API_HASH=.*/TELEGRAM_API_HASH=${TELEGRAM_API_HASH}/" .env
+    fi
+  else
+    echo "❌ TELEGRAM_API_HASH не задан в .env"
+    exit 1
+  fi
 fi
 
 "${ROOT_DIR}/scripts/generate-wss-worker-config.sh"
