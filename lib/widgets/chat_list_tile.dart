@@ -226,6 +226,7 @@ class ChatListTile extends StatelessWidget {
                     ChatAvatar(
                       title: chat.title,
                       localPath: chat.avatarLocalPath,
+                      fileId: chat.avatarFileId,
                       radius: TelegramRadii.avatarList,
                     ),
                     const SizedBox(width: 12),

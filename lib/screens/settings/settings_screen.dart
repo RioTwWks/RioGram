@@ -57,6 +57,7 @@ class SettingsScreen extends StatelessWidget {
           username: username,
           phone: phone,
           avatarLocalPath: user?.avatarLocalPath,
+          avatarFileId: user?.avatarFileId,
           onTap: () {
             TelegramRoutes.push(context, const OwnProfileScreen());
           },

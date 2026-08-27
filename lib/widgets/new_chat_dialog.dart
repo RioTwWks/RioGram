@@ -204,6 +204,7 @@ class _NewChatDialogState extends State<NewChatDialog> {
                               leading: ChatAvatar(
                                 title: chat.title,
                                 localPath: chat.avatarLocalPath,
+                                fileId: chat.avatarFileId,
                                 radius: 18,
                               ),
                               title: Text(chat.title),

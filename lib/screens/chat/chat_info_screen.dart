@@ -283,6 +283,7 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
                 ChatAvatar(
                   title: chat.title,
                   localPath: chat.avatarLocalPath,
+                  fileId: chat.avatarFileId,
                   radius: 40,
                 ),
                 const SizedBox(height: 12),

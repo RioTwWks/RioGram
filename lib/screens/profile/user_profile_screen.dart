@@ -144,6 +144,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             username: user?.username,
             phone: user?.isContact == true && user!.phoneNumber.isNotEmpty ? user.phoneNumber : null,
             avatarLocalPath: user?.avatarLocalPath,
+            avatarFileId: user?.avatarFileId,
             onUsernameTap: user?.username != null ? () => _copyUsername(user!.username!) : null,
             subtitle: user != null
                 ? UserStatusSubtitle(status: user.status, style: TextStyle(fontSize: TelegramFontSizes.chatSubtitle, color: tg.textSecondary))

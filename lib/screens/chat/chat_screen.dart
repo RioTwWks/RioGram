@@ -994,6 +994,7 @@ class _ChatScreenState extends State<ChatScreen> {
             : ChatAppBarTitle(
                 title: widget.forumTopicName ?? chat?.title ?? 'Чат',
                 avatarLocalPath: chat?.avatarLocalPath,
+                avatarFileId: chat?.avatarFileId,
                 userStatus: privateUser?.status,
                 typingStatus: typing != null && !selectionMode && editing == null ? typing : null,
                 subtitle: _buildAppBarKindSubtitle(isSecretChat: isSecretChat, isBotChat: isBotChat, chat: chat, secretChat: secretChat),

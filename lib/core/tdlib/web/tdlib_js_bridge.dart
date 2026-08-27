@@ -124,6 +124,19 @@ abstract final class TdlibJsBridge {
     JsBridgeImpl.callVoid('RioGramTdlib', 'send', [request]);
   }
 
+  /// Читает файл из tdweb FileManager и возвращает blob: URL для [Image.network].
+  static Future<String?> readFileBlobUrl(int fileId) async {
+    if (!JsBridgeImpl.hasGlobal('RioGramTdlib')) {
+      return null;
+    }
+    final result = await JsBridgeImpl.callPromise(
+      'RioGramTdlib',
+      'readFileBlobUrl',
+      [fileId],
+    );
+    return result as String?;
+  }
+
   static void closeTdlibClient() {
     if (JsBridgeImpl.hasGlobal('RioGramTdlib')) {
       JsBridgeImpl.callVoid('RioGramTdlib', 'close');

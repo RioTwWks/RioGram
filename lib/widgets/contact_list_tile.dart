@@ -23,6 +23,7 @@ class ContactListTile extends StatelessWidget {
       leading: ChatAvatar(
         title: user.displayName,
         localPath: user.avatarLocalPath,
+        fileId: user.avatarFileId,
       ),
       title: Text(user.displayName),
       subtitle: Column(

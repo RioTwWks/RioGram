@@ -331,6 +331,7 @@ class TelegramSettingsProfileHeader extends StatelessWidget {
     this.username,
     this.phone,
     this.avatarLocalPath,
+    this.avatarFileId,
     this.onTap,
     this.showChevron = true,
   });
@@ -339,6 +340,7 @@ class TelegramSettingsProfileHeader extends StatelessWidget {
   final String? username;
   final String? phone;
   final String? avatarLocalPath;
+  final int? avatarFileId;
   final VoidCallback? onTap;
   final bool showChevron;
 
@@ -359,7 +361,12 @@ class TelegramSettingsProfileHeader extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
                 child: Row(
                   children: [
-                    ChatAvatar(title: displayName, localPath: avatarLocalPath, radius: 30),
+                    ChatAvatar(
+                      title: displayName,
+                      localPath: avatarLocalPath,
+                      fileId: avatarFileId,
+                      radius: 30,
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -403,6 +410,7 @@ class TelegramProfileHeader extends StatelessWidget {
     this.username,
     this.phone,
     this.avatarLocalPath,
+    this.avatarFileId,
     this.subtitle,
     this.onUsernameTap,
     this.avatarRadius = TelegramSpacing.profileScreenAvatarRadius,
@@ -412,6 +420,7 @@ class TelegramProfileHeader extends StatelessWidget {
   final String? username;
   final String? phone;
   final String? avatarLocalPath;
+  final int? avatarFileId;
   final Widget? subtitle;
   final VoidCallback? onUsernameTap;
   final double avatarRadius;
@@ -424,7 +433,12 @@ class TelegramProfileHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         children: [
-          ChatAvatar(title: displayName, localPath: avatarLocalPath, radius: avatarRadius),
+          ChatAvatar(
+            title: displayName,
+            localPath: avatarLocalPath,
+            fileId: avatarFileId,
+            radius: avatarRadius,
+          ),
           const SizedBox(height: 12),
           Text(
             displayName,

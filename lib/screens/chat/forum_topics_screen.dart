@@ -162,6 +162,7 @@ class _ForumTopicsScreenState extends State<ForumTopicsScreen> {
                   ChatAvatar(
                     title: chat.title,
                     localPath: chat.avatarLocalPath,
+                    fileId: chat.avatarFileId,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
