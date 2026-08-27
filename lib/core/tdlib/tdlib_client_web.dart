@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../auth/auth_state_predicates.dart';
 import '../config/app_config.dart';
-import 'auth_state_predicates.dart';
 import 'tdlib_client_interface.dart';
 import 'web/tdlib_js_bridge.dart';
 
