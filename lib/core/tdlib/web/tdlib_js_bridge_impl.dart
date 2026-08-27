@@ -25,4 +25,6 @@ abstract final class JsBridgeImpl {
     String method,
     void Function(dynamic) callback,
   ) {}
+  
+  static Map<String, dynamic>? toDartMap(dynamic value) => null;
 }

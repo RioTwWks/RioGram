@@ -25,7 +25,8 @@ class AuthManager extends ChangeNotifier {
         _webProxyManager = webProxyManager;
 
   static const Duration authRequestTimeout = Duration(seconds: 45);
-  static const Duration initTimeout = Duration(seconds: 30);
+  static Duration get initTimeout =>
+      kIsWeb ? const Duration(seconds: 90) : const Duration(seconds: 30);
 
   final TdlibClient _client;
   final AppConfig _config;
@@ -493,6 +494,31 @@ class AuthManager extends ChangeNotifier {
 
     if (isPastTdlibParametersStage(state)) {
       return;
+    }
+
+    if (state == null) {
+      _client.send({
+        '@type': 'getAuthorizationState',
+        '@extra': 'auth_getState',
+      });
+      final stateUpdate = await _client.waitFor(
+        predicate: (update) => authorizationStateType(update) != null,
+        timeout: initTimeout,
+      );
+      state = stateUpdate != null
+          ? authorizationStateType(stateUpdate)
+          : (_lastAuthorizationState ?? _client.initialAuthorizationState);
+
+      if (state == 'authorizationStateWaitTdlibParameters') {
+        await _client.configure(
+          _config,
+          accountDirectorySuffix: accountDirectorySuffix,
+        );
+        return;
+      }
+      if (isPastTdlibParametersStage(state)) {
+        return;
+      }
     }
 
     throw StateError(
