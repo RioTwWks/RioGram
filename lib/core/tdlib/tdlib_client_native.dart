@@ -28,6 +28,12 @@ class TdlibClient {
 
   bool get isAvailable => _bindings != null && _client != null;
 
+  /// На web — тип последнего начального updateAuthorizationState из JS-моста.
+  String? get initialAuthorizationState => null;
+
+  /// На web — одноразово забирает закэшированный updateAuthorizationState.
+  Map<String, dynamic>? takeInitialAuthorizationUpdate() => null;
+
   /// Создаёт FFI-клиент и запускает цикл приёма обновлений.
   Future<void> ensureClient() async {
     if (_client != null) {
